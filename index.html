@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>D&D HIRELINGS</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Single-line global menu: session id, clock, time step, controls -->
+  <header id="menu">
+    <div class="menu-section">
+      <span class="label">SESSION</span>
+      <span class="value" id="session-id" contenteditable="true" spellcheck="false">001</span>
+    </div>
+    <div class="menu-section">
+      <span class="label">CLOCK</span>
+      <span class="value" id="clock">0</span>
+    </div>
+    <div class="menu-section">
+      <span class="label">STEP</span>
+      <span class="value" id="time-step" contenteditable="true" spellcheck="false">10s</span>
+      <button class="ctrl" id="advance-time" title="Advance clock by step">&#9654;</button>
+    </div>
+    <div class="menu-section right">
+      <button class="ctrl" id="add-agent">+ AGENT</button>
+      <button class="ctrl" id="add-task">+ TASK</button>
+      <button class="ctrl" id="export-data" title="Export JSON">&darr;</button>
+      <button class="ctrl" id="import-data" title="Import JSON">&uarr;</button>
+    </div>
+  </header>
+
+  <!-- Two-pane dashboard: agents (3fr) | tasks (1fr) -->
+  <main id="dashboard">
+
+    <!-- LEFT: agent cards, split into ACTIVE / IDLE columns -->
+    <section id="agents-pane" class="pane">
+      <div class="column">
+        <div class="col-label">ACTIVE</div>
+        <div class="card-grid" id="active-agents"></div>
+      </div>
+      <div class="column">
+        <div class="col-label">IDLE</div>
+        <div class="card-grid" id="idle-agents"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: task stack with expandable cards -->
+    <section id="tasks-pane" class="pane">
+      <div class="col-label">TASKS</div>
+      <div id="task-list"></div>
+    </section>
+
+  </main>
+
+  <!-- Hidden file input for JSON import -->
+  <input type="file" id="import-file" accept="application/json" hidden>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "_comment": "Optional theme and default values. Loaded over HTTP only (file:// will use built-in defaults). Any missing keys fall back to the defaults defined in app.js.",
+
+  "colors": {
+    "bg":       "#000000",
+    "fg":       "#ffffff",
+    "border":   "#ffffff",
+    "dim":      "#555555",
+    "dimmer":   "#1a1a1a",
+    "accent":   "#ffffff",
+    "selected": "#66d9ef"
+  },
+
+  "defaults": {
+    "agentName":  "NEW HIRELING",
+    "rate":       1,
+    "rateUnit":   "GP/DAY",
+    "taskName":   "NEW TASK",
+    "timeStep":   "10s",
+    "sessionId":  "001"
+  }
+}
