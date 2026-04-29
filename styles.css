@@ -89,6 +89,12 @@ body {
   min-width: 18px;
 }
 
+/* monospaced clock value so D/HH/MM don't shift width */
+.menu-section .value.mono {
+  font-family: ui-monospace, "Courier New", monospace;
+  letter-spacing: 0.04em;
+}
+
 /* ============================================================
    BUTTONS
    ============================================================ */
@@ -426,6 +432,164 @@ body {
   font-weight: 600;
   letter-spacing: 0.08em;
   color: var(--dim);
+}
+
+/* ============================================================
+   REQUIREMENTS EDITOR  (task sidebar)
+   ============================================================ */
+.req-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.req-header {
+  pointer-events: none;
+  padding: 0 2px;
+}
+
+.req-col-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  flex: 1;
+}
+.req-col-label:last-of-type { flex: 0 0 38px; }
+
+.req-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.req-field {
+  background: var(--bg);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  padding: 3px 6px;
+  outline: none;
+  min-width: 0;
+  transition: border-color 0.1s;
+}
+.req-field:focus { border-color: var(--highlight); }
+
+.req-type  { flex: 0 0 64px; text-transform: lowercase; }
+.req-name  { flex: 1; }
+.req-value { flex: 0 0 38px; text-align: right; }
+
+/* hide browser number spinners */
+.req-value::-webkit-inner-spin-button,
+.req-value::-webkit-outer-spin-button { -webkit-appearance: none; }
+.req-value { -moz-appearance: textfield; }
+
+.req-remove {
+  flex-shrink: 0;
+  color: var(--border);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  padding: 0 2px;
+  transition: color 0.1s;
+}
+.req-remove:hover { color: var(--fg); }
+
+/* ============================================================
+   ASSIGNMENT FLASH (validation failure)
+   ============================================================ */
+@keyframes flash-error {
+  0%   { box-shadow: 0 0 0 2px #e84040, inset 0 0 18px rgba(232,64,64,0.18); }
+  55%  { box-shadow: 0 0 0 2px #e84040, inset 0 0 18px rgba(232,64,64,0.18); }
+  100% { box-shadow: none; }
+}
+
+.agent-card.flash-error {
+  animation: flash-error 0.65s ease-out forwards;
+}
+
+/* ============================================================
+   EFFORT PROGRESS BARS
+   ============================================================ */
+.effort-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.effort-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.effort-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--dim);
+  flex: 0 0 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.effort-track {
+  flex: 1;
+  height: 3px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.effort-fill {
+  height: 100%;
+  background: var(--highlight);
+  border-radius: 99px;
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+
+.effort-frac {
+  font-size: var(--fs-xs);
+  color: var(--dim);
+  flex: 0 0 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, "Courier New", monospace;
+}
+
+/* ============================================================
+   PLAY BUTTON STATE
+   ============================================================ */
+.ctrl.active-ctrl {
+  background: var(--highlight);
+  border-color: var(--highlight);
+  color: var(--bg);
+}
+.ctrl.active-ctrl:hover { filter: brightness(1.15); }
+
+/* ============================================================
+   EMPTY INLINE (activities: none)
+   ============================================================ */
+.empty-inline {
+  color: var(--dim);
+  font-size: var(--fs-xs);
+  padding: 2px 4px;
+}
+
+/* ============================================================
+   TAG VALUE BADGE  (e.g. skill:carpentry ≥30)
+   ============================================================ */
+.tag-value {
+  font-size: var(--fs-xs);
+  opacity: 0.75;
+  margin-left: 1px;
 }
 
 /* ============================================================

@@ -8,20 +8,26 @@
 </head>
 <body>
 
-  <!-- Single-line global menu: session id, clock, time step, controls -->
+  <!-- Single-line global menu -->
   <header id="menu">
     <div class="menu-section">
       <span class="label">SESSION</span>
       <span class="value" id="session-id" contenteditable="true" spellcheck="false">001</span>
     </div>
     <div class="menu-section">
-      <span class="label">CLOCK</span>
-      <span class="value" id="clock">0</span>
+      <span class="label">TIME</span>
+      <span class="value mono" id="clock">D1 00:00</span>
     </div>
     <div class="menu-section">
       <span class="label">STEP</span>
-      <span class="value" id="time-step" contenteditable="true" spellcheck="false">10s</span>
-      <button class="ctrl" id="advance-time" title="Advance clock by step">&#9654;</button>
+      <span class="value" id="time-step" contenteditable="true" spellcheck="false">60</span>
+      <button class="ctrl" id="play-btn"     title="Play">&#9654;</button>
+      <button class="ctrl" id="pause-btn"    title="Pause">&#9646;&#9646;</button>
+      <button class="ctrl" id="advance-time" title="Step forward">&#9654;|</button>
+    </div>
+    <div class="menu-section">
+      <span class="label">GP</span>
+      <span class="value" id="bank" contenteditable="true" spellcheck="false">100</span>
     </div>
     <div class="menu-section" id="palette-picker"></div>
     <div class="menu-section right">
@@ -57,6 +63,19 @@
 
   <!-- Hidden file input for JSON import -->
   <input type="file" id="import-file" accept="application/json" hidden>
+
+  <!-- Suggestion list for requirement type fields -->
+  <datalist id="req-types">
+    <option value="effort">
+    <option value="skill">
+    <option value="tool">
+    <option value="trait">
+    <option value="class">
+    <option value="race">
+    <option value="level">
+    <option value="resource">
+    <option value="guild">
+  </datalist>
 
   <script src="app.js"></script>
 </body>
