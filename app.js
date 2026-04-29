@@ -3,18 +3,98 @@
    Vanilla JS, no dependencies. State persists in localStorage.
    ============================================================ */
 
-/* ---------- Config ---------- */
-// Defaults; overridden by config.json if reachable (HTTP only).
-const DEFAULT_CONFIG = {
-  colors: {
-    bg: '#000000',
-    fg: '#ffffff',
-    border: '#ffffff',
-    dim: '#555555',
-    dimmer: '#1a1a1a',
-    accent: '#ffffff',
-    selected: '#66d9ef'
+/* ---------- Palettes ---------- */
+// Each palette sets all CSS color tokens. highlight is the accent color shown
+// on active tags, selected cards, and the picker button for that palette.
+const PALETTES = {
+  dark: {
+    label: 'DARK',
+    bg:           '#111114',
+    fg:           '#dddde0',
+    border:       '#2e2e36',
+    dim:          '#5c5c68',
+    dimmer:       '#1a1a1f',
+    highlight:    '#7eb5f5',
+    highlightBg:  'rgba(126,181,245,0.09)',
   },
+  light: {
+    label: 'LIGHT',
+    bg:           '#f4f4f1',
+    fg:           '#1e1e22',
+    border:       '#c0c0bc',
+    dim:          '#888884',
+    dimmer:       '#eaeae8',
+    highlight:    '#2060d0',
+    highlightBg:  'rgba(32,96,208,0.07)',
+  },
+  vale: {
+    label: 'VALE',
+    bg:           '#0c1410',
+    fg:           '#c5dbbf',
+    border:       '#243422',
+    dim:          '#4a6248',
+    dimmer:       '#131c14',
+    highlight:    '#72c87e',
+    highlightBg:  'rgba(114,200,126,0.09)',
+  },
+  ember: {
+    label: 'EMBER',
+    bg:           '#130f0b',
+    fg:           '#e8d5bc',
+    border:       '#352218',
+    dim:          '#624e3a',
+    dimmer:       '#1c1510',
+    highlight:    '#e8893c',
+    highlightBg:  'rgba(232,137,60,0.09)',
+  },
+  arcane: {
+    label: 'ARCANE',
+    bg:           '#0d0b14',
+    fg:           '#d2cce8',
+    border:       '#28203e',
+    dim:          '#504865',
+    dimmer:       '#141020',
+    highlight:    '#9a7ae8',
+    highlightBg:  'rgba(154,122,232,0.09)',
+  },
+};
+
+const PALETTE_KEY = 'dnd-hirelings-palette';
+let currentPalette = localStorage.getItem(PALETTE_KEY) || 'dark';
+
+function applyPalette(name) {
+  const p = PALETTES[name] || PALETTES.dark;
+  const root = document.documentElement;
+  root.style.setProperty('--bg',           p.bg);
+  root.style.setProperty('--fg',           p.fg);
+  root.style.setProperty('--border',       p.border);
+  root.style.setProperty('--dim',          p.dim);
+  root.style.setProperty('--dimmer',       p.dimmer);
+  root.style.setProperty('--highlight',    p.highlight);
+  root.style.setProperty('--highlight-bg', p.highlightBg);
+  currentPalette = name;
+  localStorage.setItem(PALETTE_KEY, name);
+}
+
+function renderPalettePicker() {
+  const picker = document.getElementById('palette-picker');
+  picker.innerHTML = '';
+  for (const [name, p] of Object.entries(PALETTES)) {
+    const btn = el('button', {
+      class: 'palette-btn' + (currentPalette === name ? ' active' : ''),
+      title: p.label,
+      onclick: (e) => { e.stopPropagation(); applyPalette(name); renderPalettePicker(); }
+    }, [
+      el('span', { class: 'palette-dot', style: { background: p.highlight } }),
+      p.label,
+    ]);
+    picker.appendChild(btn);
+  }
+}
+
+/* ---------- Config ---------- */
+// config.json (HTTP only) supplies defaults (agentName, rate, etc.) but not colors.
+const DEFAULT_CONFIG = {
   defaults: {
     agentName: 'NEW HIRELING',
     rate: 1,
@@ -65,24 +145,16 @@ function load() {
 }
 
 async function loadConfig() {
-  // config.json is optional. fetch will fail under file:// — that's fine.
+  // config.json is optional and only supplies defaults (not colors).
+  // fetch will fail under file:// — that's fine.
   try {
     const res = await fetch('config.json');
     if (!res.ok) return;
     const cfg = await res.json();
     config = {
-      colors: Object.assign({}, DEFAULT_CONFIG.colors, cfg.colors || {}),
       defaults: Object.assign({}, DEFAULT_CONFIG.defaults, cfg.defaults || {}),
     };
   } catch (_) { /* keep defaults */ }
-  applyConfig();
-}
-
-function applyConfig() {
-  const root = document.documentElement;
-  for (const [k, v] of Object.entries(config.colors)) {
-    root.style.setProperty(`--${k}`, v);
-  }
 }
 
 /* ---------- Utilities ---------- */
@@ -594,9 +666,11 @@ function wireMenu() {
 
 /* ---------- Boot ---------- */
 async function boot() {
+  applyPalette(currentPalette);   // apply saved palette before first paint
   await loadConfig();
   load();
   wireMenu();
+  renderPalettePicker();
   render();
 }
 
