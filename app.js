@@ -16,6 +16,7 @@ const PALETTES = {
     dimmer:       '#1a1a1f',
     highlight:    '#7eb5f5',
     highlightBg:  'rgba(126,181,245,0.09)',
+    warn:         '#e84040',
   },
   light: {
     label: 'LIGHT',
@@ -26,6 +27,7 @@ const PALETTES = {
     dimmer:       '#eaeae8',
     highlight:    '#2060d0',
     highlightBg:  'rgba(32,96,208,0.07)',
+    warn:         '#d42020',
   },
   vale: {
     label: 'VALE',
@@ -36,6 +38,7 @@ const PALETTES = {
     dimmer:       '#131c14',
     highlight:    '#72c87e',
     highlightBg:  'rgba(114,200,126,0.09)',
+    warn:         '#e87040',
   },
   ember: {
     label: 'EMBER',
@@ -46,6 +49,7 @@ const PALETTES = {
     dimmer:       '#1c1510',
     highlight:    '#e8893c',
     highlightBg:  'rgba(232,137,60,0.09)',
+    warn:         '#ffcc00',
   },
   arcane: {
     label: 'ARCANE',
@@ -56,6 +60,7 @@ const PALETTES = {
     dimmer:       '#141020',
     highlight:    '#9a7ae8',
     highlightBg:  'rgba(154,122,232,0.09)',
+    warn:         '#ff6090',
   },
 };
 
@@ -72,6 +77,7 @@ function applyPalette(name) {
   root.style.setProperty('--dimmer',       p.dimmer);
   root.style.setProperty('--highlight',    p.highlight);
   root.style.setProperty('--highlight-bg', p.highlightBg);
+  root.style.setProperty('--warn',         p.warn || '#e84040');
   currentPalette = name;
   localStorage.setItem(PALETTE_KEY, name);
 }
@@ -176,27 +182,36 @@ function formatClock(totalMinutes) {
   return `D${day} ${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 
-// Tag format: #type:name  or  #type:name=value
-// Returns { type, name, value } where value is a number or null.
+// Tag format: #type:name  or  #type:name=value  or  #type=value (nameless scalar)
+// Returns { type, name, value } where value is a number or null, name may be null.
 function parseTag(s) {
   const stripped = s.startsWith('#') ? s.slice(1) : s;
   const colonIdx = stripped.indexOf(':');
+  const eqIdx    = stripped.indexOf('=');
+  // #type=value — equals sign appears before any colon (or no colon)
+  if (eqIdx >= 0 && (colonIdx < 0 || eqIdx < colonIdx)) {
+    const type = stripped.slice(0, eqIdx);
+    const v = parseFloat(stripped.slice(eqIdx + 1));
+    return { type, name: null, value: isNaN(v) ? null : v };
+  }
   if (colonIdx < 0) return { type: 'tag', name: stripped, value: null };
   const type = stripped.slice(0, colonIdx);
   const rest = stripped.slice(colonIdx + 1);
-  const eqIdx = rest.indexOf('=');
-  if (eqIdx < 0) return { type, name: rest, value: null };
-  const v = parseFloat(rest.slice(eqIdx + 1));
-  return { type, name: rest.slice(0, eqIdx), value: isNaN(v) ? null : v };
+  const restEq = rest.indexOf('=');
+  if (restEq < 0) return { type, name: rest, value: null };
+  const v = parseFloat(rest.slice(restEq + 1));
+  return { type, name: rest.slice(0, restEq), value: isNaN(v) ? null : v };
 }
 
 // Build a canonical tag string from parts.
+// Emits #type=value (nameless) when name is empty but value is present.
 function buildTag(type, name, value) {
   const t = (type || 'tag').trim().toLowerCase();
   const n = (name || '').trim().toLowerCase();
+  const hasVal = value !== null && value !== undefined && String(value).trim() !== '';
+  if (!n && hasVal) return `#${t}=${Number(value)}`;
   if (!n) return null;
-  const v = (value !== null && value !== undefined && String(value).trim() !== '')
-    ? `=${Number(value)}` : '';
+  const v = hasVal ? `=${Number(value)}` : '';
   return `#${t}:${n}${v}`;
 }
 
@@ -237,7 +252,14 @@ function editable(text, oncommit, opts = {}) {
     class: opts.class || ''
   });
   let original = text || '';
-  span.addEventListener('focus', () => { original = span.textContent; });
+  span.addEventListener('focus', () => {
+    original = span.textContent;
+    const range = document.createRange();
+    range.selectNodeContents(span);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
   span.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); span.blur(); }
     if (e.key === 'Escape') { span.textContent = original; span.blur(); }
@@ -433,14 +455,18 @@ function renderTagList(tags, isActive, opts) {
 
 function renderTag(tagStr, active, onRemove) {
   const p = parseTag(tagStr);
-  let label = `#${p.type}:${p.name}`;
+  let label;
   if (p.type === 'task') {
     const task = state.tasks.find(t => t.id === p.name);
-    label = task ? `#${task.name}` : label;
+    label = task ? `#${task.name}` : `#${p.type}:${p.name}`;
+  } else if (p.name === null) {
+    label = `#${p.type}`;
+  } else {
+    label = `#${p.type}:${p.name}`;
   }
   const children = [label];
   if (p.value !== null && p.type !== 'task') {
-    children.push(el('span', { class: 'tag-value', text: `≥${p.value}` }));
+    children.push(el('span', { class: 'tag-value', text: `=${p.value}` }));
   }
   children.push(el('span', {
     class: 'x',
@@ -462,6 +488,7 @@ function promptForTag(defaultPrefix) {
    in the same row doesn't trigger a spurious render mid-edit.
    ------------------------------------------ */
 const REQ_TYPE_SUGGESTIONS = ['skill', 'tool', 'trait', 'class', 'level', 'resource', 'guild', 'race'];
+const NAMELESS_TYPES = new Set(['time', 'duration', 'days', 'gold']);
 
 function renderRequirementsEditor(task) {
   const wrap = el('div', { class: 'req-editor' });
@@ -490,6 +517,7 @@ function renderRequirementsEditor(task) {
 
 function renderReqRow(task, i, reqStr) {
   const { type, name, value } = parseTag(reqStr);
+  const isNameless = NAMELESS_TYPES.has(type) || name === null;
 
   const typeInput = el('input', {
     class: 'req-field req-type',
@@ -503,6 +531,7 @@ function renderReqRow(task, i, reqStr) {
     value: name || '',
     placeholder: 'name',
     spellcheck: 'false',
+    style: isNameless ? { display: 'none' } : {},
   });
   const valueInput = el('input', {
     class: 'req-field req-value',
@@ -512,14 +541,14 @@ function renderReqRow(task, i, reqStr) {
     min: '0',
   });
 
-  // Commit all three fields as one tag; called on blur of each input.
-  // The 60ms delay lets focus move to a sibling input without triggering render.
+  // Commit all three fields as one tag; 60ms lets focus move between sibling inputs.
   let blurTimer;
   function scheduleCommit() {
     blurTimer = setTimeout(() => {
+      const useNameless = NAMELESS_TYPES.has(typeInput.value);
       const tag = buildTag(
         typeInput.value,
-        nameInput.value,
+        useNameless ? null : nameInput.value,
         valueInput.value !== '' ? valueInput.value : null
       );
       if (tag) { task.requirements[i] = tag; save(); }
@@ -530,7 +559,7 @@ function renderReqRow(task, i, reqStr) {
 
   [typeInput, nameInput, valueInput].forEach(inp => {
     inp.addEventListener('blur',  scheduleCommit);
-    inp.addEventListener('focus', cancelCommit);
+    inp.addEventListener('focus', (e) => { cancelCommit(); inp.select(); });
     inp.addEventListener('click', e => e.stopPropagation());
     inp.addEventListener('keydown', e => {
       if (e.key === 'Enter') inp.blur();
@@ -776,7 +805,8 @@ function renderTaskCard(task) {
 /* ---------- Render ---------- */
 function render() {
   // Menu values
-  document.getElementById('session-id').textContent = state.session.id;
+  const sessIdEl = document.getElementById('session-id');
+  if (document.activeElement !== sessIdEl) sessIdEl.textContent = state.session.id;
   document.getElementById('clock').textContent = formatClock(state.session.clock);
   const tsEl = document.getElementById('time-step');
   if (document.activeElement !== tsEl) tsEl.textContent = state.session.timeStep;
@@ -809,6 +839,11 @@ function render() {
 
   if (!idle.length) idleEl.appendChild(el('div', { class: 'empty', text: 'NO IDLE HIRELINGS' }));
   else idle.forEach(a => idleEl.appendChild(renderAgentCard(a)));
+  idleEl.appendChild(el('button', {
+    class: 'add-inline',
+    text: '+ AGENT',
+    onclick: (e) => { e.stopPropagation(); createAgent(); }
+  }));
 
   // Tasks: incomplete first, then most recently created.
   const taskList = document.getElementById('task-list');
@@ -820,6 +855,11 @@ function render() {
       .sort((a, b) => (a.isComplete - b.isComplete) || (b.createdAt - a.createdAt))
       .forEach(t => taskList.appendChild(renderTaskCard(t)));
   }
+  taskList.appendChild(el('button', {
+    class: 'add-inline',
+    text: '+ TASK',
+    onclick: (e) => { e.stopPropagation(); createTask(); }
+  }));
 }
 
 /* ---------- Time management ---------- */
@@ -976,6 +1016,26 @@ function wireMenu() {
     const f = e.target.files && e.target.files[0];
     if (f) importJSON(f);
     e.target.value = ''; // allow re-importing the same file
+  });
+
+  // Pause the play interval while any editable field is focused so render()
+  // doesn't overwrite content mid-edit. Resume when focus leaves all editables.
+  let resumeTimer = null;
+  document.addEventListener('focusin', (e) => {
+    if (!e.target.matches('[contenteditable], .req-field')) return;
+    clearTimeout(resumeTimer);
+    if (ui.playing && ui.playInterval) {
+      clearInterval(ui.playInterval);
+      ui.playInterval = null;
+    }
+  });
+  document.addEventListener('focusout', (e) => {
+    if (!e.target.matches('[contenteditable], .req-field')) return;
+    resumeTimer = setTimeout(() => {
+      if (ui.playing && !ui.playInterval) {
+        ui.playInterval = setInterval(advanceTime, 1000);
+      }
+    }, 100);
   });
 
   // Click anywhere outside an agent/task card to clear task selection.
