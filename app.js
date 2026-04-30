@@ -1078,9 +1078,16 @@ function showTaskTagBuilder(task) {
     const isReq = category === 'requirement';
     // For requirement: buildTag(subtype, name, value, true) → #req:subtype:name[=value]
     // For effort: buildTag('effort', skillname, value, false) → #effort:skillname=value
-    // For reward: buildTag('reward', goldrewardtype, value, false) → #reward:type=value
+    // For reward: buildTag('reward', gold, value, false) → #reward:gold=value
     const actualType = isReq ? type : category;
-    const actualName = isReq ? name : type;
+    let actualName;
+    if (isReq) {
+      actualName = name;  // requirement: use NAME field for requirement name
+    } else if (category === 'effort') {
+      actualName = name;  // effort: NAME field contains the skill name
+    } else if (category === 'reward') {
+      actualName = type;  // reward: TYPE field contains reward type (gold, etc)
+    }
     const actualValue = value;
 
     const tag = buildTag(actualType, actualName, actualValue, isReq);
