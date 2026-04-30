@@ -116,7 +116,7 @@ let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 /* ---------- State ---------- */
 // Single source of truth, serialized to localStorage on every mutation.
 let state = {
-  session: { id: '001', clock: 0, timeStep: '60', bank: 100, rateMultiplier: 1 },
+  session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1x', bank: 100, rateMultiplier: 1 },
   agents: [],   // { id, name, icon, rate, rateUnit, description, attributes[], activities[], createdAt, lastAssigned }
   tasks: [],    // { id, name, description, requirements[], effortProgress{}, isComplete, createdAt }
 };
@@ -127,6 +127,7 @@ const ui = {
   expandedTasks: new Set(),
   playing: false,
   playInterval: null,
+  animationFrameId: null,
 };
 
 const STORAGE_KEY = 'dnd-hirelings-state-v1';
@@ -147,6 +148,7 @@ function load() {
     });
     state.session.bank ??= 100;
     state.session.timeStep ??= '60';
+    state.session.playbackRate ??= '1x';
     state.session.rateMultiplier ??= 1;
     state.tasks.forEach(t => {
       t.requirements ||= []; t.description ??= '';
@@ -1243,6 +1245,8 @@ function render() {
   const sessIdEl = document.getElementById('session-id');
   if (document.activeElement !== sessIdEl) sessIdEl.textContent = state.session.id;
   document.getElementById('clock').textContent = formatClock(state.session.clock);
+  const rateEl = document.getElementById('playback-rate');
+  if (rateEl && document.activeElement !== rateEl) rateEl.textContent = state.session.playbackRate;
   const tsEl = document.getElementById('time-step');
   if (document.activeElement !== tsEl) tsEl.textContent = state.session.timeStep;
   const bankEl = document.getElementById('bank');
@@ -1373,19 +1377,33 @@ function advanceTime() {
   render();
 }
 
+// Continuous clock display updates when playing (requestAnimationFrame loop).
+function updateClockDisplay() {
+  if (!ui.playing) return;
+  const clockEl = document.getElementById('clock');
+  if (clockEl) clockEl.textContent = formatClock(state.session.clock);
+  ui.animationFrameId = requestAnimationFrame(updateClockDisplay);
+}
+
 function startPlay() {
   if (ui.playing) return;
   ui.playing = true;
   const mult = state.session.rateMultiplier || 1;
   const interval = 1000 / mult;
   ui.playInterval = setInterval(advanceTime, interval);
+  updateClockDisplay();
   updatePlayButtons();
 }
 
 function stopPlay() {
+  if (!ui.playing) return;
   ui.playing = false;
   clearInterval(ui.playInterval);
   ui.playInterval = null;
+  if (ui.animationFrameId) {
+    cancelAnimationFrame(ui.animationFrameId);
+    ui.animationFrameId = null;
+  }
   updatePlayButtons();
 }
 
@@ -1483,6 +1501,30 @@ function wireMenu() {
   ts.addEventListener('blur', () => { state.session.timeStep = ts.textContent.trim() || '60'; save(); render(); });
   ts.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ts.blur(); } });
 
+  const rateEl = document.getElementById('playback-rate');
+  if (rateEl) {
+    rateEl.addEventListener('blur', () => {
+      const rawText = rateEl.textContent.trim() || '1x';
+      state.session.playbackRate = rawText;
+
+      // Parse multiplier from "1x", "2x", "0.5x", or bare number
+      const m = rawText.match(/[\d.]+/);
+      const mult = m ? parseFloat(m[0]) : 1;
+      state.session.rateMultiplier = mult > 0 ? mult : 1;
+
+      // Re-display normalized form
+      rateEl.textContent = state.session.rateMultiplier + 'x';
+
+      save();
+      if (ui.playing) { stopPlay(); startPlay(); }
+    });
+    rateEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); rateEl.blur(); }
+      if (e.key === 'Escape') { rateEl.textContent = state.session.playbackRate; }
+    });
+    rateEl.addEventListener('click', e => e.stopPropagation());
+  }
+
   const bankEl = document.getElementById('bank');
   bankEl.addEventListener('blur', () => {
     const v = parseFloat(bankEl.textContent);
@@ -1514,7 +1556,8 @@ function wireMenu() {
     if (!e.target.matches('[contenteditable], .req-field')) return;
     resumeTimer = setTimeout(() => {
       if (ui.playing && !ui.playInterval) {
-        ui.playInterval = setInterval(advanceTime, 1000);
+        const mult = state.session.rateMultiplier || 1;
+        ui.playInterval = setInterval(advanceTime, 1000 / mult);
       }
     }, 100);
   });
