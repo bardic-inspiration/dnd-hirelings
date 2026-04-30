@@ -116,7 +116,7 @@ let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 /* ---------- State ---------- */
 // Single source of truth, serialized to localStorage on every mutation.
 let state = {
-  session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1x', bank: 100, rateMultiplier: 1 },
+  session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1', bank: 100, rateMultiplier: 1 },
   agents: [],   // { id, name, icon, rate, rateUnit, description, attributes[], activities[], createdAt, lastAssigned }
   tasks: [],    // { id, name, description, requirements[], effortProgress{}, isComplete, createdAt }
 };
@@ -148,7 +148,7 @@ function load() {
     });
     state.session.bank ??= 100;
     state.session.timeStep ??= '60';
-    state.session.playbackRate ??= '1x';
+    state.session.playbackRate ??= '1';
     state.session.rateMultiplier ??= 1;
     state.tasks.forEach(t => {
       t.requirements ||= []; t.description ??= '';
@@ -1504,16 +1504,16 @@ function wireMenu() {
   const rateEl = document.getElementById('playback-rate');
   if (rateEl) {
     rateEl.addEventListener('blur', () => {
-      const rawText = rateEl.textContent.trim() || '1x';
-      state.session.playbackRate = rawText;
+      const rawText = rateEl.textContent.trim() || '1';
 
-      // Parse multiplier from "1x", "2x", "0.5x", or bare number
+      // Parse multiplier from input (accept "1x", "2x", "0.5x", or bare number)
       const m = rawText.match(/[\d.]+/);
       const mult = m ? parseFloat(m[0]) : 1;
       state.session.rateMultiplier = mult > 0 ? mult : 1;
 
-      // Re-display normalized form
-      rateEl.textContent = state.session.rateMultiplier + 'x';
+      // Store and display as bare number (no suffix)
+      state.session.playbackRate = String(state.session.rateMultiplier);
+      rateEl.textContent = state.session.playbackRate;
 
       save();
       if (ui.playing) { stopPlay(); startPlay(); }
