@@ -674,40 +674,114 @@ function showTagBuilder(opts = {}) {
    The three inputs share a blur/focus debounce so tabbing between fields
    in the same row doesn't trigger a spurious render mid-edit.
    ------------------------------------------ */
+// Tag type schema: defines all supported tag patterns and their structure.
+// Used for validation, UI generation, and tag builder dropdowns.
+const TAG_SCHEMA = {
+  'requirement': {
+    label: 'Requirement',
+    prefix: 'req',
+    subtypes: ['skill', 'tool', 'trait', 'class', 'level', 'resource', 'guild', 'race'],
+    hasName: true,
+    hasValue: true,
+    nameLabel: 'Name',
+    valueLabel: 'Min Value',
+    description: 'Agent requirement - must match agent attribute'
+  },
+  'effort': {
+    label: 'Effort',
+    prefix: 'effort',
+    subtypes: ['skill'], // can expand to more effort types in future
+    hasName: true,
+    hasValue: true,
+    nameLabel: 'Skill',
+    valueLabel: 'Total Amount',
+    description: 'Work required - accumulated from matching agent skills'
+  },
+  'reward': {
+    label: 'Reward',
+    prefix: 'reward',
+    subtypes: ['gold'], // can expand to experience, items, etc
+    hasName: true,
+    hasValue: true,
+    nameLabel: 'Type',
+    valueLabel: 'Amount',
+    description: 'Reward given on task completion'
+  }
+};
+
+// Get all recognized tag categories (keys in TAG_SCHEMA)
+function getTagCategories() {
+  return Object.keys(TAG_SCHEMA);
+}
+
+// Get subtypes for a category
+function getTagSubtypes(category) {
+  return TAG_SCHEMA[category]?.subtypes || [];
+}
+
+// Determine tag category from a parsed tag
+function getTagCategory(parsed) {
+  if (parsed.isReq) return 'requirement';
+  if (parsed.type === 'effort') return 'effort';
+  if (parsed.type === 'reward') return 'reward';
+  return null;
+}
+
 const REQ_TYPE_SUGGESTIONS = ['skill', 'tool', 'trait', 'class', 'level', 'resource', 'guild', 'race'];
 const NAMELESS_TYPES = new Set(['time', 'duration', 'days', 'gold']);
 
-function renderRequirementsEditor(task) {
-  const wrap = el('div', { class: 'req-editor' });
-  wrap.appendChild(el('div', { class: 'tag-label', text: 'REQUIREMENTS' }));
+/* ---------- Unified tags editor (requirements, effort, rewards) ---------- */
+function renderTagsEditor(task) {
+  const wrap = el('div', { class: 'tags-editor' });
+  wrap.appendChild(el('div', { class: 'tag-label', text: 'TAGS' }));
 
-  // Column headers
-  const headers = el('div', { class: 'req-row req-header' }, [
-    el('span', { class: 'req-col-label', text: 'TYPE' }),
-    el('span', { class: 'req-col-label', text: 'NAME' }),
-    el('span', { class: 'req-col-label', text: 'MIN' }),
-  ]);
-  wrap.appendChild(headers);
+  // Show all tags as a list
+  const tagList = el('div', { class: 'tag-list' });
+  task.requirements.forEach((tagStr, i) => {
+    const p = parseTag(tagStr);
+    const category = getTagCategory(p);
+    const categoryLabel = TAG_SCHEMA[category]?.label || 'Tag';
 
-  task.requirements.forEach((reqStr, i) => {
-    if (!parseTag(reqStr).isReq) return;       // effort handled separately
-    wrap.appendChild(renderReqRow(task, i, reqStr));
+    // Show tag with category badge and remove button
+    const tagEl = el('div', { class: 'tag-list-item' }, [
+      el('span', { class: 'tag-category-badge', text: categoryLabel }),
+      el('span', { class: 'tag-content', text: formatTagDisplay(tagStr) }),
+      el('span', {
+        class: 'x',
+        text: '×',
+        title: 'Remove',
+        onclick: (e) => { e.stopPropagation(); task.requirements.splice(i, 1); save(); render(); }
+      })
+    ]);
+    tagList.appendChild(tagEl);
   });
 
+  if (task.requirements.length === 0) {
+    tagList.appendChild(el('div', { class: 'empty-state', text: 'No tags yet' }));
+  }
+
+  wrap.appendChild(tagList);
+
+  // Add button
   wrap.appendChild(el('button', {
     class: 'tag-add',
-    text: '+ REQ',
+    text: '+ TAG',
     onclick: (e) => {
       e.stopPropagation();
-      showTagBuilder({
-        context: 'requirement',
-        onSave: (tag) => { task.requirements.push(tag); save(); render(); },
-        onCancel: () => {}
-      });
+      showTaskTagBuilder(task);
     }
   }));
 
   return wrap;
+}
+
+// Format tag for display with proper symbols
+function formatTagDisplay(tagStr) {
+  const p = parseTag(tagStr);
+  let display = `#${p.type}`;
+  if (p.name) display += `:${p.name}`;
+  if (p.value !== null) display += `=${p.value}`;
+  return display;
 }
 
 function renderReqRow(task, i, reqStr) {
@@ -894,88 +968,147 @@ function renderAgentCard(agent) {
   return card;
 }
 
-/* ---------- Effort editor (multiple effort tags; total = sum of values) ---------- */
-function renderEffortEditor(task) {
-  const wrap = el('div', { class: 'effort-editor' });
-  wrap.appendChild(el('div', { class: 'tag-label', text: 'EFFORT' }));
-
-  // Find all effort requirement indices.
-  const effortIndices = [];
-  task.requirements.forEach((r, i) => {
-    const p = parseTag(r);
-    if (p.type === 'effort' && !p.isReq) effortIndices.push(i);
-  });
-
-  // Render each effort row.
-  effortIndices.forEach(i => {
-    const { name, value } = parseTag(task.requirements[i]);
-    const nameInput = el('input', {
-      class: 'req-field req-name', value: name || '',
-      placeholder: 'skill', spellcheck: 'false',
-    });
-    const valueInput = el('input', {
-      class: 'req-field req-value', type: 'number',
-      value: value !== null ? String(value) : '',
-      placeholder: '—', min: '0',
-    });
-
-    let blurTimer;
-    function scheduleCommit() {
-      blurTimer = setTimeout(() => {
-        const tag = buildTag('effort', nameInput.value, valueInput.value !== '' ? valueInput.value : null, false);
-        if (tag) task.requirements[i] = tag;
-        else task.requirements.splice(i, 1);
-        save(); render();
-      }, 60);
-    }
-    function cancelCommit() { clearTimeout(blurTimer); }
-
-    [nameInput, valueInput].forEach(inp => {
-      inp.addEventListener('blur',  scheduleCommit);
-      inp.addEventListener('focus', () => { cancelCommit(); inp.select(); });
-      inp.addEventListener('click', e => e.stopPropagation());
-      inp.addEventListener('keydown', e => {
-        if (e.key === 'Enter') inp.blur();
-        if (e.key === 'Escape') { inp.value = inp.defaultValue; inp.blur(); }
-      });
-    });
-
-    wrap.appendChild(el('div', { class: 'req-row' }, [
-      nameInput, valueInput,
-      el('span', {
-        class: 'x req-remove',
-        text: '×',
-        onclick: (e) => { e.stopPropagation(); task.requirements.splice(i, 1); save(); render(); }
-      }),
-    ]));
-  });
-
-  // Add button.
-  wrap.appendChild(el('button', {
-    class: 'tag-add',
-    text: '+ EFFORT',
+// Task-specific tag builder with category selector
+function showTaskTagBuilder(task) {
+  const overlay = el('div', {
+    class: 'tag-builder-overlay',
     onclick: (e) => {
-      e.stopPropagation();
-      showTagBuilder({
-        context: 'effort',
-        onSave: (tag) => { task.requirements.push(tag); save(); render(); },
-        onCancel: () => {}
-      });
+      if (e.target === overlay) { overlay.remove(); }
     }
-  }));
+  });
 
-  // Show total progress fraction.
-  const efforts = getEffortReqs(task);
-  if (efforts.length > 0) {
-    const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
-    const totalProgress = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name] ?? 0), 0);
-    wrap.appendChild(el('div', {
-      class: 'effort-total-line',
-      text: `Total: ${Math.floor(totalProgress)} / ${totalRequired}`
-    }));
+  const card = el('div', { class: 'tag-builder-card' });
+  card.appendChild(el('div', { class: 'tag-builder-title', text: 'ADD TAG' }));
+
+  // Category selector
+  const categoryInput = el('select', {
+    class: 'tag-builder-field tag-builder-category'
+  });
+  categoryInput.appendChild(el('option', { text: '— Select category —', value: '' }));
+  getTagCategories().forEach(cat => {
+    const schema = TAG_SCHEMA[cat];
+    categoryInput.appendChild(el('option', { text: schema.label, value: cat }));
+  });
+
+  // Type selector (populated based on category)
+  const typeInput = el('select', {
+    class: 'tag-builder-field'
+  });
+
+  // Name and value inputs
+  const nameInput = el('input', {
+    class: 'tag-builder-field',
+    placeholder: 'name',
+    spellcheck: 'false'
+  });
+
+  const valueInput = el('input', {
+    class: 'tag-builder-field',
+    type: 'number',
+    placeholder: 'value (optional)',
+    step: 'any'
+  });
+
+  // Update type options when category changes
+  categoryInput.addEventListener('change', () => {
+    const cat = categoryInput.value;
+    const schema = TAG_SCHEMA[cat];
+    typeInput.innerHTML = '';
+
+    if (schema) {
+      schema.subtypes.forEach(subtype => {
+        typeInput.appendChild(el('option', { text: subtype, value: subtype }));
+      });
+      nameInput.placeholder = schema.nameLabel;
+      valueInput.placeholder = schema.valueLabel + ' (optional)';
+      nameInput.style.display = schema.hasName ? 'block' : 'none';
+      valueInput.style.display = schema.hasValue ? 'block' : 'none';
+    }
+  });
+
+  // Keyboard shortcuts
+  [categoryInput, typeInput, nameInput, valueInput].forEach(inp => {
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); saveTag(); }
+      if (e.key === 'Escape') { e.preventDefault(); overlay.remove(); }
+    });
+  });
+
+  // Build form
+  const fieldsWrapper = el('div', { class: 'tag-builder-fields' });
+
+  const categoryRow = el('div', { class: 'tag-builder-row' }, [
+    el('label', { class: 'tag-builder-label', text: 'CATEGORY' }),
+    categoryInput
+  ]);
+  fieldsWrapper.appendChild(categoryRow);
+
+  const typeRow = el('div', { class: 'tag-builder-row' }, [
+    el('label', { class: 'tag-builder-label', text: 'TYPE' }),
+    typeInput
+  ]);
+  fieldsWrapper.appendChild(typeRow);
+
+  const nameRow = el('div', { class: 'tag-builder-row' }, [
+    el('label', { class: 'tag-builder-label', text: 'NAME' }),
+    nameInput
+  ]);
+  fieldsWrapper.appendChild(nameRow);
+
+  const valueRow = el('div', { class: 'tag-builder-row' }, [
+    el('label', { class: 'tag-builder-label', text: 'VALUE' }),
+    valueInput
+  ]);
+  fieldsWrapper.appendChild(valueRow);
+
+  card.appendChild(fieldsWrapper);
+
+  // Save function
+  function saveTag() {
+    const category = categoryInput.value;
+    const type = typeInput.value;
+    const name = nameInput.value.trim();
+    const value = valueInput.value.trim() ? parseFloat(valueInput.value) : null;
+
+    if (!category || !type) {
+      categoryInput.classList.add('error');
+      return;
+    }
+
+    const isReq = category === 'requirement';
+    // For requirement: buildTag(subtype, name, value, true) → #req:subtype:name[=value]
+    // For effort: buildTag('effort', skillname, value, false) → #effort:skillname=value
+    // For reward: buildTag('reward', goldrewardtype, value, false) → #reward:type=value
+    const actualType = isReq ? type : category;
+    const actualName = isReq ? name : type;
+    const actualValue = value;
+
+    const tag = buildTag(actualType, actualName, actualValue, isReq);
+    if (tag) {
+      task.requirements.push(tag);
+      save(); render();
+      overlay.remove();
+    }
   }
 
-  return wrap;
+  // Buttons
+  const buttonsRow = el('div', { class: 'tag-builder-buttons' }, [
+    el('button', {
+      class: 'ctrl',
+      text: 'SAVE',
+      onclick: (e) => { e.stopPropagation(); saveTag(); }
+    }),
+    el('button', {
+      class: 'ctrl',
+      text: 'CANCEL',
+      onclick: (e) => { e.stopPropagation(); overlay.remove(); }
+    })
+  ]);
+  card.appendChild(buttonsRow);
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  categoryInput.focus();
 }
 
 // Header progress bar (2px line in highlight color, % filled).
@@ -1041,8 +1174,7 @@ function renderTaskCard(task) {
   desc.classList.add('task-desc');
   body.appendChild(desc);
 
-  body.appendChild(renderRequirementsEditor(task));
-  body.appendChild(renderEffortEditor(task));
+  body.appendChild(renderTagsEditor(task));
 
   // Assigned-to summary line
   const assigned = agentsAssignedTo(task.id);

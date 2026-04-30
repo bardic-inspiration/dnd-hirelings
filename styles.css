@@ -727,6 +727,71 @@ body {
 .config-row input:focus { border-color: var(--highlight); }
 
 /* ============================================================
+   UNIFIED TAGS EDITOR
+   ============================================================ */
+.tags-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tags-editor .tag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 24px;
+}
+
+.tag-list-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--dimmer);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+}
+
+.tag-category-badge {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--highlight);
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-right: var(--line) solid var(--border);
+}
+
+.tag-content {
+  font-family: ui-monospace, "Courier New", monospace;
+  color: var(--fg);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-list-item .x {
+  color: var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.1s;
+}
+
+.tag-list-item .x:hover {
+  color: var(--fg);
+}
+
+.empty-state {
+  color: var(--dim);
+  font-size: var(--fs-xs);
+  padding: 6px;
+  font-style: italic;
+}
+
+/* ============================================================
    TAG BUILDER FORM (modal)
    ============================================================ */
 .tag-builder-overlay {
@@ -798,6 +863,29 @@ body {
 
 .tag-builder-field:focus {
   border-color: var(--highlight);
+}
+
+.tag-builder-field[type="select"],
+.tag-builder-category,
+select.tag-builder-field {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237eb5f5' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 16px;
+}
+
+.tag-builder-category {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 24px;
+  background-color: var(--dimmer);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237eb5f5' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 16px;
 }
 
 .tag-builder-field.error {
