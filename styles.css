@@ -727,6 +727,97 @@ body {
 .config-row input:focus { border-color: var(--highlight); }
 
 /* ============================================================
+   TAG BUILDER FORM (modal)
+   ============================================================ */
+.tag-builder-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.tag-builder-card {
+  background: var(--bg);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  min-width: 320px;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.tag-builder-title {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg);
+  border-bottom: var(--line) solid var(--border);
+  padding-bottom: 8px;
+}
+
+.tag-builder-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tag-builder-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tag-builder-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  flex: 0 0 60px;
+}
+
+.tag-builder-field {
+  flex: 1;
+  background: var(--dimmer);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  outline: none;
+  transition: border-color 0.1s;
+}
+
+.tag-builder-field:focus {
+  border-color: var(--highlight);
+}
+
+.tag-builder-field.error {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 8%, var(--dimmer));
+}
+
+.tag-builder-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  justify-content: flex-end;
+}
+
+.tag-builder-buttons .ctrl {
+  font-size: var(--fs-xs);
+  padding: 4px 12px;
+}
+
+/* ============================================================
    MISC
    ============================================================ */
 .delete-btn {

@@ -525,9 +525,130 @@ function renderTag(tagStr, active, onRemove) {
   return el('span', { class: 'tag' + (active ? ' active' : '') }, children);
 }
 
-function promptForTag(defaultPrefix) {
-  const v = prompt('Tag in #type:name format (optional =value)', defaultPrefix || '#');
-  return normalizeTag(v);
+// Tag builder modal with structured fields for type, name, value.
+// Intelligently shows/hides fields based on tag type and context.
+function showTagBuilder(opts = {}) {
+  const {
+    context = 'attribute',  // 'attribute' | 'requirement' | 'effort'
+    onSave = () => {},
+    onCancel = () => {}
+  } = opts;
+
+  const overlay = el('div', {
+    class: 'tag-builder-overlay',
+    onclick: (e) => {
+      if (e.target === overlay) { onCancel(); overlay.remove(); }
+    }
+  });
+
+  const card = el('div', { class: 'tag-builder-card' });
+
+  // Title
+  const title = context === 'requirement' ? 'NEW REQUIREMENT'
+              : context === 'effort' ? 'NEW EFFORT'
+              : 'NEW ATTRIBUTE';
+  card.appendChild(el('div', { class: 'tag-builder-title', text: title }));
+
+  // Type field
+  const typeInput = el('input', {
+    class: 'tag-builder-field',
+    list: context === 'requirement' ? 'req-types' : 'tag-types',
+    placeholder: 'type',
+    spellcheck: 'false'
+  });
+
+  // Name field (hidden for effort, time, duration, days, gold)
+  const nameInput = el('input', {
+    class: 'tag-builder-field',
+    placeholder: 'name',
+    spellcheck: 'false'
+  });
+
+  // Value field
+  const valueInput = el('input', {
+    class: 'tag-builder-field',
+    type: 'number',
+    placeholder: 'value (optional)',
+    step: 'any'
+  });
+
+  // Show/hide name field based on type
+  const updateFieldVisibility = () => {
+    const type = typeInput.value.trim().toLowerCase();
+    const isNameless = context === 'effort' || NAMELESS_TYPES.has(type);
+    nameInput.style.display = isNameless ? 'none' : 'block';
+    nameInput.parentElement.style.display = isNameless ? 'none' : 'flex';
+  };
+  typeInput.addEventListener('input', updateFieldVisibility);
+  updateFieldVisibility();
+
+  // Keyboard handling
+  [typeInput, nameInput, valueInput].forEach(inp => {
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); saveTag(); }
+      if (e.key === 'Escape') { e.preventDefault(); onCancel(); overlay.remove(); }
+    });
+  });
+
+  // Build fields
+  const fieldsWrapper = el('div', { class: 'tag-builder-fields' });
+
+  const typeRow = el('div', { class: 'tag-builder-row' }, [
+    el('label', { class: 'tag-builder-label', text: 'TYPE' }),
+    typeInput
+  ]);
+  fieldsWrapper.appendChild(typeRow);
+
+  const nameRow = el('div', { class: 'tag-builder-row', style: { display: 'flex' } }, [
+    el('label', { class: 'tag-builder-label', text: 'NAME' }),
+    nameInput
+  ]);
+  fieldsWrapper.appendChild(nameRow);
+
+  const valueRow = el('div', { class: 'tag-builder-row' }, [
+    el('label', { class: 'tag-builder-label', text: 'VALUE' }),
+    valueInput
+  ]);
+  fieldsWrapper.appendChild(valueRow);
+
+  card.appendChild(fieldsWrapper);
+
+  // Buttons
+  function saveTag() {
+    const type = typeInput.value.trim();
+    const name = context === 'effort' ? null : nameInput.value.trim();
+    const value = valueInput.value.trim() ? parseFloat(valueInput.value) : null;
+    const isReq = context === 'requirement';
+
+    if (!type) {
+      typeInput.classList.add('error');
+      return;
+    }
+
+    const tag = buildTag(type, name, value, isReq);
+    if (tag) {
+      onSave(tag);
+      overlay.remove();
+    }
+  }
+
+  const buttonsRow = el('div', { class: 'tag-builder-buttons' }, [
+    el('button', {
+      class: 'ctrl',
+      text: 'SAVE',
+      onclick: (e) => { e.stopPropagation(); saveTag(); }
+    }),
+    el('button', {
+      class: 'ctrl',
+      text: 'CANCEL',
+      onclick: (e) => { e.stopPropagation(); onCancel(); overlay.remove(); }
+    })
+  ]);
+  card.appendChild(buttonsRow);
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  typeInput.focus();
 }
 
 /* ---------- Requirements editor ----------
@@ -558,7 +679,14 @@ function renderRequirementsEditor(task) {
   wrap.appendChild(el('button', {
     class: 'tag-add',
     text: '+ REQ',
-    onclick: (e) => { e.stopPropagation(); task.requirements.push('#req:skill:'); save(); render(); }
+    onclick: (e) => {
+      e.stopPropagation();
+      showTagBuilder({
+        context: 'requirement',
+        onSave: (tag) => { task.requirements.push(tag); save(); render(); },
+        onCancel: () => {}
+      });
+    }
   }));
 
   return wrap;
@@ -688,8 +816,11 @@ function renderAgentCard(agent) {
     {
       addTitle: 'Add attribute',
       onAdd: () => {
-        const t = promptForTag('#trait:');
-        if (t) { agent.attributes.push(t); save(); render(); }
+        showTagBuilder({
+          context: 'attribute',
+          onSave: (tag) => { agent.attributes.push(tag); save(); render(); },
+          onCancel: () => {}
+        });
       },
       onRemove: (i) => { agent.attributes.splice(i, 1); save(); render(); }
     }
@@ -805,7 +936,14 @@ function renderEffortEditor(task) {
   wrap.appendChild(el('button', {
     class: 'tag-add',
     text: '+ EFFORT',
-    onclick: (e) => { e.stopPropagation(); task.requirements.push('#effort:'); save(); render(); }
+    onclick: (e) => {
+      e.stopPropagation();
+      showTagBuilder({
+        context: 'effort',
+        onSave: (tag) => { task.requirements.push(tag); save(); render(); },
+        onCancel: () => {}
+      });
+    }
   }));
 
   // Show total progress fraction.
