@@ -128,6 +128,8 @@ const ui = {
   playing: false,
   playInterval: null,
   animationFrameId: null,
+  lastTickWallTime: 0,   // Date.now() when advanceTime last ran — used for clock interpolation
+  tickIntervalMs: 1000,  // mirrors the setInterval delay — used for interpolation denominator
 };
 
 const STORAGE_KEY = 'dnd-hirelings-state-v1';
@@ -1308,6 +1310,7 @@ function getStepMinutes() {
 }
 
 function advanceTime() {
+  ui.lastTickWallTime = Date.now();
   const stepMins = getStepMinutes();
   const stepDays = stepMins / 1440;
 
@@ -1377,19 +1380,34 @@ function advanceTime() {
   render();
 }
 
-// Continuous clock display updates when playing (requestAnimationFrame loop).
+// Continuous clock display: interpolates position within the current tick interval
+// so the clock advances smoothly instead of jumping on each advanceTime() call.
 function updateClockDisplay() {
   if (!ui.playing) return;
   const clockEl = document.getElementById('clock');
-  if (clockEl) clockEl.textContent = formatClock(state.session.clock);
+  if (clockEl) {
+    const elapsed = Date.now() - ui.lastTickWallTime;
+    const stepMins = getStepMinutes();
+    const interpolatedMins = state.session.clock + (elapsed / ui.tickIntervalMs) * stepMins;
+    clockEl.textContent = formatClock(interpolatedMins);
+  }
   ui.animationFrameId = requestAnimationFrame(updateClockDisplay);
+}
+
+function getPlayIntervalMs() {
+  // rate = game-minutes per real second; step = game-minutes per tick
+  // → interval = step / rate seconds = step * 1000 / rate ms
+  const rate = state.session.rateMultiplier || 1;
+  const step = getStepMinutes();
+  return Math.max(16, (step * 1000) / rate);
 }
 
 function startPlay() {
   if (ui.playing) return;
   ui.playing = true;
-  const mult = state.session.rateMultiplier || 1;
-  const interval = 1000 / mult;
+  const interval = getPlayIntervalMs();
+  ui.tickIntervalMs = interval;
+  ui.lastTickWallTime = Date.now();
   ui.playInterval = setInterval(advanceTime, interval);
   updateClockDisplay();
   updatePlayButtons();
@@ -1498,7 +1516,11 @@ function wireMenu() {
   sessId.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sessId.blur(); } });
 
   const ts = document.getElementById('time-step');
-  ts.addEventListener('blur', () => { state.session.timeStep = ts.textContent.trim() || '60'; save(); render(); });
+  ts.addEventListener('blur', () => {
+    state.session.timeStep = ts.textContent.trim() || '60';
+    save(); render();
+    if (ui.playing) { stopPlay(); startPlay(); }  // restart so interval reflects new step
+  });
   ts.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ts.blur(); } });
 
   const rateEl = document.getElementById('playback-rate');
@@ -1556,8 +1578,10 @@ function wireMenu() {
     if (!e.target.matches('[contenteditable], .req-field')) return;
     resumeTimer = setTimeout(() => {
       if (ui.playing && !ui.playInterval) {
-        const mult = state.session.rateMultiplier || 1;
-        ui.playInterval = setInterval(advanceTime, 1000 / mult);
+        const interval = getPlayIntervalMs();
+        ui.tickIntervalMs = interval;
+        ui.lastTickWallTime = Date.now();
+        ui.playInterval = setInterval(advanceTime, interval);
       }
     }, 100);
   });
