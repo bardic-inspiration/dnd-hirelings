@@ -354,6 +354,25 @@ function pruneTaskFromAgents(taskId) {
   }
 }
 
+// Execute task rewards when a task is completed.
+// Rewards are tags with type "reward": #reward:name=value
+// Currently supported: reward:gold=amount
+function executeTaskRewards(task) {
+  if (!task.isComplete) return;
+
+  for (const req of task.requirements) {
+    const p = parseTag(req);
+    if (p.type !== 'reward') continue;
+
+    // Gold reward: add to bank
+    if (p.name === 'gold' && p.value !== null && p.value > 0) {
+      state.session.bank = (state.session.bank ?? 0) + p.value;
+    }
+    // Future reward types can be added here:
+    // if (p.name === 'experience' && p.value !== null) { ... }
+  }
+}
+
 function deleteTask(id) {
   state.tasks = state.tasks.filter(t => t.id !== id);
   pruneTaskFromAgents(id);
@@ -1043,7 +1062,10 @@ function renderTaskCard(task) {
     onclick: (e) => {
       e.stopPropagation();
       task.isComplete = !task.isComplete;
-      if (task.isComplete) pruneTaskFromAgents(task.id);
+      if (task.isComplete) {
+        pruneTaskFromAgents(task.id);
+        executeTaskRewards(task);
+      }
       save(); render();
     }
   }));
@@ -1201,6 +1223,7 @@ function advanceTime() {
         if (!task.isComplete && hasEffortRequirements(task) && checkTaskComplete(task)) {
           task.isComplete = true;
           pruneTaskFromAgents(task.id);
+          executeTaskRewards(task);
         }
       }
     }
