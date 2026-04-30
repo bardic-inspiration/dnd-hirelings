@@ -197,6 +197,19 @@ body {
   flex-shrink: 0;
 }
 
+.col-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 8px;
+}
+
+.col-add {
+  font-size: var(--fs-xs);
+  padding: 1px 7px;
+  letter-spacing: 0.08em;
+}
+
 /* ============================================================
    AGENT CARDS
    ============================================================ */

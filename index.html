@@ -51,14 +51,20 @@
         <div class="card-grid" id="active-agents"></div>
       </div>
       <div class="column">
-        <div class="col-label">IDLE</div>
+        <div class="col-label col-label-row">
+          <span>IDLE</span>
+          <button class="ctrl col-add" id="add-agent">+ AGENT</button>
+        </div>
         <div class="card-grid" id="idle-agents"></div>
       </div>
     </section>
 
     <!-- RIGHT: task stack with expandable cards -->
     <section id="tasks-pane" class="pane">
-      <div class="col-label">TASKS</div>
+      <div class="col-label col-label-row">
+        <span>TASKS</span>
+        <button class="ctrl col-add" id="add-task">+ TASK</button>
+      </div>
       <div id="task-list"></div>
     </section>
 

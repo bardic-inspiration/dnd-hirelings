@@ -1486,7 +1486,7 @@ function showConfigPanel() {
 /* ---------- Wiring ---------- */
 function wireMenu() {
   document.getElementById('add-agent').onclick = createAgent;
-  document.getElementById('add-task').onclick = createTask;
+  document.getElementById('add-task').onclick  = createTask;
   document.getElementById('advance-time').onclick = advanceTime;
   document.getElementById('play-btn').onclick  = startPlay;
   document.getElementById('pause-btn').onclick = stopPlay;
