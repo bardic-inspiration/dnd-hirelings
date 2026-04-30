@@ -116,7 +116,7 @@ let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 /* ---------- State ---------- */
 // Single source of truth, serialized to localStorage on every mutation.
 let state = {
-  session: { id: '001', clock: 0, timeStep: '60', bank: 100 },
+  session: { id: '001', clock: 0, timeStep: '60', bank: 100, rateMultiplier: 1 },
   agents: [],   // { id, name, icon, rate, rateUnit, description, attributes[], activities[], createdAt, lastAssigned }
   tasks: [],    // { id, name, description, requirements[], effortProgress{}, isComplete, createdAt }
 };
@@ -147,10 +147,20 @@ function load() {
     });
     state.session.bank ??= 100;
     state.session.timeStep ??= '60';
+    state.session.rateMultiplier ??= 1;
     state.tasks.forEach(t => {
       t.requirements ||= []; t.description ??= '';
       t.isComplete ??= false; t.createdAt ||= Date.now();
       t.effortProgress ??= {};
+      // Migrate legacy requirements (no req: prefix) to req: form.
+      // Multiple effort tags are now allowed (they sum together).
+      t.requirements = t.requirements
+        .filter(r => !!r)
+        .map(r => {
+          const body = r.startsWith('#') ? r.slice(1) : r;
+          if (body.startsWith('req:') || body.startsWith('effort:')) return r;
+          return r.startsWith('#') ? '#req:' + r.slice(1) : '#req:' + r;
+        });
     });
   } catch (e) { console.warn('Failed to load state:', e); }
 }
@@ -182,37 +192,42 @@ function formatClock(totalMinutes) {
   return `D${day} ${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 
-// Tag format: #type:name  or  #type:name=value  or  #type=value (nameless scalar)
-// Returns { type, name, value } where value is a number or null, name may be null.
+// Tag formats:
+//   #type:name             or  #type:name=value
+//   #type=value             (nameless scalar)
+//   #req:type:name[=value]  or  #req:type[=value]    (requirement marker)
+// Returns { type, name, value, isReq }. name and value may be null.
 function parseTag(s) {
-  const stripped = s.startsWith('#') ? s.slice(1) : s;
+  let stripped = s.startsWith('#') ? s.slice(1) : s;
+  let isReq = false;
+  if (stripped.startsWith('req:')) { isReq = true; stripped = stripped.slice(4); }
   const colonIdx = stripped.indexOf(':');
   const eqIdx    = stripped.indexOf('=');
-  // #type=value — equals sign appears before any colon (or no colon)
   if (eqIdx >= 0 && (colonIdx < 0 || eqIdx < colonIdx)) {
     const type = stripped.slice(0, eqIdx);
     const v = parseFloat(stripped.slice(eqIdx + 1));
-    return { type, name: null, value: isNaN(v) ? null : v };
+    return { type, name: null, value: isNaN(v) ? null : v, isReq };
   }
-  if (colonIdx < 0) return { type: 'tag', name: stripped, value: null };
+  if (colonIdx < 0) return { type: 'tag', name: stripped, value: null, isReq };
   const type = stripped.slice(0, colonIdx);
   const rest = stripped.slice(colonIdx + 1);
   const restEq = rest.indexOf('=');
-  if (restEq < 0) return { type, name: rest, value: null };
+  if (restEq < 0) return { type, name: rest, value: null, isReq };
   const v = parseFloat(rest.slice(restEq + 1));
-  return { type, name: rest.slice(0, restEq), value: isNaN(v) ? null : v };
+  return { type, name: rest.slice(0, restEq), value: isNaN(v) ? null : v, isReq };
 }
 
 // Build a canonical tag string from parts.
-// Emits #type=value (nameless) when name is empty but value is present.
-function buildTag(type, name, value) {
+// Emits #req:... when isReq is true. Emits #type=value (nameless) when name is empty.
+function buildTag(type, name, value, isReq = false) {
   const t = (type || 'tag').trim().toLowerCase();
   const n = (name || '').trim().toLowerCase();
   const hasVal = value !== null && value !== undefined && String(value).trim() !== '';
-  if (!n && hasVal) return `#${t}=${Number(value)}`;
+  const head = isReq ? '#req:' : '#';
+  if (!n && hasVal) return `${head}${t}=${Number(value)}`;
   if (!n) return null;
   const v = hasVal ? `=${Number(value)}` : '';
-  return `#${t}:${n}${v}`;
+  return `${head}${t}:${n}${v}`;
 }
 
 function normalizeTag(s) {
@@ -307,6 +322,30 @@ function deleteAgent(id) {
   save(); render();
 }
 
+function duplicateAgent(id) {
+  const orig = state.agents.find(a => a.id === id);
+  if (!orig) return;
+  const copy = JSON.parse(JSON.stringify(orig));
+  copy.id = uid();
+  copy.activities = [];        // don't carry over task assignments
+  copy.createdAt = now();
+  copy.lastAssigned = 0;
+  state.agents.push(copy);
+  save(); render();
+}
+
+function duplicateTask(id) {
+  const orig = state.tasks.find(t => t.id === id);
+  if (!orig) return;
+  const copy = JSON.parse(JSON.stringify(orig));
+  copy.id = uid();
+  copy.effortProgress = {};
+  copy.isComplete = false;
+  copy.createdAt = now();
+  state.tasks.push(copy);
+  save(); render();
+}
+
 // Remove all #task:<taskId> tags from every agent's activities.
 function pruneTaskFromAgents(taskId) {
   const tag = `#task:${taskId}`;
@@ -334,29 +373,37 @@ function getCurrentTask(agent) {
   return null;
 }
 
+// Find all effort tags on a task (multiple allowed, they sum together).
+// Returns array of { type, name, value, isReq }.
+function getEffortReqs(task) {
+  return task.requirements
+    .map(r => parseTag(r))
+    .filter(p => p.type === 'effort' && !p.isReq && p.name && p.value);
+}
+
 function hasEffortRequirements(task) {
-  return task.requirements.some(r => { const p = parseTag(r); return p.type === 'effort' && p.name && p.value; });
+  return getEffortReqs(task).length > 0;
 }
 
-// Returns true when every effort requirement on the task is fully accumulated.
+// Returns true when total effort progress >= total effort required.
 function checkTaskComplete(task) {
-  return task.requirements.every(req => {
-    const p = parseTag(req);
-    if (p.type !== 'effort' || !p.name || !p.value) return true;
-    return (task.effortProgress?.[p.name] ?? 0) >= p.value;
-  });
+  const efforts = getEffortReqs(task);
+  if (!efforts.length) return false;
+  const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
+  const totalProgress = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name] ?? 0), 0);
+  return totalProgress >= totalRequired;
 }
 
-// Returns true if the agent satisfies all task requirements.
-// For scalar requirements (value present), agent attribute value must be >=.
-// For presence-only requirements (no value), agent must have the tag at all.
+// Returns true if the agent satisfies all req: requirements on the task.
+// Agent attributes don't carry req:; we strip it from the task side and match on type+name.
 function validateAssignment(agent, task) {
   for (const req of task.requirements) {
     const reqP = parseTag(req);
-    if (!reqP.name) continue; // skip blank/incomplete rows
+    if (!reqP.isReq) continue;       // only req: tags gate assignment
+    if (!reqP.name) continue;        // nameless reqs are global hints, not per-agent
     const match = agent.attributes.find(attr => {
       const p = parseTag(attr);
-      return p.type === reqP.type && p.name.toLowerCase() === reqP.name.toLowerCase();
+      return p.type === reqP.type && p.name && p.name.toLowerCase() === reqP.name.toLowerCase();
     });
     if (!match) return false;
     if (reqP.value !== null) {
@@ -418,6 +465,7 @@ function isAttributeActive(attrTag, agent) {
     if (!task || task.isComplete) continue;
     for (const req of task.requirements) {
       const reqP = parseTag(req);
+      if (!reqP.isReq) continue;
       if (!reqP.name || !attrP.name) continue;
       if (reqP.type === attrP.type && reqP.name.toLowerCase() === attrP.name.toLowerCase()) return true;
     }
@@ -503,20 +551,21 @@ function renderRequirementsEditor(task) {
   wrap.appendChild(headers);
 
   task.requirements.forEach((reqStr, i) => {
+    if (!parseTag(reqStr).isReq) return;       // effort handled separately
     wrap.appendChild(renderReqRow(task, i, reqStr));
   });
 
   wrap.appendChild(el('button', {
     class: 'tag-add',
     text: '+ REQ',
-    onclick: (e) => { e.stopPropagation(); task.requirements.push('#skill:'); save(); render(); }
+    onclick: (e) => { e.stopPropagation(); task.requirements.push('#req:skill:'); save(); render(); }
   }));
 
   return wrap;
 }
 
 function renderReqRow(task, i, reqStr) {
-  const { type, name, value } = parseTag(reqStr);
+  const { type, name, value, isReq } = parseTag(reqStr);
   const isNameless = NAMELESS_TYPES.has(type) || name === null;
 
   const typeInput = el('input', {
@@ -549,7 +598,8 @@ function renderReqRow(task, i, reqStr) {
       const tag = buildTag(
         typeInput.value,
         useNameless ? null : nameInput.value,
-        valueInput.value !== '' ? valueInput.value : null
+        valueInput.value !== '' ? valueInput.value : null,
+        isReq
       );
       if (tag) { task.requirements[i] = tag; save(); }
       render();
@@ -670,8 +720,14 @@ function renderAgentCard(agent) {
   actSect.appendChild(actList);
   card.appendChild(actSect);
 
-  // Delete
-  const delRow = el('div', { class: 'tag-section' });
+  // Action row: duplicate + delete
+  const delRow = el('div', { class: 'tag-section action-row' });
+  delRow.appendChild(el('button', {
+    class: 'delete-btn',
+    text: '⎘ DUP',
+    title: 'Duplicate hireling',
+    onclick: (e) => { e.stopPropagation(); duplicateAgent(agent.id); }
+  }));
   delRow.appendChild(el('button', {
     class: 'delete-btn',
     text: '× DELETE',
@@ -689,28 +745,101 @@ function renderAgentCard(agent) {
   return card;
 }
 
-/* ---------- Effort progress bar ---------- */
-function renderEffortProgress(task) {
-  const effortReqs = task.requirements.filter(r => { const p = parseTag(r); return p.type === 'effort' && p.name && p.value; });
-  if (!effortReqs.length) return null;
+/* ---------- Effort editor (multiple effort tags; total = sum of values) ---------- */
+function renderEffortEditor(task) {
+  const wrap = el('div', { class: 'effort-editor' });
+  wrap.appendChild(el('div', { class: 'tag-label', text: 'EFFORT' }));
 
-  const wrap = el('div', { class: 'effort-progress' });
-  wrap.appendChild(el('div', { class: 'tag-label', text: 'PROGRESS' }));
-
-  effortReqs.forEach(req => {
-    const p = parseTag(req);
-    const done  = task.effortProgress?.[p.name] ?? 0;
-    const total = p.value;
-    const pct   = Math.min(100, (done / total) * 100);
-
-    const row = el('div', { class: 'effort-row' });
-    row.appendChild(el('span', { class: 'effort-label', text: p.name }));
-    const track = el('div', { class: 'effort-track' });
-    track.appendChild(el('div', { class: 'effort-fill', style: { width: `${pct.toFixed(1)}%` } }));
-    row.appendChild(track);
-    row.appendChild(el('span', { class: 'effort-frac', text: `${Math.floor(done)}/${total}` }));
-    wrap.appendChild(row);
+  // Find all effort requirement indices.
+  const effortIndices = [];
+  task.requirements.forEach((r, i) => {
+    const p = parseTag(r);
+    if (p.type === 'effort' && !p.isReq) effortIndices.push(i);
   });
+
+  // Render each effort row.
+  effortIndices.forEach(i => {
+    const { name, value } = parseTag(task.requirements[i]);
+    const nameInput = el('input', {
+      class: 'req-field req-name', value: name || '',
+      placeholder: 'skill', spellcheck: 'false',
+    });
+    const valueInput = el('input', {
+      class: 'req-field req-value', type: 'number',
+      value: value !== null ? String(value) : '',
+      placeholder: '—', min: '0',
+    });
+
+    let blurTimer;
+    function scheduleCommit() {
+      blurTimer = setTimeout(() => {
+        const tag = buildTag('effort', nameInput.value, valueInput.value !== '' ? valueInput.value : null, false);
+        if (tag) task.requirements[i] = tag;
+        else task.requirements.splice(i, 1);
+        save(); render();
+      }, 60);
+    }
+    function cancelCommit() { clearTimeout(blurTimer); }
+
+    [nameInput, valueInput].forEach(inp => {
+      inp.addEventListener('blur',  scheduleCommit);
+      inp.addEventListener('focus', () => { cancelCommit(); inp.select(); });
+      inp.addEventListener('click', e => e.stopPropagation());
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') inp.blur();
+        if (e.key === 'Escape') { inp.value = inp.defaultValue; inp.blur(); }
+      });
+    });
+
+    wrap.appendChild(el('div', { class: 'req-row' }, [
+      nameInput, valueInput,
+      el('span', {
+        class: 'x req-remove',
+        text: '×',
+        onclick: (e) => { e.stopPropagation(); task.requirements.splice(i, 1); save(); render(); }
+      }),
+    ]));
+  });
+
+  // Add button.
+  wrap.appendChild(el('button', {
+    class: 'tag-add',
+    text: '+ EFFORT',
+    onclick: (e) => { e.stopPropagation(); task.requirements.push('#effort:'); save(); render(); }
+  }));
+
+  // Show total progress fraction.
+  const efforts = getEffortReqs(task);
+  if (efforts.length > 0) {
+    const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
+    const totalProgress = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name] ?? 0), 0);
+    wrap.appendChild(el('div', {
+      class: 'effort-total-line',
+      text: `Total: ${Math.floor(totalProgress)} / ${totalRequired}`
+    }));
+  }
+
+  return wrap;
+}
+
+// Header progress bar (2px line in highlight color, % filled).
+// Visible whether collapsed or expanded. Shows overall progress toward total effort.
+function renderTaskProgressBar(task) {
+  const efforts = getEffortReqs(task);
+  if (!efforts.length && !task.isComplete) return null;
+
+  const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
+  let totalProgress = 0;
+  if (task.isComplete) {
+    totalProgress = totalRequired;
+  } else {
+    totalProgress = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name] ?? 0), 0);
+  }
+
+  const pct = totalRequired > 0 ? Math.min(100, (totalProgress / totalRequired) * 100) : 0;
+
+  const wrap = el('div', { class: 'task-progress' });
+  wrap.appendChild(el('div', { class: 'task-progress-fill', style: { width: `${pct.toFixed(1)}%` } }));
   return wrap;
 }
 
@@ -744,6 +873,10 @@ function renderTaskCard(task) {
   }));
   card.appendChild(header);
 
+  // Always-visible single progress bar (full when complete).
+  const progressBar = renderTaskProgressBar(task);
+  if (progressBar) card.appendChild(progressBar);
+
   // Body (visible when expanded)
   const body = el('div', { class: 'task-body' });
 
@@ -753,9 +886,7 @@ function renderTaskCard(task) {
   body.appendChild(desc);
 
   body.appendChild(renderRequirementsEditor(task));
-
-  const effortSection = renderEffortProgress(task);
-  if (effortSection) body.appendChild(effortSection);
+  body.appendChild(renderEffortEditor(task));
 
   // Assigned-to summary line
   const assigned = agentsAssignedTo(task.id);
@@ -766,8 +897,8 @@ function renderTaskCard(task) {
     }));
   }
 
-  // Status row: complete toggle + delete
-  const statusRow = el('div', { class: 'task-status-row' });
+  // Status row: complete toggle + duplicate + delete
+  const statusRow = el('div', { class: 'task-status-row action-row' });
   statusRow.appendChild(el('button', {
     class: 'tag-add',
     text: task.isComplete ? '↻' : '✓',
@@ -780,6 +911,12 @@ function renderTaskCard(task) {
     }
   }));
   statusRow.appendChild(el('span', { text: task.isComplete ? 'COMPLETE' : 'INCOMPLETE' }));
+  statusRow.appendChild(el('button', {
+    class: 'delete-btn',
+    text: '⎘ DUP',
+    title: 'Duplicate task',
+    onclick: (e) => { e.stopPropagation(); duplicateTask(task.id); }
+  }));
   statusRow.appendChild(el('button', {
     class: 'delete-btn',
     text: '× DELETE',
@@ -895,7 +1032,7 @@ function advanceTime() {
 
         for (const req of task.requirements) {
           const p = parseTag(req);
-          if (p.type !== 'effort' || !p.name || !p.value) continue;
+          if (p.type !== 'effort' || p.isReq || !p.name || !p.value) continue;
 
           // Agent must have a matching skill attribute with a positive value.
           const skillTag = agent.attributes.find(attr => {
@@ -940,7 +1077,9 @@ function advanceTime() {
 function startPlay() {
   if (ui.playing) return;
   ui.playing = true;
-  ui.playInterval = setInterval(advanceTime, 1000);
+  const mult = state.session.rateMultiplier || 1;
+  const interval = 1000 / mult;
+  ui.playInterval = setInterval(advanceTime, interval);
   updatePlayButtons();
 }
 
@@ -985,6 +1124,48 @@ function importJSON(file) {
   r.readAsText(file);
 }
 
+/* ---------- Config panel ---------- */
+function showConfigPanel() {
+  const existing = document.getElementById('config-overlay');
+  if (existing) { existing.remove(); return; }
+
+  const overlay = el('div', {
+    class: 'config-overlay',
+    id: 'config-overlay',
+    onclick: (e) => { if (e.target === overlay) overlay.remove(); }
+  });
+
+  const panel = el('div', { class: 'config-panel' });
+  panel.appendChild(el('h2', { text: 'SETTINGS' }));
+
+  // Time rate multiplier
+  const rateRow = el('div', { class: 'config-row' });
+  rateRow.appendChild(el('label', { text: 'TIME RATE' }));
+  const rateInput = el('input', {
+    type: 'number', min: '0.1', step: '0.1',
+    value: String(state.session.rateMultiplier ?? 1),
+  });
+  rateInput.addEventListener('change', () => {
+    const v = parseFloat(rateInput.value);
+    state.session.rateMultiplier = isNaN(v) || v <= 0 ? 1 : v;
+    save();
+    if (ui.playing) { stopPlay(); startPlay(); }
+  });
+  rateRow.appendChild(rateInput);
+  panel.appendChild(rateRow);
+
+  // Close button
+  panel.appendChild(el('button', {
+    class: 'ctrl',
+    text: 'CLOSE',
+    onclick: () => overlay.remove(),
+    style: { alignSelf: 'flex-end', marginTop: '8px' }
+  }));
+
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
+
 /* ---------- Wiring ---------- */
 function wireMenu() {
   document.getElementById('add-agent').onclick = createAgent;
@@ -992,6 +1173,7 @@ function wireMenu() {
   document.getElementById('advance-time').onclick = advanceTime;
   document.getElementById('play-btn').onclick  = startPlay;
   document.getElementById('pause-btn').onclick = stopPlay;
+  document.getElementById('config-btn').onclick = showConfigPanel;
 
   // Editable session fields
   const sessId = document.getElementById('session-id');

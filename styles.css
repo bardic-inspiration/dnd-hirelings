@@ -428,11 +428,53 @@ body {
   color: var(--dim);
 }
 
+.action-row {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.action-row span {
+  flex: 1;
+}
+
 .assigned-list {
   font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   color: var(--dim);
+}
+
+/* ============================================================
+   TASK PROGRESS BAR
+   ============================================================ */
+.task-progress {
+  height: 2px;
+  background: var(--dimmer);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.task-progress-fill {
+  height: 100%;
+  background: var(--highlight);
+  transition: width 0.4s ease;
+}
+
+/* ============================================================
+   EFFORT EDITOR
+   ============================================================ */
+.effort-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.effort-total-line {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--dim);
+  letter-spacing: 0.08em;
+  margin-top: 4px;
 }
 
 /* ============================================================
@@ -620,6 +662,69 @@ body {
   opacity: 0.75;
   margin-left: 1px;
 }
+
+/* ============================================================
+   CONFIG PANEL OVERLAY
+   ============================================================ */
+.config-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.config-panel {
+  background: var(--bg);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.config-panel h2 {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 0;
+}
+
+.config-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.config-row label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.config-row input {
+  background: var(--dimmer);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  width: 70px;
+  text-align: right;
+  outline: none;
+  transition: border-color 0.1s;
+}
+.config-row input:focus { border-color: var(--highlight); }
 
 /* ============================================================
    MISC
