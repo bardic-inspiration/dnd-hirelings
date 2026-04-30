@@ -572,16 +572,6 @@ function showTagBuilder(opts = {}) {
     step: 'any'
   });
 
-  // Show/hide name field based on type
-  const updateFieldVisibility = () => {
-    const type = typeInput.value.trim().toLowerCase();
-    const isNameless = context === 'effort' || NAMELESS_TYPES.has(type);
-    nameInput.style.display = isNameless ? 'none' : 'block';
-    nameInput.parentElement.style.display = isNameless ? 'none' : 'flex';
-  };
-  typeInput.addEventListener('input', updateFieldVisibility);
-  updateFieldVisibility();
-
   // Keyboard handling
   [typeInput, nameInput, valueInput].forEach(inp => {
     inp.addEventListener('keydown', (e) => {
@@ -604,6 +594,15 @@ function showTagBuilder(opts = {}) {
     nameInput
   ]);
   fieldsWrapper.appendChild(nameRow);
+
+  // Show/hide name field based on type (now that it's in the DOM)
+  const updateFieldVisibility = () => {
+    const type = typeInput.value.trim().toLowerCase();
+    const isNameless = context === 'effort' || NAMELESS_TYPES.has(type);
+    nameRow.style.display = isNameless ? 'none' : 'flex';
+  };
+  typeInput.addEventListener('input', updateFieldVisibility);
+  updateFieldVisibility();
 
   const valueRow = el('div', { class: 'tag-builder-row' }, [
     el('label', { class: 'tag-builder-label', text: 'VALUE' }),
