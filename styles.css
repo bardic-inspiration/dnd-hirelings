@@ -919,6 +919,68 @@ select.tag-builder-field {
 }
 
 /* ============================================================
+   INVENTORY PANEL
+   ============================================================ */
+.inventory-panel {
+  max-height: 70vh;
+}
+
+.inventory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  max-height: 50vh;
+}
+
+.inventory-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--dimmer);
+}
+
+.inventory-name {
+  flex: 1;
+  outline: none;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--fg);
+  min-width: 0;
+}
+
+.inventory-sep {
+  color: var(--border);
+  font-size: var(--fs-sm);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.inventory-qty {
+  flex: 0 0 44px;
+  text-align: right;
+  outline: none;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-family: ui-monospace, "Courier New", monospace;
+  color: var(--fg);
+}
+
+.inventory-row .x {
+  color: var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  padding: 0 2px;
+  transition: color 0.1s;
+}
+.inventory-row .x:hover { color: var(--fg); }
+
+/* ============================================================
    MISC
    ============================================================ */
 .delete-btn {

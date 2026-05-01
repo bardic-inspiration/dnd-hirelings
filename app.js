@@ -117,8 +117,9 @@ let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 // Single source of truth, serialized to localStorage on every mutation.
 let state = {
   session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1', bank: 100, rateMultiplier: 1 },
-  agents: [],   // { id, name, icon, rate, rateUnit, description, attributes[], activities[], createdAt, lastAssigned }
-  tasks: [],    // { id, name, description, requirements[], effortProgress{}, isComplete, createdAt }
+  agents: [],     // { id, name, icon, rate, rateUnit, description, attributes[], activities[], createdAt, lastAssigned }
+  tasks: [],      // { id, name, description, requirements[], effortProgress{}, isComplete, createdAt }
+  inventory: [],  // { id, name, qty }
 };
 
 // Ephemeral UI state (not persisted).
@@ -152,6 +153,8 @@ function load() {
     state.session.timeStep ??= '60';
     state.session.playbackRate ??= '1';
     state.session.rateMultiplier ??= 1;
+    state.inventory ??= [];
+    state.inventory.forEach(item => { item.id ??= uid(); item.name ??= 'ITEM'; item.qty ??= 1; });
     state.tasks.forEach(t => {
       t.requirements ||= []; t.description ??= '';
       t.isComplete ??= false; t.createdAt ||= Date.now();
@@ -377,6 +380,57 @@ function executeTaskRewards(task) {
   }
 }
 
+// Returns a Set of task IDs whose item/consumable requirements cannot be met.
+// Sorts tasks oldest-first so earlier tasks get reservation priority on shared consumables.
+function getItemBlockedTasks(activeTasks) {
+  // Mutable pool tracks remaining consumable quantities available for reservation.
+  const pool = {};
+  for (const item of state.inventory) pool[item.name.toLowerCase()] = item.qty;
+
+  const blocked = new Set();
+
+  for (const task of [...activeTasks].sort((a, b) => a.createdAt - b.createdAt)) {
+    let pass = true;
+    for (const req of task.requirements) {
+      const p = parseTag(req);
+      if (!p.isReq || !p.name) continue;
+      if (p.type !== 'item' && p.type !== 'consumable') continue;
+      const key = p.name.toLowerCase();
+      const needed = p.value ?? 1;
+      if (p.type === 'item') {
+        // Item reqs check actual inventory — they don't consume, so reservations don't affect them.
+        const inv = state.inventory.find(i => i.name.toLowerCase() === key);
+        if (!inv || inv.qty < needed) { pass = false; break; }
+      } else {
+        // Consumable reqs check the running pool (reduced by prior tasks' reservations).
+        if ((pool[key] ?? 0) < needed) { pass = false; break; }
+      }
+    }
+    if (!pass) { blocked.add(task.id); continue; }
+    // Task passes — reserve its consumable amounts for this tick.
+    for (const req of task.requirements) {
+      const p = parseTag(req);
+      if (!p.isReq || p.type !== 'consumable' || !p.name) continue;
+      const key = p.name.toLowerCase();
+      pool[key] = (pool[key] ?? 0) - (p.value ?? 1);
+    }
+  }
+  return blocked;
+}
+
+// Deduct consumable requirements from inventory when a task completes.
+function consumeTaskItems(task) {
+  for (const req of task.requirements) {
+    const p = parseTag(req);
+    if (!p.isReq || p.type !== 'consumable' || !p.name) continue;
+    const key = p.name.toLowerCase();
+    const item = state.inventory.find(i => i.name.toLowerCase() === key);
+    if (!item) continue;
+    item.qty = Math.max(0, item.qty - (p.value ?? 1));
+  }
+  state.inventory = state.inventory.filter(i => i.qty > 0);
+}
+
 function deleteTask(id) {
   state.tasks = state.tasks.filter(t => t.id !== id);
   pruneTaskFromAgents(id);
@@ -397,23 +451,26 @@ function getCurrentTask(agent) {
 }
 
 // Find all effort tags on a task (multiple allowed, they sum together).
-// Returns array of { type, name, value, isReq }.
+// - Named  (#effort:skillname=N): agent needs matching skill; contributes skillVal/day.
+// - Nameless (#effort=N):         any agent contributes 1/day.
+// - No effort tags at all:        returns synthetic default of 1 unit (any agent contributes).
+// Progress is keyed by skill name for named reqs, '' for nameless/default.
 function getEffortReqs(task) {
-  return task.requirements
+  const all = task.requirements
     .map(r => parseTag(r))
-    .filter(p => p.type === 'effort' && !p.isReq && p.name && p.value);
+    .filter(p => p.type === 'effort' && !p.isReq && p.value !== null && p.value > 0);
+  return all.length > 0 ? all : [{ type: 'effort', name: null, value: 1, isReq: false }];
 }
 
 function hasEffortRequirements(task) {
-  return getEffortReqs(task).length > 0;
+  return getEffortReqs(task).length > 0; // always true; kept for semantic clarity
 }
 
 // Returns true when total effort progress >= total effort required.
 function checkTaskComplete(task) {
   const efforts = getEffortReqs(task);
-  if (!efforts.length) return false;
   const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
-  const totalProgress = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name] ?? 0), 0);
+  const totalProgress = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name || ''] ?? 0), 0);
   return totalProgress >= totalRequired;
 }
 
@@ -424,6 +481,7 @@ function validateAssignment(agent, task) {
     const reqP = parseTag(req);
     if (!reqP.isReq) continue;       // only req: tags gate assignment
     if (!reqP.name) continue;        // nameless reqs are global hints, not per-agent
+    if (reqP.type === 'item' || reqP.type === 'consumable') continue; // inventory reqs — runtime check
     const match = agent.attributes.find(attr => {
       const p = parseTag(attr);
       return p.type === reqP.type && p.name && p.name.toLowerCase() === reqP.name.toLowerCase();
@@ -489,6 +547,7 @@ function isAttributeActive(attrTag, agent) {
     for (const req of task.requirements) {
       const reqP = parseTag(req);
       if (!reqP.isReq) continue;
+      if (reqP.type === 'item' || reqP.type === 'consumable') continue; // inventory reqs, not agent attrs
       if (!reqP.name || !attrP.name) continue;
       if (reqP.type === attrP.type && reqP.name.toLowerCase() === attrP.name.toLowerCase()) return true;
     }
@@ -684,7 +743,7 @@ const TAG_SCHEMA = {
   'requirement': {
     label: 'Requirement',
     prefix: 'req',
-    subtypes: ['skill', 'tool', 'trait', 'class', 'level', 'resource', 'guild', 'race'],
+    subtypes: ['skill', 'tool', 'trait', 'class', 'level', 'resource', 'guild', 'race', 'item', 'consumable'],
     hasName: true,
     hasValue: true,
     nameLabel: 'Name',
@@ -1126,14 +1185,12 @@ function showTaskTagBuilder(task) {
 // Visible whether collapsed or expanded. Shows overall progress toward total effort.
 function renderTaskProgressBar(task) {
   const efforts = getEffortReqs(task);
-  if (!efforts.length && !task.isComplete) return null;
-
   const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
   let totalProgress = 0;
   if (task.isComplete) {
     totalProgress = totalRequired;
   } else {
-    totalProgress = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name] ?? 0), 0);
+    totalProgress = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name || ''] ?? 0), 0);
   }
 
   const pct = totalRequired > 0 ? Math.min(100, (totalProgress / totalRequired) * 100) : 0;
@@ -1207,6 +1264,7 @@ function renderTaskCard(task) {
       task.isComplete = !task.isComplete;
       if (task.isComplete) {
         pruneTaskFromAgents(task.id);
+        consumeTaskItems(task);
         executeTaskRewards(task);
       }
       save(); render();
@@ -1318,58 +1376,68 @@ function advanceTime() {
   const working = state.agents.filter(a => getCurrentTask(a) !== null);
 
   if (working.length) {
-    const totalCost = working.reduce((sum, a) => sum + (parseFloat(a.rate) || 0) * stepDays, 0);
+    // Split working agents into eligible (item/consumable reqs satisfied) and blocked.
+    const activeTasks = [...new Set(working.map(a => getCurrentTask(a)).filter(Boolean))];
+    const blockedIds  = getItemBlockedTasks(activeTasks);
+    const eligible    = working.filter(a => !blockedIds.has(getCurrentTask(a)?.id));
+    working.filter(a => blockedIds.has(getCurrentTask(a)?.id)).forEach(a => flashError(a.id));
 
-    if (totalCost > (state.session.bank ?? 0)) {
-      // Can't pay everyone: flash all active agents, no effort advances.
-      working.forEach(a => flashError(a.id));
-    } else {
-      state.session.bank = Math.round(((state.session.bank ?? 0) - totalCost) * 100) / 100;
+    if (eligible.length) {
+      const totalCost = eligible.reduce((sum, a) => sum + (parseFloat(a.rate) || 0) * stepDays, 0);
 
-      const tasksWithEffort = new Set(); // tasks that received ≥1 skill-effort contribution
+      if (totalCost > (state.session.bank ?? 0)) {
+        // Can't pay everyone: flash all eligible agents, no effort advances.
+        eligible.forEach(a => flashError(a.id));
+      } else {
+        state.session.bank = Math.round(((state.session.bank ?? 0) - totalCost) * 100) / 100;
 
-      for (const agent of working) {
-        const task = getCurrentTask(agent);
-        if (!task) continue;
+        const tasksWithEffort = new Set(); // tasks that received ≥1 skill-effort contribution
 
-        task.effortProgress = task.effortProgress || {};
-        let agentContributed = false;
+        for (const agent of eligible) {
+          const task = getCurrentTask(agent);
+          if (!task) continue;
 
-        for (const req of task.requirements) {
-          const p = parseTag(req);
-          if (p.type !== 'effort' || p.isReq || !p.name || !p.value) continue;
+          task.effortProgress = task.effortProgress || {};
+          let agentContributed = false;
 
-          // Agent must have a matching skill attribute with a positive value.
-          const skillTag = agent.attributes.find(attr => {
-            const ap = parseTag(attr);
-            return ap.type === 'skill' && ap.name.toLowerCase() === p.name.toLowerCase();
-          });
-          if (!skillTag) continue;
-          const skillVal = parseTag(skillTag).value ?? 0;
-          if (skillVal <= 0) continue;
+          for (const req of getEffortReqs(task)) {
+            if (req.name) {
+              // Named effort: agent must have a matching skill attribute.
+              const skillTag = agent.attributes.find(attr => {
+                const ap = parseTag(attr);
+                return ap.type === 'skill' && ap.name.toLowerCase() === req.name.toLowerCase();
+              });
+              if (!skillTag) continue;
+              const skillVal = parseTag(skillTag).value ?? 0;
+              if (skillVal <= 0) continue;
+              task.effortProgress[req.name] = (task.effortProgress[req.name] ?? 0) + skillVal * stepDays;
+            } else {
+              // Nameless or default effort: any agent contributes 1 unit per day.
+              task.effortProgress[''] = (task.effortProgress[''] ?? 0) + stepDays;
+            }
+            agentContributed = true;
+            tasksWithEffort.add(task.id);
+          }
 
-          task.effortProgress[p.name] = (task.effortProgress[p.name] ?? 0) + skillVal * stepDays;
-          agentContributed = true;
-          tasksWithEffort.add(task.id);
+          // Agent assigned to a named-skill task with no matching skill → flash.
+          if (!agentContributed) flashError(agent.id);
         }
 
-        // Agent is active on a skill-based task but has no matching skills → flash idle.
-        if (!agentContributed && hasEffortRequirements(task)) flashError(agent.id);
-      }
+        // Flash agents whose task got zero total effort this step (no one has the skills).
+        for (const agent of eligible) {
+          const task = getCurrentTask(agent);
+          if (!task || !hasEffortRequirements(task)) continue;
+          if (!tasksWithEffort.has(task.id)) flashError(agent.id);
+        }
 
-      // Flash agents whose task got zero total effort this step (no one has the skills).
-      for (const agent of working) {
-        const task = getCurrentTask(agent);
-        if (!task || !hasEffortRequirements(task)) continue;
-        if (!tasksWithEffort.has(task.id)) flashError(agent.id);
-      }
-
-      // Auto-complete tasks whose effort requirements are now satisfied.
-      for (const task of state.tasks) {
-        if (!task.isComplete && hasEffortRequirements(task) && checkTaskComplete(task)) {
-          task.isComplete = true;
-          pruneTaskFromAgents(task.id);
-          executeTaskRewards(task);
+        // Auto-complete tasks whose effort requirements are now satisfied.
+        for (const task of state.tasks) {
+          if (!task.isComplete && hasEffortRequirements(task) && checkTaskComplete(task)) {
+            task.isComplete = true;
+            pruneTaskFromAgents(task.id);
+            consumeTaskItems(task);
+            executeTaskRewards(task);
+          }
         }
       }
     }
@@ -1501,6 +1569,93 @@ function showConfigPanel() {
   document.body.appendChild(overlay);
 }
 
+/* ---------- Inventory panel ---------- */
+function showInventoryPanel() {
+  const existing = document.getElementById('inventory-overlay');
+  if (existing) { existing.remove(); return; }
+
+  const overlay = el('div', {
+    class: 'config-overlay',
+    id: 'inventory-overlay',
+    onclick: (e) => { if (e.target === overlay) overlay.remove(); }
+  });
+
+  function renderPanel() {
+    overlay.innerHTML = '';
+
+    const panel = el('div', { class: 'config-panel inventory-panel' });
+    panel.appendChild(el('h2', { text: 'INVENTORY' }));
+
+    const list = el('div', { class: 'inventory-list' });
+
+    if (!state.inventory.length) {
+      list.appendChild(el('div', { class: 'empty-state', text: 'No items' }));
+    } else {
+      state.inventory.forEach((item, i) => {
+        const row = el('div', { class: 'inventory-row' });
+
+        const nameSpan = editable(item.name, (v) => {
+          item.name = v || 'ITEM';
+          save();
+        });
+        nameSpan.classList.add('inventory-name');
+
+        const sep = el('span', { class: 'inventory-sep', text: '|' });
+
+        const qtySpan = editable(String(item.qty), (v) => {
+          const n = parseFloat(v);
+          if (isNaN(n) || n <= 0) {
+            state.inventory.splice(i, 1);
+            save();
+            renderPanel();
+          } else {
+            item.qty = n;
+            save();
+          }
+        });
+        qtySpan.classList.add('inventory-qty');
+
+        row.appendChild(nameSpan);
+        row.appendChild(sep);
+        row.appendChild(qtySpan);
+        row.appendChild(el('span', {
+          class: 'x',
+          text: '×',
+          title: 'Remove',
+          onclick: (e) => { e.stopPropagation(); state.inventory.splice(i, 1); save(); renderPanel(); }
+        }));
+
+        list.appendChild(row);
+      });
+    }
+
+    panel.appendChild(list);
+
+    panel.appendChild(el('button', {
+      class: 'add-inline',
+      text: '+ ITEM',
+      onclick: (e) => {
+        e.stopPropagation();
+        state.inventory.push({ id: uid(), name: 'NEW ITEM', qty: 1 });
+        save();
+        renderPanel();
+      }
+    }));
+
+    panel.appendChild(el('button', {
+      class: 'ctrl',
+      text: 'CLOSE',
+      onclick: () => overlay.remove(),
+      style: { alignSelf: 'flex-end', marginTop: '4px' }
+    }));
+
+    overlay.appendChild(panel);
+  }
+
+  renderPanel();
+  document.body.appendChild(overlay);
+}
+
 /* ---------- Wiring ---------- */
 function wireMenu() {
   document.getElementById('add-agent').onclick = createAgent;
@@ -1508,6 +1663,7 @@ function wireMenu() {
   document.getElementById('advance-time').onclick = advanceTime;
   document.getElementById('play-btn').onclick  = startPlay;
   document.getElementById('pause-btn').onclick = stopPlay;
+  document.getElementById('inventory-btn').onclick = showInventoryPanel;
   document.getElementById('config-btn').onclick = showConfigPanel;
 
   // Editable session fields

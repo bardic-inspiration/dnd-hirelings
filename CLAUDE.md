@@ -103,3 +103,6 @@ Tags are free-form `#type:content` strings — no schema change needed. Just dec
 
 ### Migrate state shape
 Bump the `STORAGE_KEY` in `app.js` (e.g. `-v1` → `-v2`) when the shape changes incompatibly. Old data is left in localStorage but ignored — that's preferable to silent corruption.
+
+### Git
+Make commit messages very concise (50-100 characters)
