@@ -984,18 +984,18 @@ function renderAgentCard(agent) {
   ));
   card.appendChild(attrSect);
 
-  // Activities: read-only. Populated via task-assignment; × unassigns.
-  // First non-complete task is highlighted (current); rest are queued (dim).
+  // Tasks: read-only. Populated via task-assignment; × unassigns.
+  // Only incomplete tasks are shown. First is highlighted (current); rest are queued (dim).
   const actSect = el('div', { class: 'tag-section' });
-  actSect.appendChild(el('div', { class: 'tag-label', text: 'ACTIVITIES' }));
+  actSect.appendChild(el('div', { class: 'tag-label', text: 'TASKS' }));
   const actList = el('div', { class: 'tag-list' });
   let foundCurrent = false;
   agent.activities.forEach(actTag => {
     const p = parseTag(actTag);
     if (p.type !== 'task') return;
     const task = state.tasks.find(t => t.id === p.name);
-    if (!task) return; // stale — will be pruned on next save
-    const isCurrent = !task.isComplete && !foundCurrent;
+    if (!task || task.isComplete) return;
+    const isCurrent = !foundCurrent;
     if (isCurrent) foundCurrent = true;
     actList.appendChild(renderTag(actTag, isCurrent, () => {
       agent.activities = agent.activities.filter(t => t !== actTag);
@@ -1715,6 +1715,24 @@ function showInventoryPanel() {
   document.body.appendChild(overlay);
 }
 
+/* ---------- Reset ---------- */
+function resetAll() {
+  if (!confirm('Reset everything to defaults? All agents, tasks, and inventory will be lost.')) return;
+  if (ui.playing) stopPlay();
+  localStorage.removeItem(STORAGE_KEY);
+  state = {
+    session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1', bank: 100, rateMultiplier: 1, effortRate: 1, skillRate: 1 },
+    agents: [],
+    tasks: [],
+    inventory: [],
+  };
+  ui.selectedTaskId = null;
+  ui.expandedTasks.clear();
+  ui.taskEffortPerTick = {};
+  save();
+  render();
+}
+
 /* ---------- Wiring ---------- */
 function wireMenu() {
   document.getElementById('add-agent').onclick = createAgent;
@@ -1724,6 +1742,7 @@ function wireMenu() {
   document.getElementById('pause-btn').onclick = stopPlay;
   document.getElementById('inventory-btn').onclick = showInventoryPanel;
   document.getElementById('config-btn').onclick = showConfigPanel;
+  document.getElementById('reset-btn').onclick = resetAll;
 
   // Editable session fields
   const sessId = document.getElementById('session-id');
