@@ -116,7 +116,7 @@ let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 /* ---------- State ---------- */
 // Single source of truth, serialized to localStorage on every mutation.
 let state = {
-  session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1', bank: 100, rateMultiplier: 1 },
+  session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1', bank: 100, rateMultiplier: 1, effortRate: 1, skillRate: 1 },
   agents: [],     // { id, name, icon, rate, rateUnit, description, attributes[], activities[], createdAt, lastAssigned }
   tasks: [],      // { id, name, description, requirements[], effortProgress{}, isComplete, createdAt }
   inventory: [],  // { id, name, qty }
@@ -153,6 +153,8 @@ function load() {
     state.session.timeStep ??= '60';
     state.session.playbackRate ??= '1';
     state.session.rateMultiplier ??= 1;
+    state.session.effortRate ??= 1;
+    state.session.skillRate ??= 1;
     state.inventory ??= [];
     state.inventory.forEach(item => { item.id ??= uid(); item.name ??= 'ITEM'; item.qty ??= 1; });
     state.tasks.forEach(t => {
@@ -1196,7 +1198,7 @@ function renderTaskProgressBar(task) {
   const pct = totalRequired > 0 ? Math.min(100, (totalProgress / totalRequired) * 100) : 0;
 
   const wrap = el('div', { class: 'task-progress' });
-  wrap.appendChild(el('div', { class: 'task-progress-fill', style: { width: `${pct.toFixed(1)}%` } }));
+  wrap.appendChild(el('div', { class: 'task-progress-fill', data: { taskId: task.id }, style: { width: `${pct.toFixed(1)}%` } }));
   return wrap;
 }
 
@@ -1369,6 +1371,7 @@ function getStepMinutes() {
 
 function advanceTime() {
   ui.lastTickWallTime = Date.now();
+  ui.taskEffortPerTick = {}; // reset per-tick rates for progress interpolation
   const stepMins = getStepMinutes();
   const stepDays = stepMins / 1440;
 
@@ -1393,6 +1396,9 @@ function advanceTime() {
 
         const tasksWithEffort = new Set(); // tasks that received ≥1 skill-effort contribution
 
+        const effortRate = state.session.effortRate ?? 1;
+        const skillRate  = state.session.skillRate  ?? 1;
+
         for (const agent of eligible) {
           const task = getCurrentTask(agent);
           if (!task) continue;
@@ -1401,25 +1407,23 @@ function advanceTime() {
           let agentContributed = false;
 
           for (const req of getEffortReqs(task)) {
+            const key = req.name || '';
+            // Base: effortRate per day. Named skill: base + agentSkillValue * skillRate per day.
+            let rate = effortRate * stepDays;
             if (req.name) {
-              // Named effort: agent must have a matching skill attribute.
               const skillTag = agent.attributes.find(attr => {
                 const ap = parseTag(attr);
                 return ap.type === 'skill' && ap.name.toLowerCase() === req.name.toLowerCase();
               });
-              if (!skillTag) continue;
-              const skillVal = parseTag(skillTag).value ?? 0;
-              if (skillVal <= 0) continue;
-              task.effortProgress[req.name] = (task.effortProgress[req.name] ?? 0) + skillVal * stepDays;
-            } else {
-              // Nameless or default effort: any agent contributes 1 unit per day.
-              task.effortProgress[''] = (task.effortProgress[''] ?? 0) + stepDays;
+              const skillVal = skillTag ? (parseTag(skillTag).value ?? 0) : 0;
+              if (skillVal > 0) rate = (effortRate + skillVal * skillRate) * stepDays;
             }
+            task.effortProgress[key] = (task.effortProgress[key] ?? 0) + rate;
+            ui.taskEffortPerTick[task.id] = (ui.taskEffortPerTick[task.id] ?? 0) + rate;
             agentContributed = true;
             tasksWithEffort.add(task.id);
           }
 
-          // Agent assigned to a named-skill task with no matching skill → flash.
           if (!agentContributed) flashError(agent.id);
         }
 
@@ -1452,13 +1456,29 @@ function advanceTime() {
 // so the clock advances smoothly instead of jumping on each advanceTime() call.
 function updateClockDisplay() {
   if (!ui.playing) return;
+  const elapsed = Date.now() - ui.lastTickWallTime;
+  const frac = Math.min(1, elapsed / ui.tickIntervalMs);
+
   const clockEl = document.getElementById('clock');
   if (clockEl) {
-    const elapsed = Date.now() - ui.lastTickWallTime;
     const stepMins = getStepMinutes();
-    const interpolatedMins = state.session.clock + (elapsed / ui.tickIntervalMs) * stepMins;
-    clockEl.textContent = formatClock(interpolatedMins);
+    clockEl.textContent = formatClock(state.session.clock + frac * stepMins);
   }
+
+  const rates = ui.taskEffortPerTick || {};
+  for (const task of state.tasks) {
+    if (task.isComplete) continue;
+    const effortPerTick = rates[task.id] ?? 0;
+    if (!effortPerTick) continue;
+    const efforts = getEffortReqs(task);
+    const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
+    if (!totalRequired) continue;
+    const stored = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name || ''] ?? 0), 0);
+    const pct = Math.min(100, ((stored + frac * effortPerTick) / totalRequired) * 100);
+    const fill = document.querySelector(`.task-progress-fill[data-task-id="${task.id}"]`);
+    if (fill) fill.style.width = `${pct.toFixed(1)}%`;
+  }
+
   ui.animationFrameId = requestAnimationFrame(updateClockDisplay);
 }
 
@@ -1489,6 +1509,15 @@ function stopPlay() {
   if (ui.animationFrameId) {
     cancelAnimationFrame(ui.animationFrameId);
     ui.animationFrameId = null;
+  }
+  // Snap bars back to stored values now that interpolation has stopped.
+  for (const task of state.tasks) {
+    const fill = document.querySelector(`.task-progress-fill[data-task-id="${task.id}"]`);
+    if (!fill || task.isComplete) continue;
+    const efforts = getEffortReqs(task);
+    const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
+    const stored = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name || ''] ?? 0), 0);
+    fill.style.width = `${totalRequired > 0 ? Math.min(100, (stored / totalRequired) * 100).toFixed(1) : 0}%`;
   }
   updatePlayButtons();
 }
@@ -1556,6 +1585,36 @@ function showConfigPanel() {
   });
   rateRow.appendChild(rateInput);
   panel.appendChild(rateRow);
+
+  // Effort rate
+  const effortRateRow = el('div', { class: 'config-row' });
+  effortRateRow.appendChild(el('label', { text: 'EFFORT RATE' }));
+  const effortRateInput = el('input', {
+    type: 'number', min: '0', step: '0.1',
+    value: String(state.session.effortRate ?? 1),
+  });
+  effortRateInput.addEventListener('change', () => {
+    const v = parseFloat(effortRateInput.value);
+    state.session.effortRate = isNaN(v) || v < 0 ? 1 : v;
+    save();
+  });
+  effortRateRow.appendChild(effortRateInput);
+  panel.appendChild(effortRateRow);
+
+  // Skill rate
+  const skillRateRow = el('div', { class: 'config-row' });
+  skillRateRow.appendChild(el('label', { text: 'SKILL RATE' }));
+  const skillRateInput = el('input', {
+    type: 'number', min: '0', step: '0.1',
+    value: String(state.session.skillRate ?? 1),
+  });
+  skillRateInput.addEventListener('change', () => {
+    const v = parseFloat(skillRateInput.value);
+    state.session.skillRate = isNaN(v) || v < 0 ? 1 : v;
+    save();
+  });
+  skillRateRow.appendChild(skillRateInput);
+  panel.appendChild(skillRateRow);
 
   // Close button
   panel.appendChild(el('button', {
