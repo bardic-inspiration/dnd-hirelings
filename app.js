@@ -107,7 +107,13 @@ const DEFAULT_CONFIG = {
     rateUnit: 'GP/DAY',
     taskName: 'NEW TASK',
     timeStep: '10s',
-    sessionId: '001'
+    sessionId: '001',
+
+    defaultMessages: {
+      activeAgentEmpty: 'NO ACTIVE HIRELINGS',
+      idleAgentEmpty: 'NO IDLE HIRELINGS',
+      taskEmpty: 'NO TASKS',
+    }
   }
 };
 
@@ -1335,10 +1341,12 @@ function render() {
   activeEl.innerHTML = '';
   idleEl.innerHTML = '';
 
-  if (!active.length) activeEl.appendChild(el('div', { class: 'empty', text: 'NO ACTIVE HIRELINGS' }));
+  // Active agents: show all with their tasks. Idle agents: show all with "no active tasks" message.
+  if (!active.length) activeEl.appendChild(el('div', { class: 'empty', text: activeAgentEmpty }));
   else active.forEach(a => activeEl.appendChild(renderAgentCard(a)));
 
-  if (!idle.length) idleEl.appendChild(el('div', { class: 'empty', text: 'NO IDLE HIRELINGS' }));
+  // Add buttons: always visible at the end of each list.
+  if (!idle.length) idleEl.appendChild(el('div', { class: 'empty', text: idleAgentEmpty }));
   else idle.forEach(a => idleEl.appendChild(renderAgentCard(a)));
   idleEl.appendChild(el('button', {
     class: 'add-inline',
@@ -1350,7 +1358,7 @@ function render() {
   const taskList = document.getElementById('task-list');
   taskList.innerHTML = '';
   if (!state.tasks.length) {
-    taskList.appendChild(el('div', { class: 'empty', text: 'NO TASKS' }));
+    taskList.appendChild(el('div', { class: 'empty', text: taskEmpty }));
   } else {
     [...state.tasks]
       .sort((a, b) => (a.isComplete - b.isComplete) || (b.createdAt - a.createdAt))

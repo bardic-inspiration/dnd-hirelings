@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 D&D Hirelings is a single-page dashboard for managing NPC agents (hirelings) during D&D downtime. Players create agents, assign tasks, and advance a game clock that drives automated progress.
 
-**Design principles:** Ultra-minimalist (black bg, 1px frames, configurable palettes). No page scroll. Single-line menu bar. No heavy frameworks.
+**Design principles:** Ultra-minimalist. No page scroll. Single-line menu bar. Lightweight.
 
-**Engineering principles:** Vanilla JS, no build step, no bundler. Mutate `state`, call `save(); render();`. Don't introduce a diff layer.
+**Engineering principles:** Vanilla JS, no build step, no bundler. Mutate `state`, call `save(); render();`.
 
 ## File Structure
 
