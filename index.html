@@ -49,7 +49,10 @@
     <!-- LEFT: agent cards, split into ACTIVE / IDLE columns -->
     <section id="agents-pane" class="pane">
       <div class="column">
-        <div class="col-label">ACTIVE</div>
+        <div class="col-label col-label-row">
+          <span>ACTIVE</span>
+          <button class="ctrl col-add" id="clear-active">CLEAR</button>
+        </div>
         <div class="card-grid" id="active-agents"></div>
       </div>
       <div class="column">

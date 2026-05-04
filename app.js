@@ -110,9 +110,9 @@ const DEFAULT_CONFIG = {
     sessionId: '001',
 
     defaultMessages: {
-      activeAgentEmpty: 'NO ACTIVE HIRELINGS',
-      idleAgentEmpty: 'NO IDLE HIRELINGS',
-      taskEmpty: 'NO TASKS',
+      activeAgentEmpty: '',
+      idleAgentEmpty: '',
+      taskEmpty: '',
     }
   }
 };
@@ -572,6 +572,24 @@ function activeTaskCount(agent) {
   }).length;
 }
 
+// Returns true if the agent has at least one attribute satisfying a task attribute
+// requirement, or if the task has no attribute requirements (effort/item reqs only).
+function agentMatchesTask(agent, task) {
+  const attrReqs = task.requirements.filter(r => {
+    const p = parseTag(r);
+    return p.isReq && p.type !== 'item' && p.type !== 'consumable';
+  });
+  if (!attrReqs.length) return true;
+  return attrReqs.some(req => {
+    const rp = parseTag(req);
+    return agent.attributes.some(attr => {
+      const ap = parseTag(attr);
+      return ap.type === rp.type && ap.name && rp.name &&
+             ap.name.toLowerCase() === rp.name.toLowerCase();
+    });
+  });
+}
+
 function agentsAssignedTo(taskId) {
   const tag = `#task:${taskId}`;
   return state.agents.filter(a => a.activities.includes(tag));
@@ -923,7 +941,11 @@ function renderReqRow(task, i, reqStr) {
 /* ---------- Agent card ---------- */
 function renderAgentCard(agent) {
   const card = el('div', {
-    class: 'agent-card' + (ui.selectedTaskId ? ' assignable' : ''),
+    class: 'agent-card' + (() => {
+      if (!ui.selectedTaskId) return '';
+      const t = state.tasks.find(t => t.id === ui.selectedTaskId);
+      return t ? (agentMatchesTask(agent, t) ? ' assignable' : ' not-assignable') : '';
+    })(),
     data: { id: agent.id }
   });
 
@@ -1018,7 +1040,7 @@ function renderAgentCard(agent) {
   const delRow = el('div', { class: 'tag-section action-row' });
   delRow.appendChild(el('button', {
     class: 'delete-btn',
-    text: '⎘ DUP',
+    text: '⎘ COPY',
     title: 'Duplicate hireling',
     onclick: (e) => { e.stopPropagation(); duplicateAgent(agent.id); }
   }));
@@ -1281,7 +1303,7 @@ function renderTaskCard(task) {
   statusRow.appendChild(el('span', { text: task.isComplete ? 'COMPLETE' : 'INCOMPLETE' }));
   statusRow.appendChild(el('button', {
     class: 'delete-btn',
-    text: '⎘ DUP',
+    text: '⎘ COPY',
     title: 'Duplicate task',
     onclick: (e) => { e.stopPropagation(); duplicateTask(task.id); }
   }));
@@ -1309,6 +1331,7 @@ function renderTaskCard(task) {
 
 /* ---------- Render ---------- */
 function render() {
+  const { activeAgentEmpty, idleAgentEmpty, taskEmpty } = config.defaults.defaultMessages;
   // Menu values
   const sessIdEl = document.getElementById('session-id');
   if (document.activeElement !== sessIdEl) sessIdEl.textContent = state.session.id;
@@ -1443,13 +1466,21 @@ function advanceTime() {
         }
 
         // Auto-complete tasks whose effort requirements are now satisfied.
+        let anyCompleted = false;
         for (const task of state.tasks) {
           if (!task.isComplete && hasEffortRequirements(task) && checkTaskComplete(task)) {
             task.isComplete = true;
+            anyCompleted = true;
             pruneTaskFromAgents(task.id);
             consumeTaskItems(task);
             executeTaskRewards(task);
           }
+        }
+        if (anyCompleted) {
+          state.session.clock = (parseFloat(state.session.clock) || 0) + stepMins;
+          save();
+          render();
+          return;
         }
       }
     }
@@ -1457,7 +1488,15 @@ function advanceTime() {
 
   state.session.clock = (parseFloat(state.session.clock) || 0) + stepMins;
   save();
-  render();
+  updateTickDisplay();
+}
+
+// Lightweight tick update: patches only fields that change every advanceTime() call
+// without requiring a full DOM rebuild. Called when no structural changes occurred.
+function updateTickDisplay() {
+  const bankEl = document.getElementById('bank');
+  if (bankEl && document.activeElement !== bankEl)
+    bankEl.textContent = (state.session.bank ?? 0).toFixed(1);
 }
 
 // Continuous clock display: interpolates position within the current tick interval
@@ -1518,15 +1557,7 @@ function stopPlay() {
     cancelAnimationFrame(ui.animationFrameId);
     ui.animationFrameId = null;
   }
-  // Snap bars back to stored values now that interpolation has stopped.
-  for (const task of state.tasks) {
-    const fill = document.querySelector(`.task-progress-fill[data-task-id="${task.id}"]`);
-    if (!fill || task.isComplete) continue;
-    const efforts = getEffortReqs(task);
-    const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
-    const stored = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name || ''] ?? 0), 0);
-    fill.style.width = `${totalRequired > 0 ? Math.min(100, (stored / totalRequired) * 100).toFixed(1) : 0}%`;
-  }
+  render();
   updatePlayButtons();
 }
 
@@ -1745,6 +1776,10 @@ function resetAll() {
 function wireMenu() {
   document.getElementById('add-agent').onclick = createAgent;
   document.getElementById('add-task').onclick  = createTask;
+  document.getElementById('clear-active').onclick = () => {
+    state.agents.forEach(a => { a.activities = a.activities.filter(t => !t.startsWith('#task:')); });
+    save(); render();
+  };
   document.getElementById('advance-time').onclick = advanceTime;
   document.getElementById('play-btn').onclick  = startPlay;
   document.getElementById('pause-btn').onclick = stopPlay;
