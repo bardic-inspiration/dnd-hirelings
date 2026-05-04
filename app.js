@@ -153,7 +153,7 @@ function load() {
     state.agents.forEach(a => {
       a.attributes ||= []; a.activities ||= [];
       a.description ??= ''; a.icon ??= '';
-      a.createdAt ||= Date.now(); a.lastAssigned ||= 0;
+      a.createdAt ??= Date.now(); a.lastAssigned ??= null;
     });
     state.session.bank ??= 100;
     state.session.timeStep ??= '60';
@@ -164,8 +164,8 @@ function load() {
     state.inventory ??= [];
     state.inventory.forEach(item => { item.id ??= uid(); item.name ??= 'ITEM'; item.qty ??= 1; });
     state.tasks.forEach(t => {
-      t.requirements ||= []; t.description ??= '';
-      t.isComplete ??= false; t.createdAt ||= Date.now();
+      t.requirements ??= []; t.description ??= '';
+      t.isComplete ??= false; t.createdAt ??= Date.now();
       t.effortProgress ??= {};
       // Migrate legacy requirements (no req: prefix) to req: form.
       // Multiple effort tags are now allowed (they sum together).
@@ -303,18 +303,24 @@ function editable(text, oncommit, opts = {}) {
 }
 
 /* ---------- Domain operations ---------- */
+function agentDefaults(cfg) {
+  return {
+    name: cfg.defaults.agentName,
+    icon: '',
+    rate: cfg.defaults.rate,
+    rateUnit: cfg.defaults.rateUnit,
+    description: '',
+    attributes: [],
+  };
+}
+
 function createAgent() {
   state.agents.push({
     id: uid(),
-    name: config.defaults.agentName,
-    icon: '',
-    rate: config.defaults.rate,
-    rateUnit: config.defaults.rateUnit,
-    description: '',
-    attributes: [],
+    ...agentDefaults(config),
     activities: [],
     createdAt: now(),
-    lastAssigned: 0,
+    lastAssigned: null,
   });
   save(); render();
 }
@@ -342,9 +348,9 @@ function duplicateAgent(id) {
   if (!orig) return;
   const copy = JSON.parse(JSON.stringify(orig));
   copy.id = uid();
-  copy.activities = [];        // don't carry over task assignments
+  copy.activities = [];
   copy.createdAt = now();
-  copy.lastAssigned = 0;
+  copy.lastAssigned = null;
   state.agents.push(copy);
   save(); render();
 }
@@ -386,6 +392,13 @@ function executeTaskRewards(task) {
     // Future reward types can be added here:
     // if (p.name === 'experience' && p.value !== null) { ... }
   }
+}
+
+function completeTask(task) {
+  task.isComplete = true;
+  pruneTaskFromAgents(task.id);
+  consumeTaskItems(task);
+  executeTaskRewards(task);
 }
 
 // Returns a Set of task IDs whose item/consumable requirements cannot be met.
@@ -468,10 +481,6 @@ function getEffortReqs(task) {
     .map(r => parseTag(r))
     .filter(p => p.type === 'effort' && !p.isReq && p.value !== null && p.value > 0);
   return all.length > 0 ? all : [{ type: 'effort', name: null, value: 1, isReq: false }];
-}
-
-function hasEffortRequirements(task) {
-  return getEffortReqs(task).length > 0; // always true; kept for semantic clarity
 }
 
 // Returns true when total effort progress >= total effort required.
@@ -1003,7 +1012,15 @@ function renderAgentCard(agent) {
       onAdd: () => {
         showTagBuilder({
           context: 'attribute',
-          onSave: (tag) => { agent.attributes.push(tag); save(); render(); },
+          onSave: (tag) => {
+            const incoming = parseTag(tag);
+            agent.attributes = agent.attributes.filter(t => {
+              const p = parseTag(t);
+              return !(p.type === incoming.type && p.name === incoming.name);
+            });
+            agent.attributes.push(tag);
+            save(); render();
+          },
           onCancel: () => {}
         });
       },
@@ -1292,11 +1309,7 @@ function renderTaskCard(task) {
     onclick: (e) => {
       e.stopPropagation();
       task.isComplete = !task.isComplete;
-      if (task.isComplete) {
-        pruneTaskFromAgents(task.id);
-        consumeTaskItems(task);
-        executeTaskRewards(task);
-      }
+      if (task.isComplete) completeTask(task);
       save(); render();
     }
   }));
@@ -1353,10 +1366,10 @@ function render() {
 
   active.sort((a, b) =>
     activeTaskCount(b) - activeTaskCount(a) ||
-    (b.lastAssigned || b.createdAt) - (a.lastAssigned || a.createdAt)
+    (b.lastAssigned ?? b.createdAt) - (a.lastAssigned ?? a.createdAt)
   );
   idle.sort((a, b) =>
-    (b.lastAssigned || b.createdAt) - (a.lastAssigned || a.createdAt)
+    (b.lastAssigned ?? b.createdAt) - (a.lastAssigned ?? a.createdAt)
   );
 
   const activeEl = document.getElementById('active-agents');
@@ -1434,7 +1447,6 @@ function advanceTime() {
           const task = getCurrentTask(agent);
           if (!task) continue;
 
-          task.effortProgress = task.effortProgress || {};
           let agentContributed = false;
 
           for (const req of getEffortReqs(task)) {
@@ -1461,19 +1473,16 @@ function advanceTime() {
         // Flash agents whose task got zero total effort this step (no one has the skills).
         for (const agent of eligible) {
           const task = getCurrentTask(agent);
-          if (!task || !hasEffortRequirements(task)) continue;
+          if (!task) continue;
           if (!tasksWithEffort.has(task.id)) flashError(agent.id);
         }
 
         // Auto-complete tasks whose effort requirements are now satisfied.
         let anyCompleted = false;
         for (const task of state.tasks) {
-          if (!task.isComplete && hasEffortRequirements(task) && checkTaskComplete(task)) {
-            task.isComplete = true;
+          if (!task.isComplete && checkTaskComplete(task)) {
+            completeTask(task);
             anyCompleted = true;
-            pruneTaskFromAgents(task.id);
-            consumeTaskItems(task);
-            executeTaskRewards(task);
           }
         }
         if (anyCompleted) {
