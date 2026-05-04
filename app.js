@@ -380,17 +380,13 @@ function pruneTaskFromAgents(taskId) {
 // Currently supported: reward:gold=amount
 function executeTaskRewards(task) {
   if (!task.isComplete) return;
-
   for (const req of task.requirements) {
     const p = parseTag(req);
-    if (p.type !== 'reward') continue;
-
-    // Gold reward: add to bank
-    if (p.name === 'gold' && p.value !== null && p.value > 0) {
+    const fn = tagFn(p);
+    if (fn === 'reward-gold' && p.value > 0) {
       state.session.bank = (state.session.bank ?? 0) + p.value;
     }
-    // Future reward types can be added here:
-    // if (p.name === 'experience' && p.value !== null) { ... }
+    // Add new reward cases here: if (fn === 'reward-experience') { ... }
   }
 }
 
@@ -414,24 +410,19 @@ function getItemBlockedTasks(activeTasks) {
     let pass = true;
     for (const req of task.requirements) {
       const p = parseTag(req);
-      if (!p.isReq || !p.name) continue;
-      if (p.type !== 'item' && p.type !== 'consumable') continue;
-      const key = p.name.toLowerCase();
-      const needed = p.value ?? 1;
-      if (p.type === 'item') {
-        // Item reqs check actual inventory — they don't consume, so reservations don't affect them.
-        const inv = state.inventory.find(i => i.name.toLowerCase() === key);
-        if (!inv || inv.qty < needed) { pass = false; break; }
-      } else {
-        // Consumable reqs check the running pool (reduced by prior tasks' reservations).
-        if ((pool[key] ?? 0) < needed) { pass = false; break; }
+      const fn = tagFn(p);
+      if (!p.name) continue;
+      if (fn === 'block') {
+        const inv = state.inventory.find(i => i.name.toLowerCase() === p.name.toLowerCase());
+        if (!inv || inv.qty < (p.value ?? 1)) { pass = false; break; }
+      } else if (fn === 'consume') {
+        if ((pool[p.name.toLowerCase()] ?? 0) < (p.value ?? 1)) { pass = false; break; }
       }
     }
     if (!pass) { blocked.add(task.id); continue; }
-    // Task passes — reserve its consumable amounts for this tick.
     for (const req of task.requirements) {
       const p = parseTag(req);
-      if (!p.isReq || p.type !== 'consumable' || !p.name) continue;
+      if (tagFn(p) !== 'consume' || !p.name) continue;
       const key = p.name.toLowerCase();
       pool[key] = (pool[key] ?? 0) - (p.value ?? 1);
     }
@@ -443,9 +434,8 @@ function getItemBlockedTasks(activeTasks) {
 function consumeTaskItems(task) {
   for (const req of task.requirements) {
     const p = parseTag(req);
-    if (!p.isReq || p.type !== 'consumable' || !p.name) continue;
-    const key = p.name.toLowerCase();
-    const item = state.inventory.find(i => i.name.toLowerCase() === key);
+    if (tagFn(p) !== 'consume' || !p.name) continue;
+    const item = state.inventory.find(i => i.name.toLowerCase() === p.name.toLowerCase());
     if (!item) continue;
     item.qty = Math.max(0, item.qty - (p.value ?? 1));
   }
@@ -496,9 +486,8 @@ function checkTaskComplete(task) {
 function validateAssignment(agent, task) {
   for (const req of task.requirements) {
     const reqP = parseTag(req);
-    if (!reqP.isReq) continue;       // only req: tags gate assignment
-    if (!reqP.name) continue;        // nameless reqs are global hints, not per-agent
-    if (reqP.type === 'item' || reqP.type === 'consumable') continue; // inventory reqs — runtime check
+    if (tagFn(reqP) !== 'require') continue; // only agent-matching reqs gate assignment
+    if (!reqP.name) continue;
     const match = agent.attributes.find(attr => {
       const p = parseTag(attr);
       return p.type === reqP.type && p.name && p.name.toLowerCase() === reqP.name.toLowerCase();
@@ -563,8 +552,7 @@ function isAttributeActive(attrTag, agent) {
     if (!task || task.isComplete) continue;
     for (const req of task.requirements) {
       const reqP = parseTag(req);
-      if (!reqP.isReq) continue;
-      if (reqP.type === 'item' || reqP.type === 'consumable') continue; // inventory reqs, not agent attrs
+      if (tagFn(reqP) !== 'require') continue;
       if (!reqP.name || !attrP.name) continue;
       if (reqP.type === attrP.type && reqP.name.toLowerCase() === attrP.name.toLowerCase()) return true;
     }
@@ -584,10 +572,7 @@ function activeTaskCount(agent) {
 // Returns true if the agent has at least one attribute satisfying a task attribute
 // requirement, or if the task has no attribute requirements (effort/item reqs only).
 function agentMatchesTask(agent, task) {
-  const attrReqs = task.requirements.filter(r => {
-    const p = parseTag(r);
-    return p.isReq && p.type !== 'item' && p.type !== 'consumable';
-  });
+  const attrReqs = task.requirements.filter(r => tagFn(parseTag(r)) === 'require');
   if (!attrReqs.length) return true;
   return attrReqs.some(req => {
     const rp = parseTag(req);
@@ -644,205 +629,206 @@ function renderTag(tagStr, active, onRemove) {
 
 // Tag builder modal with structured fields for type, name, value.
 // Intelligently shows/hides fields based on tag type and context.
-function showTagBuilder(opts = {}) {
-  const {
-    context = 'attribute',  // 'attribute' | 'requirement' | 'effort'
-    onSave = () => {},
-    onCancel = () => {}
-  } = opts;
+// Unified tag builder for both agent attributes and task tags.
+// context: 'attribute' shows attribute schema entries flat.
+//          'task'      shows all non-attribute entries grouped by context (optgroups).
+// Selecting a recognized pattern auto-configures name/value fields.
+// The last option ("Custom") exposes a free-form type input for unrecognized tags.
+function showTagBuilder({ context = 'attribute', onSave = () => {}, onCancel = () => {} } = {}) {
+  const isTask = context === 'task';
+  const title = isTask ? 'ADD TAG' : 'NEW ATTRIBUTE';
 
   const overlay = el('div', {
     class: 'tag-builder-overlay',
-    onclick: (e) => {
-      if (e.target === overlay) { onCancel(); overlay.remove(); }
-    }
+    onclick: (e) => { if (e.target === overlay) { onCancel(); overlay.remove(); } }
   });
-
   const card = el('div', { class: 'tag-builder-card' });
-
-  // Title
-  const title = context === 'requirement' ? 'NEW REQUIREMENT'
-              : context === 'effort' ? 'NEW EFFORT'
-              : 'NEW ATTRIBUTE';
   card.appendChild(el('div', { class: 'tag-builder-title', text: title }));
+  const fieldsWrapper = el('div', { class: 'tag-builder-fields' });
 
-  // Type field
-  const typeInput = el('input', {
+  // ── PATTERN selector ──────────────────────────────────────────────────────
+  const patternSelect = el('select', { class: 'tag-builder-field' });
+
+  if (isTask) {
+    // Group non-attribute entries by context; derive groups dynamically from schema.
+    const groups = [...new Set(
+      Object.values(TAG_SCHEMA)
+        .filter(e => e.context !== 'attribute')
+        .map(e => e.context)
+    )];
+    groups.forEach(ctx => {
+      const grp = document.createElement('optgroup');
+      grp.label = ctx.toUpperCase();
+      getSchemaByContext(ctx).forEach(([key, entry]) => {
+        grp.appendChild(el('option', { text: entry.label, value: key }));
+      });
+      patternSelect.appendChild(grp);
+    });
+  } else {
+    getSchemaByContext('attribute').forEach(([key, entry]) => {
+      patternSelect.appendChild(el('option', { text: entry.label, value: key }));
+    });
+  }
+  // Custom escape hatch — free-form type entry
+  patternSelect.appendChild(el('option', { text: 'Custom…', value: '__custom__' }));
+
+  fieldsWrapper.appendChild(el('div', { class: 'tag-builder-row' }, [
+    el('label', { class: 'tag-builder-label', text: 'PATTERN' }),
+    patternSelect
+  ]));
+
+  // ── Custom type input (shown only when Custom is selected) ────────────────
+  const customTypeInput = el('input', {
     class: 'tag-builder-field',
-    list: context === 'requirement' ? 'req-types' : 'tag-types',
     placeholder: 'type',
-    spellcheck: 'false'
+    spellcheck: 'false',
+    style: { display: 'none' }
   });
+  const customTypeRow = el('div', { class: 'tag-builder-row', style: { display: 'none' } }, [
+    el('label', { class: 'tag-builder-label', text: 'TYPE' }),
+    customTypeInput
+  ]);
+  fieldsWrapper.appendChild(customTypeRow);
 
-  // Name field (hidden for effort, time, duration, days, gold)
-  const nameInput = el('input', {
-    class: 'tag-builder-field',
-    placeholder: 'name',
-    spellcheck: 'false'
-  });
+  // ── Name and value fields ─────────────────────────────────────────────────
+  const nameLabelEl = el('label', { class: 'tag-builder-label', text: 'NAME' });
+  const nameInput   = el('input', { class: 'tag-builder-field', placeholder: 'name', spellcheck: 'false' });
+  const nameRow     = el('div', { class: 'tag-builder-row' }, [nameLabelEl, nameInput]);
+  fieldsWrapper.appendChild(nameRow);
 
-  // Value field
-  const valueInput = el('input', {
-    class: 'tag-builder-field',
-    type: 'number',
-    placeholder: 'value (optional)',
-    step: 'any'
-  });
+  const valueLabelEl = el('label', { class: 'tag-builder-label', text: 'VALUE' });
+  const valueInput   = el('input', { class: 'tag-builder-field', type: 'number', placeholder: 'optional', step: 'any' });
+  const valueRow     = el('div', { class: 'tag-builder-row' }, [valueLabelEl, valueInput]);
+  fieldsWrapper.appendChild(valueRow);
 
-  // Keyboard handling
-  [typeInput, nameInput, valueInput].forEach(inp => {
+  // ── Sync fields to selected pattern ───────────────────────────────────────
+  function applyPattern() {
+    const key = patternSelect.value;
+    const isCustom = key === '__custom__';
+    const entry = isCustom ? null : TAG_SCHEMA[key];
+
+    customTypeRow.style.display = isCustom ? 'flex' : 'none';
+
+    if (entry) {
+      nameLabelEl.textContent  = entry.nameLabel  ?? 'NAME';
+      valueLabelEl.textContent = entry.valueLabel ?? 'VALUE';
+      nameRow.style.display    = entry.hasName  ? 'flex' : 'none';
+      valueRow.style.display   = entry.hasValue ? 'flex' : 'none';
+    } else {
+      nameLabelEl.textContent  = 'NAME';
+      valueLabelEl.textContent = 'VALUE';
+      nameRow.style.display    = 'flex';
+      valueRow.style.display   = 'flex';
+    }
+  }
+  patternSelect.addEventListener('change', applyPattern);
+  applyPattern();
+
+  card.appendChild(fieldsWrapper);
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+  function saveTag() {
+    const key   = patternSelect.value;
+    const entry = key === '__custom__' ? null : TAG_SCHEMA[key];
+    const value = valueInput.value.trim() ? parseFloat(valueInput.value) : null;
+
+    let tag;
+    if (entry) {
+      const name = entry.nameFixed ?? (entry.hasName ? nameInput.value.trim() || null : null);
+      tag = buildTag(entry.type, name, value, entry.isReq);
+    } else {
+      const type = customTypeInput.value.trim();
+      if (!type) { customTypeInput.classList.add('error'); return; }
+      tag = buildTag(type, nameInput.value.trim() || null, value, false);
+    }
+
+    if (tag) { onSave(tag); overlay.remove(); }
+  }
+
+  // ── Keyboard ──────────────────────────────────────────────────────────────
+  [patternSelect, customTypeInput, nameInput, valueInput].forEach(inp => {
     inp.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); saveTag(); }
+      if (e.key === 'Enter')  { e.preventDefault(); saveTag(); }
       if (e.key === 'Escape') { e.preventDefault(); onCancel(); overlay.remove(); }
     });
   });
 
-  // Build fields
-  const fieldsWrapper = el('div', { class: 'tag-builder-fields' });
-
-  const typeRow = el('div', { class: 'tag-builder-row' }, [
-    el('label', { class: 'tag-builder-label', text: 'TYPE' }),
-    typeInput
-  ]);
-  fieldsWrapper.appendChild(typeRow);
-
-  const nameRow = el('div', { class: 'tag-builder-row', style: { display: 'flex' } }, [
-    el('label', { class: 'tag-builder-label', text: 'NAME' }),
-    nameInput
-  ]);
-  fieldsWrapper.appendChild(nameRow);
-
-  // Show/hide name field based on type (now that it's in the DOM)
-  const updateFieldVisibility = () => {
-    const type = typeInput.value.trim().toLowerCase();
-    const isNameless = context === 'effort' || NAMELESS_TYPES.has(type);
-    nameRow.style.display = isNameless ? 'none' : 'flex';
-  };
-  typeInput.addEventListener('input', updateFieldVisibility);
-  updateFieldVisibility();
-
-  const valueRow = el('div', { class: 'tag-builder-row' }, [
-    el('label', { class: 'tag-builder-label', text: 'VALUE' }),
-    valueInput
-  ]);
-  fieldsWrapper.appendChild(valueRow);
-
-  card.appendChild(fieldsWrapper);
-
-  // Buttons
-  function saveTag() {
-    const type = typeInput.value.trim();
-    const name = context === 'effort' ? null : nameInput.value.trim();
-    const value = valueInput.value.trim() ? parseFloat(valueInput.value) : null;
-    const isReq = context === 'requirement';
-
-    if (!type) {
-      typeInput.classList.add('error');
-      return;
-    }
-
-    const tag = buildTag(type, name, value, isReq);
-    if (tag) {
-      onSave(tag);
-      overlay.remove();
-    }
-  }
-
-  const buttonsRow = el('div', { class: 'tag-builder-buttons' }, [
-    el('button', {
-      class: 'ctrl',
-      text: 'SAVE',
-      onclick: (e) => { e.stopPropagation(); saveTag(); }
-    }),
-    el('button', {
-      class: 'ctrl',
-      text: 'CANCEL',
-      onclick: (e) => { e.stopPropagation(); onCancel(); overlay.remove(); }
-    })
-  ]);
-  card.appendChild(buttonsRow);
+  card.appendChild(el('div', { class: 'tag-builder-buttons' }, [
+    el('button', { class: 'ctrl', text: 'SAVE',   onclick: (e) => { e.stopPropagation(); saveTag(); } }),
+    el('button', { class: 'ctrl', text: 'CANCEL', onclick: (e) => { e.stopPropagation(); onCancel(); overlay.remove(); } })
+  ]));
 
   overlay.appendChild(card);
   document.body.appendChild(overlay);
-  typeInput.focus();
+  patternSelect.focus();
 }
 
-/* ---------- Requirements editor ----------
-   Each requirement is a structured row: [type][name][value][×]
-   The three inputs share a blur/focus debounce so tabbing between fields
-   in the same row doesn't trigger a spurious render mid-edit.
-   ------------------------------------------ */
-// Tag type schema: defines all supported tag patterns and their structure.
-// Used for validation, UI generation, and tag builder dropdowns.
+// Flat map of every recognized tag pattern. Each entry fully describes structure and behavior.
+// Keys are canonical pattern IDs. Adding a new entry is all that's needed to expand the system.
+//
+// context  — where the tag lives: 'attribute' (on agents) | 'requirement'|'effort'|'reward' (on tasks)
+// type     — raw type string written by buildTag()
+// isReq    — prepend #req: when true
+// hasName  — user provides a name field
+// hasValue — user provides a value field
+// nameFixed — name is baked into the pattern (not user-input)
+// fn       — behavior key used by tagFn(); drives logic dispatch
 const TAG_SCHEMA = {
-  'requirement': {
-    label: 'Requirement',
-    prefix: 'req',
-    subtypes: ['skill', 'tool', 'trait', 'class', 'level', 'resource', 'guild', 'race', 'item', 'consumable'],
-    hasName: true,
-    hasValue: true,
-    nameLabel: 'Name',
-    valueLabel: 'Min Value',
-    description: 'Agent requirement - must match agent attribute'
-  },
-  'effort': {
-    label: 'Effort',
-    prefix: 'effort',
-    subtypes: ['skill'], // can expand to more effort types in future
-    hasName: true,
-    hasValue: true,
-    nameLabel: 'Skill',
-    valueLabel: 'Total Amount',
-    description: 'Work required - accumulated from matching agent skills'
-  },
-  'reward': {
-    label: 'Reward',
-    prefix: 'reward',
-    subtypes: ['gold'], // can expand to experience, items, etc
-    hasName: true,
-    hasValue: true,
-    nameLabel: 'Type',
-    valueLabel: 'Amount',
-    description: 'Reward given on task completion'
-  }
+  // ── Attribute tags (on agents): #type:name[=value] ──────────────────────
+  skill:            { label: 'Skill',      context: 'attribute',   type: 'skill',      isReq: false, hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Level'     },
+  tool:             { label: 'Tool',       context: 'attribute',   type: 'tool',       isReq: false, hasName: true,  hasValue: false, nameLabel: 'Name'                           },
+  trait:            { label: 'Trait',      context: 'attribute',   type: 'trait',      isReq: false, hasName: true,  hasValue: false, nameLabel: 'Name'                           },
+  class:            { label: 'Class',      context: 'attribute',   type: 'class',      isReq: false, hasName: true,  hasValue: false, nameLabel: 'Name'                           },
+  race:             { label: 'Race',       context: 'attribute',   type: 'race',       isReq: false, hasName: true,  hasValue: false, nameLabel: 'Name'                           },
+  level:            { label: 'Level',      context: 'attribute',   type: 'level',      isReq: false, hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Value'     },
+  // ── Task requirement tags: #req:type:name[=value] ────────────────────────
+  'req:skill':      { label: 'Skill',      context: 'requirement', type: 'skill',      isReq: true,  hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Min Level', fn: 'require'      },
+  'req:tool':       { label: 'Tool',       context: 'requirement', type: 'tool',       isReq: true,  hasName: true,  hasValue: false, nameLabel: 'Name',                           fn: 'require'      },
+  'req:trait':      { label: 'Trait',      context: 'requirement', type: 'trait',      isReq: true,  hasName: true,  hasValue: false, nameLabel: 'Name',                           fn: 'require'      },
+  'req:class':      { label: 'Class',      context: 'requirement', type: 'class',      isReq: true,  hasName: true,  hasValue: false, nameLabel: 'Name',                           fn: 'require'      },
+  'req:race':       { label: 'Race',       context: 'requirement', type: 'race',       isReq: true,  hasName: true,  hasValue: false, nameLabel: 'Name',                           fn: 'require'      },
+  'req:item':       { label: 'Item',       context: 'requirement', type: 'item',       isReq: true,  hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Qty',         fn: 'block'        },
+  'req:consumable': { label: 'Consumable', context: 'requirement', type: 'consumable', isReq: true,  hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Qty',         fn: 'consume'      },
+  // ── Task effort tags ──────────────────────────────────────────────────────
+  effort:           { label: 'General',    context: 'effort',      type: 'effort',     isReq: false, hasName: false, hasValue: true,  valueLabel: 'Amount',                        fn: 'effort'       },
+  'effort:skill':   { label: 'Skill',      context: 'effort',      type: 'effort',     isReq: false, hasName: true,  hasValue: true,  nameLabel: 'Skill', valueLabel: 'Amount',    fn: 'effort-skill' },
+  // ── Task reward tags: #reward:name=value ─────────────────────────────────
+  'reward:gold':    { label: 'Gold',       context: 'reward',      type: 'reward',     isReq: false, hasName: false, hasValue: true,  nameFixed: 'gold', valueLabel: 'Amount',     fn: 'reward-gold'  },
 };
 
-// Get all recognized tag categories (keys in TAG_SCHEMA)
-function getTagCategories() {
-  return Object.keys(TAG_SCHEMA);
+// Resolve a parsed tag to its schema entry, or null for unrecognized/custom tags.
+function getSchemaEntry(parsed) {
+  if (!parsed.isReq && parsed.name) {
+    const fixed = Object.values(TAG_SCHEMA).find(e => e.type === parsed.type && e.nameFixed === parsed.name);
+    if (fixed) return fixed;
+  }
+  if (!parsed.isReq && parsed.type === 'effort' && parsed.name) return TAG_SCHEMA['effort:skill'];
+  return TAG_SCHEMA[(parsed.isReq ? 'req:' : '') + parsed.type] ?? null;
 }
 
-// Get subtypes for a category
-function getTagSubtypes(category) {
-  return TAG_SCHEMA[category]?.subtypes || [];
+// Return the fn key for a parsed tag, or null for unrecognized tags.
+function tagFn(parsed) {
+  return getSchemaEntry(parsed)?.fn ?? null;
 }
 
-// Determine tag category from a parsed tag
-function getTagCategory(parsed) {
-  if (parsed.isReq) return 'requirement';
-  if (parsed.type === 'effort') return 'effort';
-  if (parsed.type === 'reward') return 'reward';
-  return null;
+// Schema entries filtered to one or more contexts, as [key, entry] pairs.
+function getSchemaByContext(...contexts) {
+  return Object.entries(TAG_SCHEMA).filter(([, e]) => contexts.includes(e.context));
 }
-
-const REQ_TYPE_SUGGESTIONS = ['skill', 'tool', 'trait', 'class', 'level', 'resource', 'guild', 'race'];
-const NAMELESS_TYPES = new Set(['time', 'duration', 'days', 'gold']);
 
 /* ---------- Unified tags editor (requirements, effort, rewards) ---------- */
 function renderTagsEditor(task) {
   const wrap = el('div', { class: 'tags-editor' });
   wrap.appendChild(el('div', { class: 'tag-label', text: 'TAGS' }));
 
-  // Show all tags as a list
   const tagList = el('div', { class: 'tag-list' });
   task.requirements.forEach((tagStr, i) => {
     const p = parseTag(tagStr);
-    const category = getTagCategory(p);
-    const categoryLabel = TAG_SCHEMA[category]?.label || 'Tag';
+    const entry = getSchemaEntry(p);
+    const badge = entry ? entry.context.toUpperCase() : 'TAG';
 
-    // Show tag with category badge and remove button
-    const tagEl = el('div', { class: 'tag-list-item' }, [
-      el('span', { class: 'tag-category-badge', text: categoryLabel }),
+    tagList.appendChild(el('div', { class: 'tag-list-item' }, [
+      el('span', { class: 'tag-category-badge', text: badge }),
       el('span', { class: 'tag-content', text: formatTagDisplay(tagStr) }),
       el('span', {
         class: 'x',
@@ -850,8 +836,7 @@ function renderTagsEditor(task) {
         title: 'Remove',
         onclick: (e) => { e.stopPropagation(); task.requirements.splice(i, 1); save(); render(); }
       })
-    ]);
-    tagList.appendChild(tagEl);
+    ]));
   });
 
   if (task.requirements.length === 0) {
@@ -859,14 +844,15 @@ function renderTagsEditor(task) {
   }
 
   wrap.appendChild(tagList);
-
-  // Add button
   wrap.appendChild(el('button', {
     class: 'tag-add',
     text: '+ TAG',
     onclick: (e) => {
       e.stopPropagation();
-      showTaskTagBuilder(task);
+      showTagBuilder({
+        context: 'task',
+        onSave: (tag) => { task.requirements.push(tag); save(); render(); },
+      });
     }
   }));
 
@@ -880,71 +866,6 @@ function formatTagDisplay(tagStr) {
   if (p.name) display += `:${p.name}`;
   if (p.value !== null) display += `=${p.value}`;
   return display;
-}
-
-function renderReqRow(task, i, reqStr) {
-  const { type, name, value, isReq } = parseTag(reqStr);
-  const isNameless = NAMELESS_TYPES.has(type) || name === null;
-
-  const typeInput = el('input', {
-    class: 'req-field req-type',
-    list: 'req-types',
-    value: type || 'skill',
-    placeholder: 'type',
-    spellcheck: 'false',
-  });
-  const nameInput = el('input', {
-    class: 'req-field req-name',
-    value: name || '',
-    placeholder: 'name',
-    spellcheck: 'false',
-    style: isNameless ? { display: 'none' } : {},
-  });
-  const valueInput = el('input', {
-    class: 'req-field req-value',
-    type: 'number',
-    value: value !== null ? String(value) : '',
-    placeholder: '—',
-    min: '0',
-  });
-
-  // Commit all three fields as one tag; 60ms lets focus move between sibling inputs.
-  let blurTimer;
-  function scheduleCommit() {
-    blurTimer = setTimeout(() => {
-      const useNameless = NAMELESS_TYPES.has(typeInput.value);
-      const tag = buildTag(
-        typeInput.value,
-        useNameless ? null : nameInput.value,
-        valueInput.value !== '' ? valueInput.value : null,
-        isReq
-      );
-      if (tag) { task.requirements[i] = tag; save(); }
-      render();
-    }, 60);
-  }
-  function cancelCommit() { clearTimeout(blurTimer); }
-
-  [typeInput, nameInput, valueInput].forEach(inp => {
-    inp.addEventListener('blur',  scheduleCommit);
-    inp.addEventListener('focus', (e) => { cancelCommit(); inp.select(); });
-    inp.addEventListener('click', e => e.stopPropagation());
-    inp.addEventListener('keydown', e => {
-      if (e.key === 'Enter') inp.blur();
-      if (e.key === 'Escape') { inp.value = inp.defaultValue; inp.blur(); }
-    });
-  });
-
-  return el('div', { class: 'req-row' }, [
-    typeInput,
-    nameInput,
-    valueInput,
-    el('span', {
-      class: 'x req-remove',
-      text: '×',
-      onclick: (e) => { e.stopPropagation(); task.requirements.splice(i, 1); save(); render(); }
-    }),
-  ]);
 }
 
 /* ---------- Agent card ---------- */
@@ -1076,156 +997,6 @@ function renderAgentCard(agent) {
   card.addEventListener('click', () => assignSelectedTaskTo(agent));
 
   return card;
-}
-
-// Task-specific tag builder with category selector
-function showTaskTagBuilder(task) {
-  const overlay = el('div', {
-    class: 'tag-builder-overlay',
-    onclick: (e) => {
-      if (e.target === overlay) { overlay.remove(); }
-    }
-  });
-
-  const card = el('div', { class: 'tag-builder-card' });
-  card.appendChild(el('div', { class: 'tag-builder-title', text: 'ADD TAG' }));
-
-  // Category selector
-  const categoryInput = el('select', {
-    class: 'tag-builder-field tag-builder-category'
-  });
-  categoryInput.appendChild(el('option', { text: '— Select category —', value: '' }));
-  getTagCategories().forEach(cat => {
-    const schema = TAG_SCHEMA[cat];
-    categoryInput.appendChild(el('option', { text: schema.label, value: cat }));
-  });
-
-  // Type selector (populated based on category)
-  const typeInput = el('select', {
-    class: 'tag-builder-field'
-  });
-
-  // Name and value inputs
-  const nameInput = el('input', {
-    class: 'tag-builder-field',
-    placeholder: 'name',
-    spellcheck: 'false'
-  });
-
-  const valueInput = el('input', {
-    class: 'tag-builder-field',
-    type: 'number',
-    placeholder: 'value (optional)',
-    step: 'any'
-  });
-
-  // Update type options when category changes
-  categoryInput.addEventListener('change', () => {
-    const cat = categoryInput.value;
-    const schema = TAG_SCHEMA[cat];
-    typeInput.innerHTML = '';
-
-    if (schema) {
-      schema.subtypes.forEach(subtype => {
-        typeInput.appendChild(el('option', { text: subtype, value: subtype }));
-      });
-      nameInput.placeholder = schema.nameLabel;
-      valueInput.placeholder = schema.valueLabel + ' (optional)';
-      nameInput.style.display = schema.hasName ? 'block' : 'none';
-      valueInput.style.display = schema.hasValue ? 'block' : 'none';
-    }
-  });
-
-  // Keyboard shortcuts
-  [categoryInput, typeInput, nameInput, valueInput].forEach(inp => {
-    inp.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); saveTag(); }
-      if (e.key === 'Escape') { e.preventDefault(); overlay.remove(); }
-    });
-  });
-
-  // Build form
-  const fieldsWrapper = el('div', { class: 'tag-builder-fields' });
-
-  const categoryRow = el('div', { class: 'tag-builder-row' }, [
-    el('label', { class: 'tag-builder-label', text: 'CATEGORY' }),
-    categoryInput
-  ]);
-  fieldsWrapper.appendChild(categoryRow);
-
-  const typeRow = el('div', { class: 'tag-builder-row' }, [
-    el('label', { class: 'tag-builder-label', text: 'TYPE' }),
-    typeInput
-  ]);
-  fieldsWrapper.appendChild(typeRow);
-
-  const nameRow = el('div', { class: 'tag-builder-row' }, [
-    el('label', { class: 'tag-builder-label', text: 'NAME' }),
-    nameInput
-  ]);
-  fieldsWrapper.appendChild(nameRow);
-
-  const valueRow = el('div', { class: 'tag-builder-row' }, [
-    el('label', { class: 'tag-builder-label', text: 'VALUE' }),
-    valueInput
-  ]);
-  fieldsWrapper.appendChild(valueRow);
-
-  card.appendChild(fieldsWrapper);
-
-  // Save function
-  function saveTag() {
-    const category = categoryInput.value;
-    const type = typeInput.value;
-    const name = nameInput.value.trim();
-    const value = valueInput.value.trim() ? parseFloat(valueInput.value) : null;
-
-    if (!category || !type) {
-      categoryInput.classList.add('error');
-      return;
-    }
-
-    const isReq = category === 'requirement';
-    // For requirement: buildTag(subtype, name, value, true) → #req:subtype:name[=value]
-    // For effort: buildTag('effort', skillname, value, false) → #effort:skillname=value
-    // For reward: buildTag('reward', gold, value, false) → #reward:gold=value
-    const actualType = isReq ? type : category;
-    let actualName;
-    if (isReq) {
-      actualName = name;  // requirement: use NAME field for requirement name
-    } else if (category === 'effort') {
-      actualName = name;  // effort: NAME field contains the skill name
-    } else if (category === 'reward') {
-      actualName = type;  // reward: TYPE field contains reward type (gold, etc)
-    }
-    const actualValue = value;
-
-    const tag = buildTag(actualType, actualName, actualValue, isReq);
-    if (tag) {
-      task.requirements.push(tag);
-      save(); render();
-      overlay.remove();
-    }
-  }
-
-  // Buttons
-  const buttonsRow = el('div', { class: 'tag-builder-buttons' }, [
-    el('button', {
-      class: 'ctrl',
-      text: 'SAVE',
-      onclick: (e) => { e.stopPropagation(); saveTag(); }
-    }),
-    el('button', {
-      class: 'ctrl',
-      text: 'CANCEL',
-      onclick: (e) => { e.stopPropagation(); overlay.remove(); }
-    })
-  ]);
-  card.appendChild(buttonsRow);
-
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
-  categoryInput.focus();
 }
 
 // Header progress bar (2px line in highlight color, % filled).

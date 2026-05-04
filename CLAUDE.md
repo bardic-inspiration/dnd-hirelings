@@ -31,47 +31,71 @@ Every mutation: `save(); render();` — `render()` does a full DOM rebuild from 
 
 `state.inventory` items: `{ id, name, qty }`. Items are auto-removed when `qty` reaches 0.
 
+### Agents
+
+```js
+{ id, name, icon, rate, rateUnit, description, attributes[], activities[], createdAt, lastAssigned }
+```
+
+- `attributes[]` — tag strings describing what an agent IS/HAS (`#skill:archery=3`)
+- `activities[]` — tag strings linking to tasks (`#task:id`); first incomplete task is current work
+- `lastAssigned` — `null` if never assigned; used for sort order alongside `createdAt`
+- `agentDefaults(config)` — single source of default field values; used by `createAgent()` and `duplicateAgent()`
+- Backfill uses `??=` throughout `load()`
+
+### Tasks
+
+```js
+{ id, name, description, requirements[], effortProgress{}, isComplete, createdAt }
+```
+
+- `requirements[]` — tag strings encoding effort, agent requirements, inventory checks, rewards
+- `effortProgress` — object keyed by skill name (or `''` for nameless effort); accumulates per clock step
+- `completeTask(task)` — canonical completion path: sets `isComplete`, prunes agents, consumes items, executes rewards
+- All tasks auto-complete: `getEffortReqs()` returns a synthetic `{ value: 1 }` default when no effort tags exist
+
 ### Tags
 
-Tags are strings: `#type:name[=value]` or `#req:type:name[=value]`. Parsed via `parseTag()` → `{ type, name, value, isReq }`. Built via `buildTag()`.
+Format: `#[req:]type[:name][=value]` — parsed by `parseTag()`, built by `buildTag()`.
 
-Agent attributes use tags. Task requirements use `isReq=true` tags.
+**`TAG_SCHEMA`** is the single source of truth for all recognized tag patterns. Flat map keyed by pattern ID:
 
-**Tag types:**
-- `skill`, `tool`, `trait`, `class`, `race`, `level` — agent attributes; drive assignment validation and active-highlight
-- `effort:name=N` — task effort requirement (named skill); contributes to progress bar
-- `effort=N` — nameless effort requirement; any agent contributes
-- `task:id` — stored on agent `activities[]`; the canonical agent↔task link
-- `req:item:name[=qty]` — task blocks if item missing/insufficient; non-depleting
-- `req:consumable:name=qty` — same as item, but consumed on completion
+| Key | Format | Context | fn |
+|---|---|---|---|
+| `skill`, `tool`, `trait`, `class`, `race`, `level` | `#type:name[=value]` | `attribute` | — |
+| `req:skill`, `req:tool`, `req:trait`, `req:class`, `req:race` | `#req:type:name[=value]` | `requirement` | `require` |
+| `req:item`, `req:consumable` | `#req:type:name=qty` | `requirement` | `block` / `consume` |
+| `effort` | `#effort=N` | `effort` | `effort` |
+| `effort:skill` | `#effort:skillname=N` | `effort` | `effort-skill` |
+| `reward:gold` | `#reward:gold=N` | `reward` | `reward-gold` |
 
-### Effort Logic
+Each entry carries `{ label, context, type, isReq, hasName, hasValue, nameLabel?, valueLabel?, nameFixed?, fn? }`.
 
-`getEffortReqs(task)` always returns ≥1 element — if no effort tags exist, returns synthetic `{ name: null, value: 1 }`. This means all tasks auto-complete and render progress bars.
+**Schema helpers:**
+- `getSchemaEntry(parsed)` — resolve a parsed tag to its schema entry (null for custom/unknown)
+- `tagFn(parsed)` — return the `fn` key; used by all logic functions instead of hardcoded type strings
+- `getSchemaByContext(...contexts)` — filter entries by context for UI generation
 
-Effort progress stored in `task.effortProgress` keyed by skill name (or `''` for nameless/default).
+**Effort logic:**
+- Named effort (`#effort:skill=N`): agents with a matching `#skill` attribute contribute at `(effortRate + skillVal × skillRate) × stepDays`; others contribute at base rate
+- Nameless/default effort: all agents contribute at `effortRate × stepDays`
 
-**Contribution per agent per step:**
-- Named effort (`#effort:arcane=100`): base = `stepDays`. If agent has matching skill with value > 0, rate = `skillVal × stepDays`. Otherwise rate = `stepDays` (base).
-- Nameless/default effort: always `stepDays`.
-
-### Item & Consumable Requirements
-
-`getItemBlockedTasks(activeTasks)` — greedy algorithm: sorts tasks by `createdAt` (oldest first), checks each against a running pool. `item` reqs check actual inventory (non-depleting). `consumable` reqs deduct from pool. Blocked tasks → flash error, no progress.
-
-`consumeTaskItems(task)` — called on completion (auto or manual); deducts consumable quantities from `state.inventory`.
+**Item/consumable logic:**
+- `block` (item): task blocked if inventory qty is insufficient; non-depleting
+- `consume` (consumable): greedy reservation per tick (oldest tasks first); quantity deducted on completion
 
 ### Active State
 
-"Active" is computed each render via `isActivityActive()` / `isAttributeActive()`. Don't store an `active` flag.
+"Active" is computed each render — never stored. `isAttributeActive()` and `isActivityActive()` use `tagFn()` to match agent attributes against task requirements.
 
-Agents split into ACTIVE / IDLE columns by `activeTaskCount(agent) > 0`. Sorted by `lastAssigned || createdAt` desc.
+Agents split into ACTIVE / IDLE columns by `activeTaskCount(agent) > 0`. Sorted by `lastAssigned ?? createdAt` desc.
 
 ### UI Patterns
 
 - `editable(text, oncommit)` — `contenteditable` span; commits on blur/Enter, reverts on Escape. Click is `stopPropagation`'d.
 - Click-to-assign: clicking a task sets `ui.selectedTaskId`, outlines agent cards (`.assignable`). Clicking an agent pushes `#task:<id>` to activities.
-- Panels (inventory, config, tag builder) are overlays rendered into a dynamically created element; toggled off by clicking outside or pressing Escape.
+- Panels (inventory, config, tag builder) are overlays rendered into a dynamically created element; dismissed by clicking outside or pressing Escape.
+- `showTagBuilder({ context, onSave, onCancel })` — unified builder for both agent attributes (`context: 'attribute'`) and task tags (`context: 'task'`). Task context groups patterns by `context` field derived dynamically from schema; includes a Custom option for free-form types.
 
 ### Palettes
 
@@ -79,11 +103,19 @@ Multiple built-in color themes in `PALETTES` object. Stored separately in `local
 
 ## Common Extension Patterns
 
-**Add agent property:** `createAgent()` → `load()` backfill → `renderAgentCard()` → optionally `DEFAULT_CONFIG.defaults`.
+**Add agent property:** `agentDefaults()` → `load()` backfill with `??=` → `renderAgentCard()`.
 
 **Add state field:** Initialize in state literal + backfill with `??=` in `load()`.
 
-**Add tag type:** Free-form — no schema change. Update `isAttributeActive()` / `isActivityActive()` if it should affect highlighting. Update `TAG_SCHEMA` if it needs builder UI support.
+**Add attribute type** (agent): add entry to `TAG_SCHEMA` with `context: 'attribute'`. Appears in builder automatically.
+
+**Add requirement type** (agent-matching): add entry with `context: 'requirement'`, `isReq: true`, `fn: 'require'`. Logic functions pick it up via `tagFn()` automatically.
+
+**Add inventory-blocking type**: add entry with `fn: 'block'` (non-depleting) or `fn: 'consume'` (depleted on completion). Logic picks it up automatically.
+
+**Add reward type**: add entry with a new `fn` key (e.g. `'reward-xp'`) + one case in `executeTaskRewards()`.
+
+**Add effort subtype**: add entry with `context: 'effort'`, `type: 'effort'`. Effort logic handles all `type === 'effort'` tags automatically.
 
 **Add color:** `DEFAULT_CONFIG.colors` in app.js + `--name` in `:root` in styles.css + optional entry in config.json.
 
