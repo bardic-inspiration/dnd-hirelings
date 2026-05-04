@@ -745,19 +745,74 @@ body {
 .config-row input:focus { border-color: var(--highlight); }
 
 /* ============================================================
-   UNIFIED TAGS EDITOR
+   TASK SECTIONS (work / require / reward / tag catch-all)
    ============================================================ */
-.tags-editor {
+.task-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
-.tags-editor .tag-list {
+/* Work component rows */
+.work-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-height: 24px;
+  gap: 3px;
+}
+
+.work-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--dimmer);
+  font-size: var(--fs-xs);
+}
+
+.work-item.done {
+  opacity: 0.4;
+}
+
+.work-item-skill {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--highlight);
+  flex: 0 0 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-item-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.work-item-bar-fill {
+  height: 100%;
+  background: var(--highlight);
+  transition: width 0.4s ease;
+}
+
+.work-item-value {
+  font-family: ui-monospace, "Courier New", monospace;
+  color: var(--dim);
+  flex-shrink: 0;
+  min-width: 52px;
+  text-align: right;
+}
+
+/* Require / reward / tag sections */
+.task-tag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .tag-list-item {
@@ -909,6 +964,30 @@ select.tag-builder-field {
 .tag-builder-field.error {
   border-color: var(--warn);
   background: color-mix(in srgb, var(--warn) 8%, var(--dimmer));
+}
+
+.tag-builder-req-btn {
+  flex: 0 0 auto;
+  font-size: var(--fs-xs);
+  padding: 3px 8px;
+  opacity: 0.35;
+  transition: opacity 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.tag-builder-req-btn.active {
+  opacity: 1;
+  border-color: var(--highlight);
+  color: var(--highlight);
+}
+
+.tag-builder-preview {
+  flex: 1;
+  font-family: ui-monospace, "Courier New", monospace;
+  font-size: var(--fs-xs);
+  color: var(--dim);
+  letter-spacing: 0.04em;
+  word-break: break-all;
+  padding: 2px 0;
 }
 
 .tag-builder-buttons {

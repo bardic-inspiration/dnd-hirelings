@@ -122,9 +122,9 @@ let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 /* ---------- State ---------- */
 // Single source of truth, serialized to localStorage on every mutation.
 let state = {
-  session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1', bank: 100, rateMultiplier: 1, effortRate: 1, skillRate: 1 },
+  session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1', bank: 100, rateMultiplier: 1, workRate: 1, skillBonus: 1 },
   agents: [],     // { id, name, icon, rate, rateUnit, description, attributes[], activities[], createdAt, lastAssigned }
-  tasks: [],      // { id, name, description, requirements[], effortProgress{}, isComplete, createdAt }
+  tasks: [],      // { id, name, description, requirements[], workProgress{}, isComplete, createdAt }
   inventory: [],  // { id, name, qty }
 };
 
@@ -139,7 +139,7 @@ const ui = {
   tickIntervalMs: 1000,  // mirrors the setInterval delay — used for interpolation denominator
 };
 
-const STORAGE_KEY = 'dnd-hirelings-state-v1';
+const STORAGE_KEY = 'dnd-hirelings-state-v2';
 
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
@@ -159,23 +159,15 @@ function load() {
     state.session.timeStep ??= '60';
     state.session.playbackRate ??= '1';
     state.session.rateMultiplier ??= 1;
-    state.session.effortRate ??= 1;
-    state.session.skillRate ??= 1;
+    state.session.workRate   ??= 1;
+    state.session.skillBonus ??= 1;
     state.inventory ??= [];
     state.inventory.forEach(item => { item.id ??= uid(); item.name ??= 'ITEM'; item.qty ??= 1; });
     state.tasks.forEach(t => {
       t.requirements ??= []; t.description ??= '';
       t.isComplete ??= false; t.createdAt ??= Date.now();
-      t.effortProgress ??= {};
-      // Migrate legacy requirements (no req: prefix) to req: form.
-      // Multiple effort tags are now allowed (they sum together).
-      t.requirements = t.requirements
-        .filter(r => !!r)
-        .map(r => {
-          const body = r.startsWith('#') ? r.slice(1) : r;
-          if (body.startsWith('req:') || body.startsWith('effort:')) return r;
-          return r.startsWith('#') ? '#req:' + r.slice(1) : '#req:' + r;
-        });
+      t.workProgress ??= {};
+      t.requirements = t.requirements.filter(r => !!r);
     });
   } catch (e) { console.warn('Failed to load state:', e); }
 }
@@ -331,7 +323,7 @@ function createTask() {
     name: config.defaults.taskName,
     description: '',
     requirements: [],
-    effortProgress: {},
+    workProgress: {},
     isComplete: false,
     createdAt: now(),
   });
@@ -360,7 +352,7 @@ function duplicateTask(id) {
   if (!orig) return;
   const copy = JSON.parse(JSON.stringify(orig));
   copy.id = uid();
-  copy.effortProgress = {};
+  copy.workProgress = {};
   copy.isComplete = false;
   copy.createdAt = now();
   state.tasks.push(copy);
@@ -461,32 +453,32 @@ function getCurrentTask(agent) {
   return null;
 }
 
-// Find all effort tags on a task (multiple allowed, they sum together).
-// - Named  (#effort:skillname=N): agent needs matching skill; contributes skillVal/day.
-// - Nameless (#effort=N):         any agent contributes 1/day.
-// - No effort tags at all:        returns synthetic default of 1 unit (any agent contributes).
-// Progress is keyed by skill name for named reqs, '' for nameless/default.
-function getEffortReqs(task) {
+// Find all work tags on a task (#work=N or #work:skill=N). Multiple allowed; they sum.
+// Returns a synthetic default of 1 unit when none are present (all tasks auto-complete).
+// Progress is keyed by skill name for named tags, '' for nameless/default.
+function getWorkReqs(task) {
   const all = task.requirements
     .map(r => parseTag(r))
-    .filter(p => p.type === 'effort' && !p.isReq && p.value !== null && p.value > 0);
-  return all.length > 0 ? all : [{ type: 'effort', name: null, value: 1, isReq: false }];
+    .filter(p => p.type === 'work' && !p.isReq && p.value !== null && p.value > 0);
+  return all.length > 0 ? all : [{ type: 'work', name: null, value: 1, isReq: false }];
 }
 
-// Returns true when total effort progress >= total effort required.
 function checkTaskComplete(task) {
-  const efforts = getEffortReqs(task);
-  const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
-  const totalProgress = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name || ''] ?? 0), 0);
+  const reqs = getWorkReqs(task);
+  const totalRequired = reqs.reduce((sum, e) => sum + e.value, 0);
+  const totalProgress = reqs.reduce((sum, e) => sum + (task.workProgress?.[e.name || ''] ?? 0), 0);
   return totalProgress >= totalRequired;
 }
 
 // Returns true if the agent satisfies all req: requirements on the task.
 // Agent attributes don't carry req:; we strip it from the task side and match on type+name.
 function validateAssignment(agent, task) {
+  // Task requirements → agent attributes
   for (const req of task.requirements) {
     const reqP = parseTag(req);
-    if (tagFn(reqP) !== 'require') continue; // only agent-matching reqs gate assignment
+    if (!reqP.isReq) continue;
+    const fn = tagFn(reqP);
+    if (fn === 'block' || fn === 'consume') continue; // inventory reqs handled separately
     if (!reqP.name) continue;
     const match = agent.attributes.find(attr => {
       const p = parseTag(attr);
@@ -494,8 +486,23 @@ function validateAssignment(agent, task) {
     });
     if (!match) return false;
     if (reqP.value !== null) {
-      const agentVal = parseTag(match).value ?? 0;
-      if (agentVal < reqP.value) return false;
+      if ((parseTag(match).value ?? 0) < reqP.value) return false;
+    }
+  }
+  // Agent requirements → task tags (non-req; task req tags describe conditions on agents, not task properties)
+  for (const attr of agent.attributes) {
+    const reqP = parseTag(attr);
+    if (!reqP.isReq) continue;
+    const match = task.requirements.find(t => {
+      const p = parseTag(t);
+      if (p.isReq) return false;
+      return p.type === reqP.type && (
+        reqP.name === null || (p.name && p.name.toLowerCase() === reqP.name.toLowerCase())
+      );
+    });
+    if (!match) return false;
+    if (reqP.value !== null) {
+      if ((parseTag(match).value ?? 0) < reqP.value) return false;
     }
   }
   return true;
@@ -550,11 +557,27 @@ function isAttributeActive(attrTag, agent) {
     if (actP.type !== 'task') continue;
     const task = state.tasks.find(t => t.id === actP.name);
     if (!task || task.isComplete) continue;
-    for (const req of task.requirements) {
-      const reqP = parseTag(req);
-      if (tagFn(reqP) !== 'require') continue;
-      if (!reqP.name || !attrP.name) continue;
-      if (reqP.type === attrP.type && reqP.name.toLowerCase() === attrP.name.toLowerCase()) return true;
+
+    if (attrP.isReq) {
+      // Agent req attribute: active when the task satisfies it
+      const match = task.requirements.find(t => {
+        const p = parseTag(t);
+        if (p.isReq) return false;
+        return p.type === attrP.type && (
+          attrP.name === null || (p.name && p.name.toLowerCase() === attrP.name.toLowerCase())
+        );
+      });
+      if (match && (attrP.value === null || (parseTag(match).value ?? 0) >= attrP.value)) return true;
+    } else {
+      // Agent attribute: active when required by the task
+      for (const req of task.requirements) {
+        const reqP = parseTag(req);
+        if (!reqP.isReq) continue;
+        const fn = tagFn(reqP);
+        if (fn === 'block' || fn === 'consume') continue;
+        if (!reqP.name || !attrP.name) continue;
+        if (reqP.type === attrP.type && reqP.name.toLowerCase() === attrP.name.toLowerCase()) return true;
+      }
     }
   }
   return false;
@@ -569,19 +592,8 @@ function activeTaskCount(agent) {
   }).length;
 }
 
-// Returns true if the agent has at least one attribute satisfying a task attribute
-// requirement, or if the task has no attribute requirements (effort/item reqs only).
 function agentMatchesTask(agent, task) {
-  const attrReqs = task.requirements.filter(r => tagFn(parseTag(r)) === 'require');
-  if (!attrReqs.length) return true;
-  return attrReqs.some(req => {
-    const rp = parseTag(req);
-    return agent.attributes.some(attr => {
-      const ap = parseTag(attr);
-      return ap.type === rp.type && ap.name && rp.name &&
-             ap.name.toLowerCase() === rp.name.toLowerCase();
-    });
-  });
+  return validateAssignment(agent, task);
 }
 
 function agentsAssignedTo(taskId) {
@@ -634,7 +646,7 @@ function renderTag(tagStr, active, onRemove) {
 //          'task'      shows all non-attribute entries grouped by context (optgroups).
 // Selecting a recognized pattern auto-configures name/value fields.
 // The last option ("Custom") exposes a free-form type input for unrecognized tags.
-function showTagBuilder({ context = 'attribute', onSave = () => {}, onCancel = () => {} } = {}) {
+function showTagBuilder({ context = 'attribute', initialPreset = undefined, onSave = () => {}, onCancel = () => {} } = {}) {
   const isTask = context === 'task';
   const title = isTask ? 'ADD TAG' : 'NEW ATTRIBUTE';
 
@@ -646,11 +658,11 @@ function showTagBuilder({ context = 'attribute', onSave = () => {}, onCancel = (
   card.appendChild(el('div', { class: 'tag-builder-title', text: title }));
   const fieldsWrapper = el('div', { class: 'tag-builder-fields' });
 
-  // ── PATTERN selector ──────────────────────────────────────────────────────
-  const patternSelect = el('select', { class: 'tag-builder-field' });
+  // ── PRESET selector — schema entries as convenience presets ───────────────
+  const presetSelect = el('select', { class: 'tag-builder-field' });
+  presetSelect.appendChild(el('option', { text: '— custom —', value: '' }));
 
   if (isTask) {
-    // Group non-attribute entries by context; derive groups dynamically from schema.
     const groups = [...new Set(
       Object.values(TAG_SCHEMA)
         .filter(e => e.context !== 'attribute')
@@ -662,91 +674,120 @@ function showTagBuilder({ context = 'attribute', onSave = () => {}, onCancel = (
       getSchemaByContext(ctx).forEach(([key, entry]) => {
         grp.appendChild(el('option', { text: entry.label, value: key }));
       });
-      patternSelect.appendChild(grp);
+      presetSelect.appendChild(grp);
     });
   } else {
+    const grp = document.createElement('optgroup');
+    grp.label = 'ATTRIBUTE';
     getSchemaByContext('attribute').forEach(([key, entry]) => {
-      patternSelect.appendChild(el('option', { text: entry.label, value: key }));
+      grp.appendChild(el('option', { text: entry.label, value: key }));
     });
+    presetSelect.appendChild(grp);
   }
-  // Custom escape hatch — free-form type entry
-  patternSelect.appendChild(el('option', { text: 'Custom…', value: '__custom__' }));
 
   fieldsWrapper.appendChild(el('div', { class: 'tag-builder-row' }, [
-    el('label', { class: 'tag-builder-label', text: 'PATTERN' }),
-    patternSelect
+    el('label', { class: 'tag-builder-label', text: 'PRESET' }),
+    presetSelect
   ]));
 
-  // ── Custom type input (shown only when Custom is selected) ────────────────
-  const customTypeInput = el('input', {
-    class: 'tag-builder-field',
-    placeholder: 'type',
-    spellcheck: 'false',
-    style: { display: 'none' }
+  // ── TYPE row: REQ toggle + type text input ────────────────────────────────
+  let reqActive = false;
+  const reqBtn = el('button', {
+    class: 'ctrl tag-builder-req-btn',
+    text: 'REQ',
+    title: 'Prepend req: prefix'
   });
-  const customTypeRow = el('div', { class: 'tag-builder-row', style: { display: 'none' } }, [
+  reqBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    reqActive = !reqActive;
+    reqBtn.classList.toggle('active', reqActive);
+    updatePreview();
+  });
+
+  const typeInput = el('input', { class: 'tag-builder-field', placeholder: 'type', spellcheck: 'false' });
+
+  fieldsWrapper.appendChild(el('div', { class: 'tag-builder-row' }, [
     el('label', { class: 'tag-builder-label', text: 'TYPE' }),
-    customTypeInput
-  ]);
-  fieldsWrapper.appendChild(customTypeRow);
+    reqBtn,
+    typeInput
+  ]));
 
-  // ── Name and value fields ─────────────────────────────────────────────────
+  // ── NAME field ────────────────────────────────────────────────────────────
   const nameLabelEl = el('label', { class: 'tag-builder-label', text: 'NAME' });
-  const nameInput   = el('input', { class: 'tag-builder-field', placeholder: 'name', spellcheck: 'false' });
-  const nameRow     = el('div', { class: 'tag-builder-row' }, [nameLabelEl, nameInput]);
-  fieldsWrapper.appendChild(nameRow);
+  const nameInput   = el('input', { class: 'tag-builder-field', placeholder: 'optional', spellcheck: 'false' });
+  fieldsWrapper.appendChild(el('div', { class: 'tag-builder-row' }, [nameLabelEl, nameInput]));
 
+  // ── VALUE field ───────────────────────────────────────────────────────────
   const valueLabelEl = el('label', { class: 'tag-builder-label', text: 'VALUE' });
   const valueInput   = el('input', { class: 'tag-builder-field', type: 'number', placeholder: 'optional', step: 'any' });
-  const valueRow     = el('div', { class: 'tag-builder-row' }, [valueLabelEl, valueInput]);
-  fieldsWrapper.appendChild(valueRow);
+  fieldsWrapper.appendChild(el('div', { class: 'tag-builder-row' }, [valueLabelEl, valueInput]));
 
-  // ── Sync fields to selected pattern ───────────────────────────────────────
-  function applyPattern() {
-    const key = patternSelect.value;
-    const isCustom = key === '__custom__';
-    const entry = isCustom ? null : TAG_SCHEMA[key];
+  // ── Live tag preview ──────────────────────────────────────────────────────
+  const previewEl = el('div', { class: 'tag-builder-preview', text: '—' });
+  fieldsWrapper.appendChild(el('div', { class: 'tag-builder-row' }, [
+    el('label', { class: 'tag-builder-label', text: 'TAG' }),
+    previewEl
+  ]));
 
-    customTypeRow.style.display = isCustom ? 'flex' : 'none';
-
+  // ── Apply preset — loads schema entry into fields, never hides them ───────
+  function applyPreset() {
+    const key   = presetSelect.value;
+    const entry = key ? TAG_SCHEMA[key] : null;
     if (entry) {
+      typeInput.value          = entry.type;
+      reqActive                = entry.isReq;
       nameLabelEl.textContent  = entry.nameLabel  ?? 'NAME';
       valueLabelEl.textContent = entry.valueLabel ?? 'VALUE';
-      nameRow.style.display    = entry.hasName  ? 'flex' : 'none';
-      valueRow.style.display   = entry.hasValue ? 'flex' : 'none';
+      nameInput.value          = entry.nameFixed  ?? '';
+      nameInput.placeholder    = entry.hasName    ? 'name'   : 'optional';
+      valueInput.placeholder   = entry.hasValue   ? 'amount' : 'optional';
     } else {
+      typeInput.value          = '';
+      reqActive                = false;
       nameLabelEl.textContent  = 'NAME';
       valueLabelEl.textContent = 'VALUE';
-      nameRow.style.display    = 'flex';
-      valueRow.style.display   = 'flex';
+      nameInput.value          = '';
+      nameInput.placeholder    = 'optional';
+      valueInput.placeholder   = 'optional';
     }
+    reqBtn.classList.toggle('active', reqActive);
+    updatePreview();
   }
-  patternSelect.addEventListener('change', applyPattern);
-  applyPattern();
+
+  function updatePreview() {
+    const type = typeInput.value.trim();
+    const name = nameInput.value.trim() || null;
+    const val  = valueInput.value.trim() ? parseFloat(valueInput.value) : null;
+    previewEl.textContent = type
+      ? (buildTag(type, name, val, reqActive) ?? `#${reqActive ? 'req:' : ''}${type}`)
+      : '—';
+  }
+
+  presetSelect.addEventListener('change', applyPreset);
+  [typeInput, nameInput, valueInput].forEach(inp => inp.addEventListener('input', updatePreview));
+
+  // Auto-select initial preset: explicit override, else first schema entry for context
+  const startKey = initialPreset !== undefined ? initialPreset : (isTask
+    ? Object.keys(TAG_SCHEMA).find(k => TAG_SCHEMA[k].context !== 'attribute')
+    : Object.keys(TAG_SCHEMA).find(k => TAG_SCHEMA[k].context === 'attribute'));
+  if (startKey != null) presetSelect.value = startKey;
+  applyPreset();
 
   card.appendChild(fieldsWrapper);
 
   // ── Save ──────────────────────────────────────────────────────────────────
   function saveTag() {
-    const key   = patternSelect.value;
-    const entry = key === '__custom__' ? null : TAG_SCHEMA[key];
-    const value = valueInput.value.trim() ? parseFloat(valueInput.value) : null;
-
-    let tag;
-    if (entry) {
-      const name = entry.nameFixed ?? (entry.hasName ? nameInput.value.trim() || null : null);
-      tag = buildTag(entry.type, name, value, entry.isReq);
-    } else {
-      const type = customTypeInput.value.trim();
-      if (!type) { customTypeInput.classList.add('error'); return; }
-      tag = buildTag(type, nameInput.value.trim() || null, value, false);
-    }
-
-    if (tag) { onSave(tag); overlay.remove(); }
+    const type = typeInput.value.trim();
+    if (!type) { typeInput.classList.add('error'); return; }
+    const name = nameInput.value.trim() || null;
+    const val  = valueInput.value.trim() ? parseFloat(valueInput.value) : null;
+    const tag  = buildTag(type, name, val, reqActive) ?? `#${reqActive ? 'req:' : ''}${type}`;
+    onSave(tag);
+    overlay.remove();
   }
 
   // ── Keyboard ──────────────────────────────────────────────────────────────
-  [patternSelect, customTypeInput, nameInput, valueInput].forEach(inp => {
+  [presetSelect, typeInput, nameInput, valueInput].forEach(inp => {
     inp.addEventListener('keydown', (e) => {
       if (e.key === 'Enter')  { e.preventDefault(); saveTag(); }
       if (e.key === 'Escape') { e.preventDefault(); onCancel(); overlay.remove(); }
@@ -760,13 +801,13 @@ function showTagBuilder({ context = 'attribute', onSave = () => {}, onCancel = (
 
   overlay.appendChild(card);
   document.body.appendChild(overlay);
-  patternSelect.focus();
+  presetSelect.focus();
 }
 
 // Flat map of every recognized tag pattern. Each entry fully describes structure and behavior.
 // Keys are canonical pattern IDs. Adding a new entry is all that's needed to expand the system.
 //
-// context  — where the tag lives: 'attribute' (on agents) | 'requirement'|'effort'|'reward' (on tasks)
+// context  — where the tag lives: 'attribute' (on agents) | 'requirement'|'work'|'reward' (on tasks)
 // type     — raw type string written by buildTag()
 // isReq    — prepend #req: when true
 // hasName  — user provides a name field
@@ -789,9 +830,9 @@ const TAG_SCHEMA = {
   'req:race':       { label: 'Race',       context: 'requirement', type: 'race',       isReq: true,  hasName: true,  hasValue: false, nameLabel: 'Name',                           fn: 'require'      },
   'req:item':       { label: 'Item',       context: 'requirement', type: 'item',       isReq: true,  hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Qty',         fn: 'block'        },
   'req:consumable': { label: 'Consumable', context: 'requirement', type: 'consumable', isReq: true,  hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Qty',         fn: 'consume'      },
-  // ── Task effort tags ──────────────────────────────────────────────────────
-  effort:           { label: 'General',    context: 'effort',      type: 'effort',     isReq: false, hasName: false, hasValue: true,  valueLabel: 'Amount',                        fn: 'effort'       },
-  'effort:skill':   { label: 'Skill',      context: 'effort',      type: 'effort',     isReq: false, hasName: true,  hasValue: true,  nameLabel: 'Skill', valueLabel: 'Amount',    fn: 'effort-skill' },
+  // ── Task work tags: #work=N or #work:skill=N ─────────────────────────────
+  work:             { label: 'General',    context: 'work',        type: 'work',       isReq: false, hasName: false, hasValue: true,  valueLabel: 'Target',                        fn: 'work'         },
+  'work:skill':     { label: 'Skill',      context: 'work',        type: 'work',       isReq: false, hasName: true,  hasValue: true,  nameLabel: 'Skill', valueLabel: 'Target',    fn: 'work-skill'   },
   // ── Task reward tags: #reward:name=value ─────────────────────────────────
   'reward:gold':    { label: 'Gold',       context: 'reward',      type: 'reward',     isReq: false, hasName: false, hasValue: true,  nameFixed: 'gold', valueLabel: 'Amount',     fn: 'reward-gold'  },
 };
@@ -802,7 +843,7 @@ function getSchemaEntry(parsed) {
     const fixed = Object.values(TAG_SCHEMA).find(e => e.type === parsed.type && e.nameFixed === parsed.name);
     if (fixed) return fixed;
   }
-  if (!parsed.isReq && parsed.type === 'effort' && parsed.name) return TAG_SCHEMA['effort:skill'];
+  if (!parsed.isReq && parsed.type === 'work' && parsed.name) return TAG_SCHEMA['work:skill'];
   return TAG_SCHEMA[(parsed.isReq ? 'req:' : '') + parsed.type] ?? null;
 }
 
@@ -816,46 +857,96 @@ function getSchemaByContext(...contexts) {
   return Object.entries(TAG_SCHEMA).filter(([, e]) => contexts.includes(e.context));
 }
 
-/* ---------- Unified tags editor (requirements, effort, rewards) ---------- */
-function renderTagsEditor(task) {
-  const wrap = el('div', { class: 'tags-editor' });
-  wrap.appendChild(el('div', { class: 'tag-label', text: 'TAGS' }));
+/* ---------- Task body sections (work / require / reward / tag) ---------- */
+function renderWorkSection(task) {
+  const wrap = el('div', { class: 'task-section' });
+  wrap.appendChild(el('div', { class: 'tag-label', text: 'WORK' }));
 
-  const tagList = el('div', { class: 'tag-list' });
-  task.requirements.forEach((tagStr, i) => {
+  const progMap = task.workProgress ?? {};
+  const list = el('div', { class: 'work-list' });
+
+  const workEntries = [];
+  task.requirements.forEach((tagStr, idx) => {
     const p = parseTag(tagStr);
-    const entry = getSchemaEntry(p);
-    const badge = entry ? entry.context.toUpperCase() : 'TAG';
-
-    tagList.appendChild(el('div', { class: 'tag-list-item' }, [
-      el('span', { class: 'tag-category-badge', text: badge }),
-      el('span', { class: 'tag-content', text: formatTagDisplay(tagStr) }),
-      el('span', {
-        class: 'x',
-        text: '×',
-        title: 'Remove',
-        onclick: (e) => { e.stopPropagation(); task.requirements.splice(i, 1); save(); render(); }
-      })
-    ]));
+    if (p.type === 'work' && !p.isReq) workEntries.push({ p, idx });
   });
 
-  if (task.requirements.length === 0) {
-    tagList.appendChild(el('div', { class: 'empty-state', text: 'No tags yet' }));
+  if (workEntries.length === 0) {
+    const progress = progMap[''] ?? 0;
+    list.appendChild(buildWorkRow('GENERAL', 1, progress, null, null));
+  } else {
+    workEntries.forEach(({ p, idx }) => {
+      const key = p.name || '';
+      const target = p.value ?? 1;
+      const progress = progMap[key] ?? 0;
+      list.appendChild(buildWorkRow(p.name ? p.name.toUpperCase() : 'GENERAL', target, progress, task, idx));
+    });
   }
 
-  wrap.appendChild(tagList);
+  wrap.appendChild(list);
   wrap.appendChild(el('button', {
     class: 'tag-add',
-    text: '+ TAG',
+    text: '+ WORK',
     onclick: (e) => {
       e.stopPropagation();
       showTagBuilder({
-        context: 'task',
+        context: 'task', initialPreset: 'work',
         onSave: (tag) => { task.requirements.push(tag); save(); render(); },
       });
     }
   }));
+  return wrap;
+}
 
+function buildWorkRow(label, target, progress, task, reqIdx) {
+  const done = progress >= target;
+  const pct = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
+  const item = el('div', { class: 'work-item' + (done ? ' done' : '') });
+  item.appendChild(el('span', { class: 'work-item-skill', text: label }));
+  const bar = el('div', { class: 'work-item-bar' });
+  bar.appendChild(el('div', { class: 'work-item-bar-fill', style: { width: `${pct.toFixed(1)}%` } }));
+  item.appendChild(bar);
+  item.appendChild(el('span', { class: 'work-item-value', text: `${Math.floor(progress)} / ${target}` }));
+  if (task && reqIdx !== null) {
+    item.appendChild(el('span', {
+      class: 'x', text: '×',
+      onclick: (e) => { e.stopPropagation(); task.requirements.splice(reqIdx, 1); save(); render(); }
+    }));
+  }
+  return item;
+}
+
+function renderTagSection(task, label, filterFn, builderPreset) {
+  const wrap = el('div', { class: 'task-section' });
+  wrap.appendChild(el('div', { class: 'tag-label', text: label }));
+
+  const tagList = el('div', { class: 'task-tag-list' });
+  let count = 0;
+  task.requirements.forEach((tagStr, i) => {
+    if (!filterFn(parseTag(tagStr))) return;
+    count++;
+    tagList.appendChild(el('div', { class: 'tag-list-item' }, [
+      el('span', { class: 'tag-content', text: formatTagDisplay(tagStr) }),
+      el('span', {
+        class: 'x', text: '×',
+        onclick: (e) => { e.stopPropagation(); task.requirements.splice(i, 1); save(); render(); }
+      })
+    ]));
+  });
+  if (!count) tagList.appendChild(el('div', { class: 'empty-state', text: '—' }));
+
+  wrap.appendChild(tagList);
+  wrap.appendChild(el('button', {
+    class: 'tag-add',
+    text: `+ ${label}`,
+    onclick: (e) => {
+      e.stopPropagation();
+      showTagBuilder({
+        context: 'task', initialPreset: builderPreset,
+        onSave: (tag) => { task.requirements.push(tag); save(); render(); },
+      });
+    }
+  }));
   return wrap;
 }
 
@@ -1002,13 +1093,13 @@ function renderAgentCard(agent) {
 // Header progress bar (2px line in highlight color, % filled).
 // Visible whether collapsed or expanded. Shows overall progress toward total effort.
 function renderTaskProgressBar(task) {
-  const efforts = getEffortReqs(task);
-  const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
+  const reqs = getWorkReqs(task);
+  const totalRequired = reqs.reduce((sum, e) => sum + e.value, 0);
   let totalProgress = 0;
   if (task.isComplete) {
     totalProgress = totalRequired;
   } else {
-    totalProgress = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name || ''] ?? 0), 0);
+    totalProgress = reqs.reduce((sum, e) => sum + (task.workProgress?.[e.name || ''] ?? 0), 0);
   }
 
   const pct = totalRequired > 0 ? Math.min(100, (totalProgress / totalRequired) * 100) : 0;
@@ -1060,7 +1151,15 @@ function renderTaskCard(task) {
   desc.classList.add('task-desc');
   body.appendChild(desc);
 
-  body.appendChild(renderTagsEditor(task));
+  body.appendChild(renderWorkSection(task));
+  body.appendChild(renderTagSection(task, 'REQUIRE', p => p.isReq, 'req:skill'));
+  body.appendChild(renderTagSection(task, 'REWARD',  p => !p.isReq && p.type === 'reward', 'reward:gold'));
+  // Catch-all for custom / unrecognized tags
+  const hasCustom = task.requirements.some(r => {
+    const p = parseTag(r); return !p.isReq && p.type !== 'work' && p.type !== 'reward';
+  });
+  if (hasCustom) body.appendChild(renderTagSection(task, 'TAG',
+    p => !p.isReq && p.type !== 'work' && p.type !== 'reward', ''));
 
   // Assigned-to summary line
   const assigned = agentsAssignedTo(task.id);
@@ -1186,7 +1285,7 @@ function getStepMinutes() {
 
 function advanceTime() {
   ui.lastTickWallTime = Date.now();
-  ui.taskEffortPerTick = {}; // reset per-tick rates for progress interpolation
+  ui.taskWorkPerTick = {}; // reset per-tick rates for progress interpolation
   const stepMins = getStepMinutes();
   const stepDays = stepMins / 1440;
 
@@ -1204,15 +1303,15 @@ function advanceTime() {
       const totalCost = eligible.reduce((sum, a) => sum + (parseFloat(a.rate) || 0) * stepDays, 0);
 
       if (totalCost > (state.session.bank ?? 0)) {
-        // Can't pay everyone: flash all eligible agents, no effort advances.
+        // Can't pay everyone: flash all eligible agents, no work advances.
         eligible.forEach(a => flashError(a.id));
       } else {
         state.session.bank = Math.round(((state.session.bank ?? 0) - totalCost) * 100) / 100;
 
-        const tasksWithEffort = new Set(); // tasks that received ≥1 skill-effort contribution
+        const tasksWithWork = new Set();
 
-        const effortRate = state.session.effortRate ?? 1;
-        const skillRate  = state.session.skillRate  ?? 1;
+        const workRate   = state.session.workRate   ?? 1;
+        const skillBonus = state.session.skillBonus ?? 1;
 
         for (const agent of eligible) {
           const task = getCurrentTask(agent);
@@ -1220,32 +1319,32 @@ function advanceTime() {
 
           let agentContributed = false;
 
-          for (const req of getEffortReqs(task)) {
+          for (const req of getWorkReqs(task)) {
             const key = req.name || '';
-            // Base: effortRate per day. Named skill: base + agentSkillValue * skillRate per day.
-            let rate = effortRate * stepDays;
+            // Base: workRate per step. Named skill: (workRate + skillVal × skillBonus) per step.
+            let rate = workRate * stepDays;
             if (req.name) {
               const skillTag = agent.attributes.find(attr => {
                 const ap = parseTag(attr);
                 return ap.type === 'skill' && ap.name.toLowerCase() === req.name.toLowerCase();
               });
               const skillVal = skillTag ? (parseTag(skillTag).value ?? 0) : 0;
-              if (skillVal > 0) rate = (effortRate + skillVal * skillRate) * stepDays;
+              if (skillVal > 0) rate = (workRate + skillVal * skillBonus) * stepDays;
             }
-            task.effortProgress[key] = (task.effortProgress[key] ?? 0) + rate;
-            ui.taskEffortPerTick[task.id] = (ui.taskEffortPerTick[task.id] ?? 0) + rate;
+            task.workProgress[key] = (task.workProgress[key] ?? 0) + rate;
+            ui.taskWorkPerTick[task.id] = (ui.taskWorkPerTick[task.id] ?? 0) + rate;
             agentContributed = true;
-            tasksWithEffort.add(task.id);
+            tasksWithWork.add(task.id);
           }
 
           if (!agentContributed) flashError(agent.id);
         }
 
-        // Flash agents whose task got zero total effort this step (no one has the skills).
+        // Flash agents whose task got zero work this step (no one has the required skills).
         for (const agent of eligible) {
           const task = getCurrentTask(agent);
           if (!task) continue;
-          if (!tasksWithEffort.has(task.id)) flashError(agent.id);
+          if (!tasksWithWork.has(task.id)) flashError(agent.id);
         }
 
         // Auto-complete tasks whose effort requirements are now satisfied.
@@ -1292,16 +1391,16 @@ function updateClockDisplay() {
     clockEl.textContent = formatClock(state.session.clock + frac * stepMins);
   }
 
-  const rates = ui.taskEffortPerTick || {};
+  const rates = ui.taskWorkPerTick || {};
   for (const task of state.tasks) {
     if (task.isComplete) continue;
-    const effortPerTick = rates[task.id] ?? 0;
-    if (!effortPerTick) continue;
-    const efforts = getEffortReqs(task);
-    const totalRequired = efforts.reduce((sum, e) => sum + e.value, 0);
+    const workPerTick = rates[task.id] ?? 0;
+    if (!workPerTick) continue;
+    const reqs = getWorkReqs(task);
+    const totalRequired = reqs.reduce((sum, e) => sum + e.value, 0);
     if (!totalRequired) continue;
-    const stored = efforts.reduce((sum, e) => sum + (task.effortProgress?.[e.name || ''] ?? 0), 0);
-    const pct = Math.min(100, ((stored + frac * effortPerTick) / totalRequired) * 100);
+    const stored = reqs.reduce((sum, e) => sum + (task.workProgress?.[e.name || ''] ?? 0), 0);
+    const pct = Math.min(100, ((stored + frac * workPerTick) / totalRequired) * 100);
     const fill = document.querySelector(`.task-progress-fill[data-task-id="${task.id}"]`);
     if (fill) fill.style.width = `${pct.toFixed(1)}%`;
   }
@@ -1405,35 +1504,35 @@ function showConfigPanel() {
   rateRow.appendChild(rateInput);
   panel.appendChild(rateRow);
 
-  // Effort rate
-  const effortRateRow = el('div', { class: 'config-row' });
-  effortRateRow.appendChild(el('label', { text: 'EFFORT RATE' }));
-  const effortRateInput = el('input', {
+  // Work rate
+  const workRateRow = el('div', { class: 'config-row' });
+  workRateRow.appendChild(el('label', { text: 'WORK RATE' }));
+  const workRateInput = el('input', {
     type: 'number', min: '0', step: '0.1',
-    value: String(state.session.effortRate ?? 1),
+    value: String(state.session.workRate ?? 1),
   });
-  effortRateInput.addEventListener('change', () => {
-    const v = parseFloat(effortRateInput.value);
-    state.session.effortRate = isNaN(v) || v < 0 ? 1 : v;
+  workRateInput.addEventListener('change', () => {
+    const v = parseFloat(workRateInput.value);
+    state.session.workRate = isNaN(v) || v < 0 ? 1 : v;
     save();
   });
-  effortRateRow.appendChild(effortRateInput);
-  panel.appendChild(effortRateRow);
+  workRateRow.appendChild(workRateInput);
+  panel.appendChild(workRateRow);
 
-  // Skill rate
-  const skillRateRow = el('div', { class: 'config-row' });
-  skillRateRow.appendChild(el('label', { text: 'SKILL RATE' }));
-  const skillRateInput = el('input', {
+  // Skill bonus
+  const skillBonusRow = el('div', { class: 'config-row' });
+  skillBonusRow.appendChild(el('label', { text: 'SKILL BONUS' }));
+  const skillBonusInput = el('input', {
     type: 'number', min: '0', step: '0.1',
-    value: String(state.session.skillRate ?? 1),
+    value: String(state.session.skillBonus ?? 1),
   });
-  skillRateInput.addEventListener('change', () => {
-    const v = parseFloat(skillRateInput.value);
-    state.session.skillRate = isNaN(v) || v < 0 ? 1 : v;
+  skillBonusInput.addEventListener('change', () => {
+    const v = parseFloat(skillBonusInput.value);
+    state.session.skillBonus = isNaN(v) || v < 0 ? 1 : v;
     save();
   });
-  skillRateRow.appendChild(skillRateInput);
-  panel.appendChild(skillRateRow);
+  skillBonusRow.appendChild(skillBonusInput);
+  panel.appendChild(skillBonusRow);
 
   // Close button
   panel.appendChild(el('button', {
@@ -1540,14 +1639,14 @@ function resetAll() {
   if (ui.playing) stopPlay();
   localStorage.removeItem(STORAGE_KEY);
   state = {
-    session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1', bank: 100, rateMultiplier: 1, effortRate: 1, skillRate: 1 },
+    session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1', bank: 100, rateMultiplier: 1, workRate: 1, skillBonus: 1 },
     agents: [],
     tasks: [],
     inventory: [],
   };
   ui.selectedTaskId = null;
   ui.expandedTasks.clear();
-  ui.taskEffortPerTick = {};
+  ui.taskWorkPerTick = {};
   save();
   render();
 }
