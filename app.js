@@ -6,6 +6,7 @@
 /* ---------- Palettes ---------- */
 // Each palette sets all CSS color tokens. highlight is the accent color shown
 // on active tags, selected cards, and the picker button for that palette.
+// backgroundImage is optional; if the path is invalid, color background is used.
 const PALETTES = {
   dark: {
     label: 'DARK',
@@ -17,6 +18,7 @@ const PALETTES = {
     highlight:    '#7eb5f5',
     highlightBg:  'rgba(126,181,245,0.09)',
     warn:         '#e84040',
+    backgroundImage: './assets/UI/background_dark.jpg',
   },
   light: {
     label: 'LIGHT',
@@ -28,6 +30,7 @@ const PALETTES = {
     highlight:    '#2060d0',
     highlightBg:  'rgba(32,96,208,0.07)',
     warn:         '#d42020',
+    backgroundImage: './assets/UI/background_light.jpg',
   },
   vale: {
     label: 'VALE',
@@ -39,6 +42,7 @@ const PALETTES = {
     highlight:    '#72c87e',
     highlightBg:  'rgba(114,200,126,0.09)',
     warn:         '#e87040',
+    backgroundImage: './assets/UI/background_vale.jpg',
   },
   ember: {
     label: 'EMBER',
@@ -50,6 +54,7 @@ const PALETTES = {
     highlight:    '#e8893c',
     highlightBg:  'rgba(232,137,60,0.09)',
     warn:         '#ffcc00',
+    backgroundImage: './assets/UI/background_ember.jpg',
   },
   arcane: {
     label: 'ARCANE',
@@ -61,6 +66,7 @@ const PALETTES = {
     highlight:    '#9a7ae8',
     highlightBg:  'rgba(154,122,232,0.09)',
     warn:         '#ff6090',
+    backgroundImage: './assets/UI/background_arcane.jpg',
   },
 };
 
@@ -78,6 +84,21 @@ function applyPalette(name) {
   root.style.setProperty('--highlight',    p.highlight);
   root.style.setProperty('--highlight-bg', p.highlightBg);
   root.style.setProperty('--warn',         p.warn || '#e84040');
+
+  // Apply background image if specified; fallback to color if unavailable
+  if (p.backgroundImage) {
+    const bgImage = new Image();
+    bgImage.onload = () => {
+      root.style.setProperty('--bg-image', `url('${p.backgroundImage}')`);
+    };
+    bgImage.onerror = () => {
+      root.style.setProperty('--bg-image', 'none');
+    };
+    bgImage.src = p.backgroundImage;
+  } else {
+    root.style.setProperty('--bg-image', 'none');
+  }
+
   currentPalette = name;
   localStorage.setItem(PALETTE_KEY, name);
 }

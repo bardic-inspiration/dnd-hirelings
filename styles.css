@@ -5,6 +5,13 @@
    are defined here and never overridden by palettes.
    ============================================================ */
 
+@font-face {
+  font-family: 'BNBrickHouse';
+  src: url('assets/UI/fonts/BNRollcall.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 :root {
   /* --- Color tokens (dark palette defaults; JS overwrites on load) --- */
   --bg:           #111114;
@@ -15,6 +22,9 @@
   --highlight:    #7eb5f5;
   --highlight-bg: rgba(126,181,245,0.09);
   --warn:         #e84040;
+
+  /* --- Background image (palette-specific; JS overwrites on load) --- */
+  --bg-image:     none;
 
   /* --- Structure --- */
   --line:      1px;
@@ -36,7 +46,12 @@
 html, body {
   height: 100%;
   width: 100%;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: var(--bg-image);
+  background-position: center top;
+  background-size: 100vw auto;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--fg);
   font-family: var(--font);
   font-size: var(--fs-base);
@@ -50,6 +65,19 @@ body {
   align-items: center;
   padding: 2vh 10vw;
   gap: var(--gap);
+}
+
+/* ============================================================
+   PAGE TITLE
+   ============================================================ */
+#page-title {
+  width: 100%;
+  font-family: 'BNBrickHouse', var(--font);
+  font-size: 30px;
+  letter-spacing: 0.06em;
+  color: var(--fg);
+  padding: 0 12px;
+  flex-shrink: 0;
 }
 
 /* ============================================================
