@@ -16,7 +16,6 @@ D&D Hirelings is a single-page dashboard for managing NPC agents (hirelings) dur
 index.html   - Menu bar + 3:1 dashboard (agents | tasks)
 styles.css   - All styling via CSS custom properties on :root
 app.js       - All logic: state, render, event wiring
-config.json  - Optional theme overrides (HTTP only; file:// uses DEFAULT_CONFIG)
 ```
 
 ## Architecture
@@ -40,19 +39,19 @@ Every mutation: `save(); render();` — `render()` does a full DOM rebuild from 
 - `attributes[]` — tag strings describing what an agent IS/HAS (`#skill:archery=3`)
 - `activities[]` — tag strings linking to tasks (`#task:id`); first incomplete task is current work
 - `lastAssigned` — `null` if never assigned; used for sort order alongside `createdAt`
-- `agentDefaults(config)` — single source of default field values; used by `createAgent()` and `duplicateAgent()`
+- `agentDefaults(DEFAULT_CONFIG)` — single source of default field values; used by `createAgent()` and `duplicateAgent()`
 - Backfill uses `??=` throughout `load()`
 
 ### Tasks
 
 ```js
-{ id, name, description, requirements[], effortProgress{}, isComplete, createdAt }
+{ id, name, description, requirements[], workProgress{}, isComplete, createdAt }
 ```
 
-- `requirements[]` — tag strings encoding effort, agent requirements, inventory checks, rewards
-- `effortProgress` — object keyed by skill name (or `''` for nameless effort); accumulates per clock step
+- `requirements[]` — tag strings encoding work targets, agent requirements, inventory checks, rewards
+- `workProgress` — object keyed by skill name (or `''` for nameless work); accumulates per clock step
 - `completeTask(task)` — canonical completion path: sets `isComplete`, prunes agents, consumes items, executes rewards
-- All tasks auto-complete: `getEffortReqs()` returns a synthetic `{ value: 1 }` default when no effort tags exist
+- All tasks auto-complete: `getWorkReqs()` returns a synthetic `{ value: 1 }` default when no work tags exist
 
 ### Tags
 
@@ -65,8 +64,8 @@ Format: `#[req:]type[:name][=value]` — parsed by `parseTag()`, built by `build
 | `skill`, `tool`, `trait`, `class`, `race`, `level` | `#type:name[=value]` | `attribute` | — |
 | `req:skill`, `req:tool`, `req:trait`, `req:class`, `req:race` | `#req:type:name[=value]` | `requirement` | `require` |
 | `req:item`, `req:consumable` | `#req:type:name=qty` | `requirement` | `block` / `consume` |
-| `effort` | `#effort=N` | `effort` | `effort` |
-| `effort:skill` | `#effort:skillname=N` | `effort` | `effort-skill` |
+| `work` | `#work=N` | `work` | `work` |
+| `work:skill` | `#work:skillname=N` | `work` | `work-skill` |
 | `reward:gold` | `#reward:gold=N` | `reward` | `reward-gold` |
 
 Each entry carries `{ label, context, type, isReq, hasName, hasValue, nameLabel?, valueLabel?, nameFixed?, fn? }`.
@@ -76,9 +75,9 @@ Each entry carries `{ label, context, type, isReq, hasName, hasValue, nameLabel?
 - `tagFn(parsed)` — return the `fn` key; used by all logic functions instead of hardcoded type strings
 - `getSchemaByContext(...contexts)` — filter entries by context for UI generation
 
-**Effort logic:**
-- Named effort (`#effort:skill=N`): agents with a matching `#skill` attribute contribute at `(effortRate + skillVal × skillRate) × stepDays`; others contribute at base rate
-- Nameless/default effort: all agents contribute at `effortRate × stepDays`
+**Work logic:**
+- Named work (`#work:skill=N`): agents with a matching `#skill` attribute contribute at `(workRate + skillVal × skillBonus) × stepDays`; others contribute at base rate
+- Nameless/default work: all agents contribute at `workRate × stepDays`
 
 **Item/consumable logic:**
 - `block` (item): task blocked if inventory qty is insufficient; non-depleting
@@ -101,6 +100,8 @@ Agents split into ACTIVE / IDLE columns by `activeTaskCount(agent) > 0`. Sorted 
 
 Multiple built-in color themes in `PALETTES` object. Stored separately in `localStorage` (`dnd-hirelings-palette`). Applied via `applyPalette(name)` which sets all CSS custom properties on `:root`.
 
+Palette scaffolding supports configurable image and font assets for future buildouts.
+
 ## Common Extension Patterns
 
 **Add agent property:** `agentDefaults()` → `load()` backfill with `??=` → `renderAgentCard()`.
@@ -115,23 +116,23 @@ Multiple built-in color themes in `PALETTES` object. Stored separately in `local
 
 **Add reward type**: add entry with a new `fn` key (e.g. `'reward-xp'`) + one case in `executeTaskRewards()`.
 
-**Add effort subtype**: add entry with `context: 'effort'`, `type: 'effort'`. Effort logic handles all `type === 'effort'` tags automatically.
+**Add work subtype**: add entry with `context: 'work'`, `type: 'work'`. Work logic handles all `type === 'work'` tags automatically.
 
-**Add color:** `DEFAULT_CONFIG.colors` in app.js + `--name` in `:root` in styles.css + optional entry in config.json.
+**Add color:** add to `PALETTES` in app.js + `--name` in `:root` in styles.css.
 
 **Migrate state shape:** Bump `STORAGE_KEY` (e.g. `-v1` → `-v2`). Old data silently abandoned — preferable to silent corruption.
 
 ## Development
 
 ```bash
-python -m http.server 8000   # config.json loads; file:// uses built-in defaults
+python -m http.server 8000
 ```
 
 State reset: `localStorage.removeItem('dnd-hirelings-state-v1')` in DevTools.
 
 Manual testing checklist:
 - Add/assign/complete agents and tasks
-- Advance clock — verify effort accumulates, cost deducted, tasks auto-complete
+- Advance clock — verify work accumulates, cost deducted, tasks auto-complete
 - Item/consumable reqs — verify blocking and depletion
 - Export → clear localStorage → import round-trip
 - Page never scrolls (only inner grids/task list)

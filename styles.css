@@ -7,7 +7,7 @@
 
 @font-face {
   font-family: 'BNBrickHouse';
-  src: url('assets/UI/fonts/BNRollcall.otf') format('opentype');
+  src: url('assets/UI/fonts/BNBreezy.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
 }
@@ -39,6 +39,9 @@
   --fs-xs:   9px;
   --fs-sm:   11px;
   --fs-base: 13px;
+
+  /* --- Frame fill opacity (0 = transparent, 1 = opaque) --- */
+  --fill-opacity: 0.7;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -93,7 +96,7 @@ body {
   border-radius: var(--radius-lg);
   height: 36px;
   flex-shrink: 0;
-  background: var(--dimmer);
+  background: color-mix(in srgb, var(--dimmer) calc(var(--fill-opacity) * 100%), transparent);
 }
 
 .menu-section {
@@ -197,7 +200,7 @@ body {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  background: var(--dimmer);
+  background: color-mix(in srgb, var(--dimmer) calc(var(--fill-opacity) * 100%), transparent);
 }
 
 /* Agents pane: two equal columns */
@@ -259,13 +262,13 @@ body {
   flex-direction: column;
   gap: 6px;
   cursor: pointer;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
   transition: border-color 0.15s, background 0.15s;
 }
 
 .agent-card.assignable {
   border-color: var(--highlight);
-  background: linear-gradient(145deg, var(--highlight-bg) 0%, var(--bg) 70%);
+  background: linear-gradient(145deg, var(--highlight-bg) 0%, color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent) 70%);
 }
 
 .agent-card.not-assignable {
@@ -408,13 +411,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
   transition: border-color 0.15s, background 0.15s;
 }
 
 .task-card.selected {
   border-color: var(--highlight);
-  background: linear-gradient(145deg, var(--highlight-bg) 0%, var(--bg) 70%);
+  background: linear-gradient(145deg, var(--highlight-bg) 0%, color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent) 70%);
 }
 
 .task-card.complete .task-name { color: var(--dim); text-decoration: line-through; }
@@ -723,7 +726,7 @@ body {
 }
 
 .config-panel {
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
   border: var(--line) solid var(--border);
   border-radius: var(--radius-lg);
   padding: 16px;
@@ -790,9 +793,9 @@ body {
 
 .work-item {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 6px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 6px;
   border: var(--line) solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--dimmer);
@@ -808,10 +811,12 @@ body {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--highlight);
-  flex: 0 0 64px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.work-item-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .work-item-bar {
@@ -906,7 +911,7 @@ body {
 }
 
 .tag-builder-card {
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
   border: var(--line) solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;

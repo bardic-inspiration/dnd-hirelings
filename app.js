@@ -120,7 +120,6 @@ function renderPalettePicker() {
 }
 
 /* ---------- Config ---------- */
-// config.json (HTTP only) supplies defaults (agentName, rate, etc.) but not colors.
 const DEFAULT_CONFIG = {
   defaults: {
     agentName: 'NEW HIRELING',
@@ -137,8 +136,6 @@ const DEFAULT_CONFIG = {
     }
   }
 };
-
-let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 
 /* ---------- State ---------- */
 // Single source of truth, serialized to localStorage on every mutation.
@@ -193,18 +190,6 @@ function load() {
   } catch (e) { console.warn('Failed to load state:', e); }
 }
 
-async function loadConfig() {
-  // config.json is optional and only supplies defaults (not colors).
-  // fetch will fail under file:// — that's fine.
-  try {
-    const res = await fetch('config.json');
-    if (!res.ok) return;
-    const cfg = await res.json();
-    config = {
-      defaults: Object.assign({}, DEFAULT_CONFIG.defaults, cfg.defaults || {}),
-    };
-  } catch (_) { /* keep defaults */ }
-}
 
 /* ---------- Utilities ---------- */
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -330,7 +315,7 @@ function agentDefaults(cfg) {
 function createAgent() {
   state.agents.push({
     id: uid(),
-    ...agentDefaults(config),
+    ...agentDefaults(DEFAULT_CONFIG),
     activities: [],
     createdAt: now(),
     lastAssigned: null,
@@ -341,7 +326,7 @@ function createAgent() {
 function createTask() {
   state.tasks.push({
     id: uid(),
-    name: config.defaults.taskName,
+    name: DEFAULT_CONFIG.defaults.taskName,
     description: '',
     requirements: [],
     workProgress: {},
@@ -879,9 +864,9 @@ function getSchemaByContext(...contexts) {
 }
 
 /* ---------- Task body sections (work / require / reward / tag) ---------- */
-function renderWorkSection(task) {
+function renderProgressSection(task) {
   const wrap = el('div', { class: 'task-section' });
-  wrap.appendChild(el('div', { class: 'tag-label', text: 'WORK' }));
+  wrap.appendChild(el('div', { class: 'tag-label', text: 'PROGRESS' }));
 
   const progMap = task.workProgress ?? {};
   const list = el('div', { class: 'work-list' });
@@ -894,90 +879,117 @@ function renderWorkSection(task) {
 
   if (workEntries.length === 0) {
     const progress = progMap[''] ?? 0;
-    list.appendChild(buildWorkRow('GENERAL', 1, progress, null, null));
+    list.appendChild(buildWorkRow('General', null, 1, progress, null, null));
   } else {
     workEntries.forEach(({ p, idx }) => {
-      const key = p.name || '';
+      const entry = getSchemaEntry(p);
+      const schemaLabel = entry ? entry.label : 'Work';
       const target = p.value ?? 1;
-      const progress = progMap[key] ?? 0;
-      list.appendChild(buildWorkRow(p.name ? p.name.toUpperCase() : 'GENERAL', target, progress, task, idx));
+      const progress = progMap[p.name || ''] ?? 0;
+      list.appendChild(buildWorkRow(schemaLabel, p.name || null, target, progress, task, idx));
     });
   }
 
   wrap.appendChild(list);
-  wrap.appendChild(el('button', {
-    class: 'tag-add',
-    text: '+ WORK',
-    onclick: (e) => {
-      e.stopPropagation();
-      showTagBuilder({
-        context: 'task', initialPreset: 'work',
-        onSave: (tag) => { task.requirements.push(tag); save(); render(); },
-      });
-    }
-  }));
   return wrap;
 }
 
-function buildWorkRow(label, target, progress, task, reqIdx) {
+function buildWorkRow(schemaLabel, tagName, target, progress, task, reqIdx) {
+  const label = tagName
+    ? `${schemaLabel.toUpperCase()}: ${tagName.toUpperCase()}`
+    : schemaLabel.toUpperCase();
   const done = progress >= target;
   const pct = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
   const item = el('div', { class: 'work-item' + (done ? ' done' : '') });
   item.appendChild(el('span', { class: 'work-item-skill', text: label }));
+  const bottom = el('div', { class: 'work-item-bottom' });
   const bar = el('div', { class: 'work-item-bar' });
   bar.appendChild(el('div', { class: 'work-item-bar-fill', style: { width: `${pct.toFixed(1)}%` } }));
-  item.appendChild(bar);
-  item.appendChild(el('span', { class: 'work-item-value', text: `${Math.floor(progress)} / ${target}` }));
+  bottom.appendChild(bar);
+  bottom.appendChild(el('span', { class: 'work-item-value', text: `${Math.floor(progress)} / ${target}` }));
   if (task && reqIdx !== null) {
-    item.appendChild(el('span', {
+    bottom.appendChild(el('span', {
       class: 'x', text: '×',
       onclick: (e) => { e.stopPropagation(); task.requirements.splice(reqIdx, 1); save(); render(); }
     }));
   }
+  item.appendChild(bottom);
   return item;
 }
 
-function renderTagSection(task, label, filterFn, builderPreset) {
-  const wrap = el('div', { class: 'task-section' });
-  wrap.appendChild(el('div', { class: 'tag-label', text: label }));
+function buildTagRow(tagStr, idx, task) {
+  const p = parseTag(tagStr);
+  const entry = getSchemaEntry(p);
+  const typeLabel = entry ? entry.label.toUpperCase() : p.type.toUpperCase();
+  const showName = p.name && !entry?.nameFixed;
+  const label = showName ? `${typeLabel}: ${p.name.toUpperCase()}` : typeLabel;
+  const params = p.value !== null ? ` =${p.value}` : '';
+  const row = el('div', { class: 'tag-list-item' });
+  const content = el('span', { class: 'tag-content' });
+  content.innerHTML = `<strong>${label}</strong>${params}`;
+  row.appendChild(content);
+  row.appendChild(el('span', {
+    class: 'x', text: '×',
+    onclick: (e) => { e.stopPropagation(); task.requirements.splice(idx, 1); save(); render(); }
+  }));
+  return row;
+}
 
+function renderRequirementsSection(task) {
+  const wrap = el('div', { class: 'task-section' });
+  wrap.appendChild(el('div', { class: 'tag-label', text: 'REQUIREMENTS' }));
   const tagList = el('div', { class: 'task-tag-list' });
   let count = 0;
   task.requirements.forEach((tagStr, i) => {
-    if (!filterFn(parseTag(tagStr))) return;
+    if (!parseTag(tagStr).isReq) return;
     count++;
-    tagList.appendChild(el('div', { class: 'tag-list-item' }, [
-      el('span', { class: 'tag-content', text: formatTagDisplay(tagStr) }),
-      el('span', {
-        class: 'x', text: '×',
-        onclick: (e) => { e.stopPropagation(); task.requirements.splice(i, 1); save(); render(); }
-      })
-    ]));
+    tagList.appendChild(buildTagRow(tagStr, i, task));
   });
   if (!count) tagList.appendChild(el('div', { class: 'empty-state', text: '—' }));
+  wrap.appendChild(tagList);
+  return wrap;
+}
 
+function renderResultsSection(task) {
+  const wrap = el('div', { class: 'task-section' });
+  wrap.appendChild(el('div', { class: 'tag-label', text: 'RESULTS' }));
+  const tagList = el('div', { class: 'task-tag-list' });
+  let count = 0;
+  task.requirements.forEach((tagStr, i) => {
+    const p = parseTag(tagStr);
+    if (p.isReq || p.type !== 'reward') return;
+    count++;
+    tagList.appendChild(buildTagRow(tagStr, i, task));
+  });
+  if (!count) tagList.appendChild(el('div', { class: 'empty-state', text: '—' }));
+  wrap.appendChild(tagList);
+  return wrap;
+}
+
+function renderAttributesSection(task) {
+  const wrap = el('div', { class: 'task-section' });
+  wrap.appendChild(el('div', { class: 'tag-label', text: 'ATTRIBUTES' }));
+  const tagList = el('div', { class: 'task-tag-list' });
+  let count = 0;
+  task.requirements.forEach((tagStr, i) => {
+    const p = parseTag(tagStr);
+    if (p.isReq || p.type === 'work' || p.type === 'reward') return;
+    count++;
+    tagList.appendChild(buildTagRow(tagStr, i, task));
+  });
+  if (!count) tagList.appendChild(el('div', { class: 'empty-state', text: '—' }));
   wrap.appendChild(tagList);
   wrap.appendChild(el('button', {
-    class: 'tag-add',
-    text: `+ ${label}`,
+    class: 'tag-add', text: '+ TAG',
     onclick: (e) => {
       e.stopPropagation();
       showTagBuilder({
-        context: 'task', initialPreset: builderPreset,
+        context: 'task',
         onSave: (tag) => { task.requirements.push(tag); save(); render(); },
       });
     }
   }));
   return wrap;
-}
-
-// Format tag for display with proper symbols
-function formatTagDisplay(tagStr) {
-  const p = parseTag(tagStr);
-  let display = `#${p.type}`;
-  if (p.name) display += `:${p.name}`;
-  if (p.value !== null) display += `=${p.value}`;
-  return display;
 }
 
 /* ---------- Agent card ---------- */
@@ -992,7 +1004,7 @@ function renderAgentCard(agent) {
   });
 
   // Name (editable)
-  const name = editable(agent.name, (v) => { agent.name = v || config.defaults.agentName; save(); render(); });
+  const name = editable(agent.name, (v) => { agent.name = v || DEFAULT_CONFIG.defaults.agentName; save(); render(); });
   name.classList.add('agent-name');
   card.appendChild(name);
 
@@ -1143,7 +1155,7 @@ function renderTaskCard(task) {
 
   // Header: name + expand/collapse toggle
   const header = el('div', { class: 'task-header' });
-  const name = editable(task.name, (v) => { task.name = v || config.defaults.taskName; save(); render(); });
+  const name = editable(task.name, (v) => { task.name = v || DEFAULT_CONFIG.defaults.taskName; save(); render(); });
   name.classList.add('task-name');
   header.appendChild(name);
 
@@ -1172,27 +1184,22 @@ function renderTaskCard(task) {
   desc.classList.add('task-desc');
   body.appendChild(desc);
 
-  body.appendChild(renderWorkSection(task));
-  body.appendChild(renderTagSection(task, 'REQUIRE', p => p.isReq, 'req:skill'));
-  body.appendChild(renderTagSection(task, 'REWARD',  p => !p.isReq && p.type === 'reward', 'reward:gold'));
-  // Catch-all for custom / unrecognized tags
-  const hasCustom = task.requirements.some(r => {
-    const p = parseTag(r); return !p.isReq && p.type !== 'work' && p.type !== 'reward';
-  });
-  if (hasCustom) body.appendChild(renderTagSection(task, 'TAG',
-    p => !p.isReq && p.type !== 'work' && p.type !== 'reward', ''));
+  body.appendChild(renderProgressSection(task));
+  body.appendChild(renderRequirementsSection(task));
+  body.appendChild(renderResultsSection(task));
+  body.appendChild(renderAttributesSection(task));
 
   // Assigned-to summary line
   const assigned = agentsAssignedTo(task.id);
   if (assigned.length) {
-    body.appendChild(el('div', {
-      class: 'assigned-list',
-      text: 'ASSIGNED: ' + assigned.map(a => a.name).join(', ')
-    }));
+    const assignedRow = el('div', { class: 'assigned-list' });
+    assignedRow.innerHTML = 'ASSIGNED: ' + assigned.map(a => `<strong>${a.name}</strong>`).join(' ');
+    body.appendChild(assignedRow);
   }
 
-  // Status row: complete toggle + duplicate + delete
+  // Status row: label + complete toggle + duplicate + delete
   const statusRow = el('div', { class: 'task-status-row action-row' });
+  statusRow.appendChild(el('span', { class: 'tag-label', text: 'STATUS:' }));
   statusRow.appendChild(el('button', {
     class: 'tag-add',
     text: task.isComplete ? '↻' : '✓',
@@ -1235,7 +1242,7 @@ function renderTaskCard(task) {
 
 /* ---------- Render ---------- */
 function render() {
-  const { activeAgentEmpty, idleAgentEmpty, taskEmpty } = config.defaults.defaultMessages;
+  const { activeAgentEmpty, idleAgentEmpty, taskEmpty } = DEFAULT_CONFIG.defaults.defaultMessages;
   // Menu values
   const sessIdEl = document.getElementById('session-id');
   if (document.activeElement !== sessIdEl) sessIdEl.textContent = state.session.id;
@@ -1771,9 +1778,8 @@ function wireMenu() {
 }
 
 /* ---------- Boot ---------- */
-async function boot() {
+function boot() {
   applyPalette(currentPalette);   // apply saved palette before first paint
-  await loadConfig();
   load();
   wireMenu();
   renderPalettePicker();
