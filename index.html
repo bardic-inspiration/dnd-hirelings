@@ -1,91 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Guild Manager</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-
-  <!-- Page title -->
-  <div id="page-title">GUILD MANAGER</div>
-
-  <!-- Single-line global menu -->
-  <header id="menu">
-    <div class="menu-section">
-      <span class="label">SESSION</span>
-      <span class="value" id="session-id" contenteditable="true" spellcheck="false">001</span>
-    </div>
-    <div class="menu-section">
-      <span class="label">YEAR</span>
-      <span class="value mono" id="clock-year" contenteditable="true" spellcheck="false">1</span>
-      <span class="label">WEEK</span>
-      <span class="value mono" id="clock-week" contenteditable="true" spellcheck="false">1</span>
-      <span class="label">DAY</span>
-      <span class="value mono" id="clock-day" contenteditable="true" spellcheck="false">1</span>
-    </div>
-    <div class="menu-section">
-      <span class="label">RATE</span>
-      <span class="value" id="playback-rate" contenteditable="true" spellcheck="false">1</span>
-    </div>
-    <div class="menu-section">
-      <span class="label">STEP</span>
-      <span class="value" id="time-step" contenteditable="true" spellcheck="false">1</span>
-      <span class="label">DAYS</span>
-      <button class="ctrl" id="play-btn"     title="Play">&#9654;</button>
-      <button class="ctrl" id="pause-btn"    title="Pause">&#9646;&#9646;</button>
-      <button class="ctrl" id="advance-time" title="Step forward">&#9654;|</button>
-    </div>
-    <div class="menu-section">
-      <span class="label">BANK</span>
-      <span class="value" id="bank" contenteditable="true" spellcheck="false">100</span>
-    </div>
-    <div class="menu-section" id="palette-picker"></div>
-    <div class="menu-section right">
-      <button class="ctrl" id="inventory-btn">INVENTORY</button>
-      <button class="ctrl" id="config-btn">SETTINGS</button>
-      <button class="ctrl" id="export-data">SAVE</button>
-      <button class="ctrl" id="import-data">LOAD</button>
-      <button class="ctrl" id="reset-btn">RESET</button>
-    </div>
-  </header>
-
-  <!-- Two-pane dashboard: agents (3fr) | tasks (1fr) -->
-  <main id="dashboard">
-
-    <!-- LEFT: agent cards, split into ACTIVE / IDLE columns -->
-    <section id="agents-pane" class="pane">
-      <div class="column">
-        <div class="col-label col-label-row">
-          <span>ACTIVE</span>
-          <button class="ctrl col-add" id="clear-active">CLEAR</button>
-        </div>
-        <div class="card-grid" id="active-agents"></div>
-      </div>
-      <div class="column">
-        <div class="col-label col-label-row">
-          <span>IDLE</span>
-          <button class="ctrl col-add" id="add-agent">+ AGENT</button>
-        </div>
-        <div class="card-grid" id="idle-agents"></div>
-      </div>
-    </section>
-
-    <!-- RIGHT: task stack with expandable cards -->
-    <section id="tasks-pane" class="pane">
-      <div class="col-label col-label-row">
-        <span>TASKS</span>
-        <button class="ctrl col-add" id="add-task">+ TASK</button>
-      </div>
-      <div id="task-list"></div>
-    </section>
-
-  </main>
-
-  <!-- Hidden file input for JSON import -->
-  <input type="file" id="import-file" accept="application/json" hidden>
-
-  <script type="module" src="app/main.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Flock</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

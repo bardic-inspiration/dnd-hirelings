@@ -1,19 +1,18 @@
 /* ============================================================
    D&D Hirelings — Stylesheet
    All colors are CSS custom properties; palettes are applied by
-   app.js at runtime. Structural values (radius, spacing, font)
-   are defined here and never overridden by palettes.
+   usePalette.js at runtime. Structural values (radius, spacing,
+   font) are defined here and never overridden by palettes.
    ============================================================ */
 
 @font-face {
   font-family: 'BNBrickHouse';
-  src: url('assets/UI/fonts/BNBreezy.otf') format('opentype');
+  src: url('/assets/UI/fonts/BNBreezy.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
 }
 
 :root {
-  /* --- Color tokens (dark palette defaults; JS overwrites on load) --- */
   --bg:           #111114;
   --fg:           #dddde0;
   --border:       #2e2e36;
@@ -22,25 +21,20 @@
   --highlight:    #7eb5f5;
   --highlight-bg: rgba(126,181,245,0.09);
   --warn:         #e84040;
-
-  /* --- Background image (palette-specific; JS overwrites on load) --- */
   --bg-image:     none;
 
-  /* --- Structure --- */
   --line:      1px;
   --gap:       8px;
-  --radius-lg: 10px;   /* panes */
-  --radius:    7px;    /* cards */
-  --radius-sm: 5px;    /* buttons */
-  --radius-xs: 100px;  /* tags — pill */
+  --radius-lg: 10px;
+  --radius:    7px;
+  --radius-sm: 5px;
+  --radius-xs: 100px;
 
-  /* --- Typography --- */
   --font:    system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
   --fs-xs:   9px;
   --fs-sm:   11px;
   --fs-base: 13px;
 
-  /* --- Frame fill opacity (0 = transparent, 1 = opaque) --- */
   --fill-opacity: 0.7;
 }
 
@@ -68,6 +62,10 @@ body {
   align-items: center;
   padding: 2vh 10vw;
   gap: var(--gap);
+}
+
+#root {
+  display: contents;
 }
 
 /* ============================================================
@@ -121,7 +119,6 @@ body {
   min-width: 18px;
 }
 
-/* monospaced clock value so D/HH/MM don't shift width */
 .menu-section .value.mono {
   font-family: ui-monospace, "Courier New", monospace;
   letter-spacing: 0.04em;
@@ -203,7 +200,6 @@ body {
   background: color-mix(in srgb, var(--dimmer) calc(var(--fill-opacity) * 100%), transparent);
 }
 
-/* Agents pane: two equal columns */
 #agents-pane {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -510,88 +506,6 @@ body {
 }
 
 /* ============================================================
-   EFFORT EDITOR
-   ============================================================ */
-.effort-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.effort-total-line {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  color: var(--dim);
-  letter-spacing: 0.08em;
-  margin-top: 4px;
-}
-
-/* ============================================================
-   REQUIREMENTS EDITOR  (task sidebar)
-   ============================================================ */
-.req-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.req-header {
-  pointer-events: none;
-  padding: 0 2px;
-}
-
-.req-col-label {
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--dim);
-  flex: 1;
-}
-.req-col-label:last-of-type { flex: 0 0 38px; }
-
-.req-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.req-field {
-  background: var(--bg);
-  border: var(--line) solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--fg);
-  font-family: var(--font);
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  padding: 3px 6px;
-  outline: none;
-  min-width: 0;
-  transition: border-color 0.1s;
-}
-.req-field:focus { border-color: var(--highlight); }
-
-.req-type  { flex: 0 0 64px; text-transform: lowercase; }
-.req-name  { flex: 1; }
-.req-value { flex: 0 0 38px; text-align: right; }
-
-/* hide browser number spinners */
-.req-value::-webkit-inner-spin-button,
-.req-value::-webkit-outer-spin-button { -webkit-appearance: none; }
-.req-value { -moz-appearance: textfield; }
-
-.req-remove {
-  flex-shrink: 0;
-  color: var(--border);
-  cursor: pointer;
-  font-size: var(--fs-sm);
-  line-height: 1;
-  padding: 0 2px;
-  transition: color 0.1s;
-}
-.req-remove:hover { color: var(--fg); }
-
-/* ============================================================
    ASSIGNMENT FLASH (validation failure)
    ============================================================ */
 @keyframes flash-error {
@@ -605,59 +519,7 @@ body {
 }
 
 /* ============================================================
-   EFFORT PROGRESS BARS
-   ============================================================ */
-.effort-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.effort-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.effort-label {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: lowercase;
-  color: var(--dim);
-  flex: 0 0 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.effort-track {
-  flex: 1;
-  height: 3px;
-  background: var(--border);
-  border-radius: 99px;
-  overflow: hidden;
-}
-
-.effort-fill {
-  height: 100%;
-  background: var(--highlight);
-  border-radius: 99px;
-  transition: width 0.4s ease;
-  min-width: 2px;
-}
-
-.effort-frac {
-  font-size: var(--fs-xs);
-  color: var(--dim);
-  flex: 0 0 46px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, "Courier New", monospace;
-}
-
-/* ============================================================
-   INLINE ADD BUTTONS  (end of idle grid / task list)
+   INLINE ADD BUTTONS
    ============================================================ */
 .add-inline {
   background: transparent;
@@ -676,7 +538,6 @@ body {
 }
 .add-inline:hover { border-color: var(--highlight); color: var(--highlight); }
 
-/* card-grid variant: spans full grid width */
 .card-grid .add-inline {
   grid-column: 1 / -1;
   width: 100%;
@@ -695,7 +556,7 @@ body {
 .ctrl.active-ctrl:hover { filter: brightness(1.15); }
 
 /* ============================================================
-   EMPTY INLINE (activities: none)
+   EMPTY INLINE
    ============================================================ */
 .empty-inline {
   color: var(--dim);
@@ -704,7 +565,7 @@ body {
 }
 
 /* ============================================================
-   TAG VALUE BADGE  (e.g. skill:carpentry ≥30)
+   TAG VALUE BADGE
    ============================================================ */
 .tag-value {
   font-size: var(--fs-xs);
@@ -784,7 +645,6 @@ body {
   gap: 5px;
 }
 
-/* Work component rows */
 .work-list {
   display: flex;
   flex-direction: column;
@@ -802,9 +662,7 @@ body {
   font-size: var(--fs-xs);
 }
 
-.work-item.done {
-  opacity: 0.4;
-}
+.work-item.done { opacity: 0.4; }
 
 .work-item-skill {
   font-weight: 700;
@@ -841,7 +699,6 @@ body {
   text-align: right;
 }
 
-/* Require / reward / tag sections */
 .task-tag-list {
   display: flex;
   flex-direction: column;
@@ -860,16 +717,6 @@ body {
   overflow: hidden;
 }
 
-.tag-category-badge {
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--highlight);
-  flex-shrink: 0;
-  padding: 0 4px;
-  border-right: var(--line) solid var(--border);
-}
-
 .tag-content {
   font-family: ui-monospace, "Courier New", monospace;
   color: var(--fg);
@@ -886,9 +733,7 @@ body {
   transition: color 0.1s;
 }
 
-.tag-list-item .x:hover {
-  color: var(--fg);
-}
+.tag-list-item .x:hover { color: var(--fg); }
 
 .empty-state {
   color: var(--dim);
@@ -967,27 +812,12 @@ body {
   transition: border-color 0.1s;
 }
 
-.tag-builder-field:focus {
-  border-color: var(--highlight);
-}
+.tag-builder-field:focus { border-color: var(--highlight); }
 
-.tag-builder-field[type="select"],
-.tag-builder-category,
 select.tag-builder-field {
   appearance: none;
   cursor: pointer;
   padding-right: 24px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237eb5f5' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 6px center;
-  background-size: 16px;
-}
-
-.tag-builder-category {
-  appearance: none;
-  cursor: pointer;
-  padding-right: 24px;
-  background-color: var(--dimmer);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237eb5f5' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 6px center;
@@ -1038,9 +868,7 @@ select.tag-builder-field {
 /* ============================================================
    INVENTORY PANEL
    ============================================================ */
-.inventory-panel {
-  max-height: 70vh;
-}
+.inventory-panel { max-height: 70vh; }
 
 .inventory-list {
   display: flex;
@@ -1128,7 +956,6 @@ select.tag-builder-field {
 
 [contenteditable]:focus { background: var(--dimmer); border-radius: 3px; }
 
-/* Slim scrollbars */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }

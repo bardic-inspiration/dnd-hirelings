@@ -1,2 +1,5 @@
-assets/
+node_modules/
+dist/
+public/assets/
 dev/
+archive/

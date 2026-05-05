@@ -1,22 +1,10 @@
-// TAG_SCHEMA is the single source of truth for all recognized tag patterns.
-// Adding an entry here is sufficient to expand the tag system throughout the app.
-//
-// context   — where the tag lives: 'attribute' | 'requirement' | 'work' | 'reward'
-// type      — raw type string written by buildTag()
-// isReq     — prepend #req: when true
-// hasName   — user provides a name field
-// hasValue  — user provides a value field
-// nameFixed — name is baked into the pattern (not user-input)
-// fn        — behavior key used by tagFn(); drives logic dispatch
 export const TAG_SCHEMA = {
-  // Attribute tags (on agents): #type:name[=value]
   skill:            { label: 'Skill',      context: 'attribute',   type: 'skill',      isReq: false, hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Level'      },
   tool:             { label: 'Tool',       context: 'attribute',   type: 'tool',       isReq: false, hasName: true,  hasValue: false, nameLabel: 'Name'                            },
   trait:            { label: 'Trait',      context: 'attribute',   type: 'trait',      isReq: false, hasName: true,  hasValue: false, nameLabel: 'Name'                            },
   class:            { label: 'Class',      context: 'attribute',   type: 'class',      isReq: false, hasName: true,  hasValue: false, nameLabel: 'Name'                            },
   race:             { label: 'Race',       context: 'attribute',   type: 'race',       isReq: false, hasName: true,  hasValue: false, nameLabel: 'Name'                            },
   level:            { label: 'Level',      context: 'attribute',   type: 'level',      isReq: false, hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Value'      },
-  // Task requirement tags: #req:type:name[=value]
   'req:skill':      { label: 'Skill',      context: 'requirement', type: 'skill',      isReq: true,  hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Min Level', fn: 'require'     },
   'req:tool':       { label: 'Tool',       context: 'requirement', type: 'tool',       isReq: true,  hasName: true,  hasValue: false, nameLabel: 'Name',                           fn: 'require'     },
   'req:trait':      { label: 'Trait',      context: 'requirement', type: 'trait',      isReq: true,  hasName: true,  hasValue: false, nameLabel: 'Name',                           fn: 'require'     },
@@ -24,15 +12,11 @@ export const TAG_SCHEMA = {
   'req:race':       { label: 'Race',       context: 'requirement', type: 'race',       isReq: true,  hasName: true,  hasValue: false, nameLabel: 'Name',                           fn: 'require'     },
   'req:item':       { label: 'Item',       context: 'requirement', type: 'item',       isReq: true,  hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Qty',        fn: 'block'       },
   'req:consumable': { label: 'Consumable', context: 'requirement', type: 'consumable', isReq: true,  hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Qty',        fn: 'consume'     },
-  // Task work tags: #work=N or #work:skill=N
   work:             { label: 'General',    context: 'work',        type: 'work',       isReq: false, hasName: false, hasValue: true,  valueLabel: 'Target',                        fn: 'work'        },
   'work:skill':     { label: 'Skill',      context: 'work',        type: 'work',       isReq: false, hasName: true,  hasValue: true,  nameLabel: 'Skill', valueLabel: 'Target',    fn: 'work-skill'  },
-  // Task reward tags: #reward:name=value
   'reward:gold':    { label: 'Gold',       context: 'reward',      type: 'reward',     isReq: false, hasName: false, hasValue: true,  nameFixed: 'gold', valueLabel: 'Amount',     fn: 'reward-gold' },
 };
 
-// Returns { type, name, value, isReq }. name and value may be null.
-// Formats: #type:name[=value]  |  #type=value  |  #req:type:name[=value]
 export function parseTag(s) {
   let stripped = s.startsWith('#') ? s.slice(1) : s;
   let isReq = false;
@@ -53,7 +37,6 @@ export function parseTag(s) {
   return { type, name: rest.slice(0, restEq), value: isNaN(v) ? null : v, isReq };
 }
 
-// Build a canonical tag string from parts. Returns null when name is required but missing.
 export function buildTag(type, name, value, isReq = false) {
   const t = (type || 'tag').trim().toLowerCase();
   const n = (name || '').trim().toLowerCase();
@@ -65,7 +48,6 @@ export function buildTag(type, name, value, isReq = false) {
   return `${head}${t}:${n}${v}`;
 }
 
-// Resolve a parsed tag to its schema entry, or null for unrecognized/custom tags.
 export function getSchemaEntry(parsed) {
   if (!parsed.isReq && parsed.name) {
     const fixed = Object.values(TAG_SCHEMA).find(e => e.type === parsed.type && e.nameFixed === parsed.name);
@@ -75,12 +57,10 @@ export function getSchemaEntry(parsed) {
   return TAG_SCHEMA[(parsed.isReq ? 'req:' : '') + parsed.type] ?? null;
 }
 
-// Return the fn key for a parsed tag, or null for unrecognized tags.
 export function tagFn(parsed) {
   return getSchemaEntry(parsed)?.fn ?? null;
 }
 
-// Schema entries filtered to one or more contexts, as [key, entry] pairs.
 export function getSchemaByContext(...contexts) {
   return Object.entries(TAG_SCHEMA).filter(([, e]) => contexts.includes(e.context));
 }
