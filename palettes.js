@@ -1,11 +1,4 @@
-/* =====================================================================
-   D&D Hirelings - Palette definitions
-   This file contains only fixed color theme presets and is loaded before app.js.
-   Presets are referenced by name in app.js, while the selected palette name
-   is persisted separately in localStorage.
-   ===================================================================== */
-
-const PALETTES = {
+export const PALETTES = {
   dark: {
     label: 'DARK',
     bg:           '#111114',
