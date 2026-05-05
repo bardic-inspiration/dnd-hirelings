@@ -1,0 +1,69 @@
+/* =====================================================================
+   D&D Hirelings - Palette definitions
+   This file contains only fixed color theme presets and is loaded before app.js.
+   Presets are referenced by name in app.js, while the selected palette name
+   is persisted separately in localStorage.
+   ===================================================================== */
+
+const PALETTES = {
+  dark: {
+    label: 'DARK',
+    bg:           '#111114',
+    fg:           '#dddde0',
+    border:       '#2e2e36',
+    dim:          '#5c5c68',
+    dimmer:       '#1a1a1f',
+    highlight:    '#7eb5f5',
+    highlightBg:  'rgba(126,181,245,0.09)',
+    warn:         '#e84040',
+    backgroundImage: './assets/UI/background_dark.jpg',
+  },
+  light: {
+    label: 'LIGHT',
+    bg:           '#f4f4f1',
+    fg:           '#1e1e22',
+    border:       '#c0c0bc',
+    dim:          '#888884',
+    dimmer:       '#eaeae8',
+    highlight:    '#2060d0',
+    highlightBg:  'rgba(32,96,208,0.07)',
+    warn:         '#d42020',
+    backgroundImage: './assets/UI/background_light.jpg',
+  },
+  vale: {
+    label: 'VALE',
+    bg:           '#0c1410',
+    fg:           '#c5dbbf',
+    border:       '#243422',
+    dim:          '#4a6248',
+    dimmer:       '#131c14',
+    highlight:    '#72c87e',
+    highlightBg:  'rgba(114,200,126,0.09)',
+    warn:         '#e87040',
+    backgroundImage: './assets/UI/background_vale.jpg',
+  },
+  ember: {
+    label: 'EMBER',
+    bg:           '#130f0b',
+    fg:           '#e8d5bc',
+    border:       '#352218',
+    dim:          '#624e3a',
+    dimmer:       '#1c1510',
+    highlight:    '#e8893c',
+    highlightBg:  'rgba(232,137,60,0.09)',
+    warn:         '#ffcc00',
+    backgroundImage: './assets/UI/background_ember.jpg',
+  },
+  arcane: {
+    label: 'ARCANE',
+    bg:           '#0d0b14',
+    fg:           '#d2cce8',
+    border:       '#28203e',
+    dim:          '#504865',
+    dimmer:       '#141020',
+    highlight:    '#9a7ae8',
+    highlightBg:  'rgba(154,122,232,0.09)',
+    warn:         '#ff6090',
+    backgroundImage: './assets/UI/background_arcane.jpg',
+  },
+};

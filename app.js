@@ -4,72 +4,7 @@
    ============================================================ */
 
 /* ---------- Palettes ---------- */
-// Each palette sets all CSS color tokens. highlight is the accent color shown
-// on active tags, selected cards, and the picker button for that palette.
-// backgroundImage is optional; if the path is invalid, color background is used.
-const PALETTES = {
-  dark: {
-    label: 'DARK',
-    bg:           '#111114',
-    fg:           '#dddde0',
-    border:       '#2e2e36',
-    dim:          '#5c5c68',
-    dimmer:       '#1a1a1f',
-    highlight:    '#7eb5f5',
-    highlightBg:  'rgba(126,181,245,0.09)',
-    warn:         '#e84040',
-    backgroundImage: './assets/UI/background_dark.jpg',
-  },
-  light: {
-    label: 'LIGHT',
-    bg:           '#f4f4f1',
-    fg:           '#1e1e22',
-    border:       '#c0c0bc',
-    dim:          '#888884',
-    dimmer:       '#eaeae8',
-    highlight:    '#2060d0',
-    highlightBg:  'rgba(32,96,208,0.07)',
-    warn:         '#d42020',
-    backgroundImage: './assets/UI/background_light.jpg',
-  },
-  vale: {
-    label: 'VALE',
-    bg:           '#0c1410',
-    fg:           '#c5dbbf',
-    border:       '#243422',
-    dim:          '#4a6248',
-    dimmer:       '#131c14',
-    highlight:    '#72c87e',
-    highlightBg:  'rgba(114,200,126,0.09)',
-    warn:         '#e87040',
-    backgroundImage: './assets/UI/background_vale.jpg',
-  },
-  ember: {
-    label: 'EMBER',
-    bg:           '#130f0b',
-    fg:           '#e8d5bc',
-    border:       '#352218',
-    dim:          '#624e3a',
-    dimmer:       '#1c1510',
-    highlight:    '#e8893c',
-    highlightBg:  'rgba(232,137,60,0.09)',
-    warn:         '#ffcc00',
-    backgroundImage: './assets/UI/background_ember.jpg',
-  },
-  arcane: {
-    label: 'ARCANE',
-    bg:           '#0d0b14',
-    fg:           '#d2cce8',
-    border:       '#28203e',
-    dim:          '#504865',
-    dimmer:       '#141020',
-    highlight:    '#9a7ae8',
-    highlightBg:  'rgba(154,122,232,0.09)',
-    warn:         '#ff6090',
-    backgroundImage: './assets/UI/background_arcane.jpg',
-  },
-};
-
+// The palette presets are defined in palettes.js and referenced here by name.
 const PALETTE_KEY = 'dnd-hirelings-palette';
 let currentPalette = localStorage.getItem(PALETTE_KEY) || 'dark';
 
@@ -140,7 +75,7 @@ const DEFAULT_CONFIG = {
 /* ---------- State ---------- */
 // Single source of truth, serialized to localStorage on every mutation.
 let state = {
-  session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1', bank: 100, rateMultiplier: 1, workRate: 1, skillBonus: 1 },
+  session: { id: '001', clock: 0, timeStep: '1', playbackRate: '1', bank: 100, rateMultiplier: 1, workRate: 1, skillBonus: 1 },
   agents: [],     // { id, name, icon, rate, rateUnit, description, attributes[], activities[], createdAt, lastAssigned }
   tasks: [],      // { id, name, description, requirements[], workProgress{}, isComplete, createdAt }
   inventory: [],  // { id, name, qty }
@@ -174,7 +109,11 @@ function load() {
       a.createdAt ??= Date.now(); a.lastAssigned ??= null;
     });
     state.session.bank ??= 100;
-    state.session.timeStep ??= '60';
+    // Migrate: old timeStep stored minutes (e.g. '60'); new format stores days.
+    // Values >= 30 are assumed to be old minute values and get reset to 1 day.
+    { const tsNum = parseFloat(state.session.timeStep ?? '0');
+      if (isNaN(tsNum) || tsNum >= 30) state.session.timeStep = '1'; }
+    state.session.timeStep ??= '1';
     state.session.playbackRate ??= '1';
     state.session.rateMultiplier ??= 1;
     state.session.workRate   ??= 1;
@@ -196,13 +135,16 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 const now = () => Date.now();
 
 // Total minutes → "D1 08:30"
-function formatClock(totalMinutes) {
-  const m = Math.max(0, Math.floor(totalMinutes || 0));
-  const day = Math.floor(m / 1440) + 1;
-  const rem = m % 1440;
-  const h = Math.floor(rem / 60);
-  const min = rem % 60;
-  return `D${day} ${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+function formatClockParts(totalMinutes) {
+  const totalDays = Math.floor(Math.max(0, totalMinutes || 0) / 1440);
+  const year = Math.floor(totalDays / 364) + 1;
+  const week = Math.floor((totalDays % 364) / 7) + 1;
+  const day  = (totalDays % 7) + 1;
+  return { year, week, day };
+}
+
+function clockMinutesFromParts(year, week, day) {
+  return ((year - 1) * 364 + (week - 1) * 7 + (day - 1)) * 1440;
 }
 
 // Tag formats:
@@ -879,7 +821,7 @@ function renderProgressSection(task) {
 
   if (workEntries.length === 0) {
     const progress = progMap[''] ?? 0;
-    list.appendChild(buildWorkRow('General', null, 1, progress, null, null));
+    list.appendChild(buildWorkRow('General', null, 1, progress, task, null));
   } else {
     workEntries.forEach(({ p, idx }) => {
       const entry = getSchemaEntry(p);
@@ -903,10 +845,12 @@ function buildWorkRow(schemaLabel, tagName, target, progress, task, reqIdx) {
   const item = el('div', { class: 'work-item' + (done ? ' done' : '') });
   item.appendChild(el('span', { class: 'work-item-skill', text: label }));
   const bottom = el('div', { class: 'work-item-bottom' });
+  const workKey = tagName ?? '';
+  const taskId  = task?.id ?? '';
   const bar = el('div', { class: 'work-item-bar' });
-  bar.appendChild(el('div', { class: 'work-item-bar-fill', style: { width: `${pct.toFixed(1)}%` } }));
+  bar.appendChild(el('div', { class: 'work-item-bar-fill', data: { taskId, workKey }, style: { width: `${pct.toFixed(1)}%` } }));
   bottom.appendChild(bar);
-  bottom.appendChild(el('span', { class: 'work-item-value', text: `${Math.floor(progress)} / ${target}` }));
+  bottom.appendChild(el('span', { class: 'work-item-value', data: { taskId, workKey }, text: `${Math.floor(progress)} / ${target}` }));
   if (task && reqIdx !== null) {
     bottom.appendChild(el('span', {
       class: 'x', text: '×',
@@ -1246,7 +1190,13 @@ function render() {
   // Menu values
   const sessIdEl = document.getElementById('session-id');
   if (document.activeElement !== sessIdEl) sessIdEl.textContent = state.session.id;
-  document.getElementById('clock').textContent = formatClock(state.session.clock);
+  const { year: cy, week: cw, day: cd } = formatClockParts(state.session.clock);
+  const yearEl = document.getElementById('clock-year');
+  const weekEl = document.getElementById('clock-week');
+  const dayEl  = document.getElementById('clock-day');
+  if (document.activeElement !== yearEl) yearEl.textContent = cy;
+  if (document.activeElement !== weekEl) weekEl.textContent = cw;
+  if (document.activeElement !== dayEl)  dayEl.textContent  = cd;
   const rateEl = document.getElementById('playback-rate');
   if (rateEl && document.activeElement !== rateEl) rateEl.textContent = state.session.playbackRate;
   const tsEl = document.getElementById('time-step');
@@ -1308,7 +1258,7 @@ function render() {
 /* ---------- Time management ---------- */
 function getStepMinutes() {
   const m = String(state.session.timeStep).match(/\d+(\.\d+)?/);
-  return m ? parseFloat(m[0]) : 60;
+  return m ? parseFloat(m[0]) * 1440 : 1440;
 }
 
 function advanceTime() {
@@ -1349,18 +1299,21 @@ function advanceTime() {
 
           for (const req of getWorkReqs(task)) {
             const key = req.name || '';
-            // Base: workRate per step. Named skill: (workRate + skillVal × skillBonus) per step.
-            let rate = workRate * stepDays;
+            let rate;
             if (req.name) {
               const skillTag = agent.attributes.find(attr => {
                 const ap = parseTag(attr);
                 return ap.type === 'skill' && ap.name.toLowerCase() === req.name.toLowerCase();
               });
-              const skillVal = skillTag ? (parseTag(skillTag).value ?? 0) : 0;
-              if (skillVal > 0) rate = (workRate + skillVal * skillBonus) * stepDays;
+              if (!skillTag) continue; // agent lacks required skill, skip this bucket
+              const skillVal = parseTag(skillTag).value ?? 1;
+              rate = (workRate + skillVal * skillBonus) * stepDays;
+            } else {
+              rate = workRate * stepDays;
             }
             task.workProgress[key] = (task.workProgress[key] ?? 0) + rate;
-            ui.taskWorkPerTick[task.id] = (ui.taskWorkPerTick[task.id] ?? 0) + rate;
+            ui.taskWorkPerTick[task.id] ??= {};
+            ui.taskWorkPerTick[task.id][key] = (ui.taskWorkPerTick[task.id][key] ?? 0) + rate;
             agentContributed = true;
             tasksWithWork.add(task.id);
           }
@@ -1395,7 +1348,11 @@ function advanceTime() {
 
   state.session.clock = (parseFloat(state.session.clock) || 0) + stepMins;
   save();
-  updateTickDisplay();
+  if (ui.playing) {
+    updateTickDisplay();
+  } else {
+    render();
+  }
 }
 
 // Lightweight tick update: patches only fields that change every advanceTime() call
@@ -1413,35 +1370,59 @@ function updateClockDisplay() {
   const elapsed = Date.now() - ui.lastTickWallTime;
   const frac = Math.min(1, elapsed / ui.tickIntervalMs);
 
-  const clockEl = document.getElementById('clock');
-  if (clockEl) {
-    const stepMins = getStepMinutes();
-    clockEl.textContent = formatClock(state.session.clock + frac * stepMins);
-  }
+  const stepMins = getStepMinutes();
+  const { year: cy, week: cw, day: cd } = formatClockParts(state.session.clock + frac * stepMins);
+  const yearEl = document.getElementById('clock-year');
+  const weekEl = document.getElementById('clock-week');
+  const dayEl  = document.getElementById('clock-day');
+  if (yearEl && document.activeElement !== yearEl) yearEl.textContent = cy;
+  if (weekEl && document.activeElement !== weekEl) weekEl.textContent = cw;
+  if (dayEl  && document.activeElement !== dayEl)  dayEl.textContent  = cd;
 
   const rates = ui.taskWorkPerTick || {};
   for (const task of state.tasks) {
     if (task.isComplete) continue;
-    const workPerTick = rates[task.id] ?? 0;
-    if (!workPerTick) continue;
+    const buckets = rates[task.id];
+    if (!buckets) continue;
     const reqs = getWorkReqs(task);
     const totalRequired = reqs.reduce((sum, e) => sum + e.value, 0);
     if (!totalRequired) continue;
-    const stored = reqs.reduce((sum, e) => sum + (task.workProgress?.[e.name || ''] ?? 0), 0);
-    const pct = Math.min(100, ((stored + frac * workPerTick) / totalRequired) * 100);
-    const fill = document.querySelector(`.task-progress-fill[data-task-id="${task.id}"]`);
-    if (fill) fill.style.width = `${pct.toFixed(1)}%`;
+
+    // Update header bar (aggregate across all buckets)
+    let totalStored = 0, totalRate = 0;
+    for (const req of reqs) {
+      const key = req.name || '';
+      totalStored += task.workProgress?.[key] ?? 0;
+      totalRate   += buckets[key] ?? 0;
+    }
+    const headerPct = Math.min(100, ((totalStored - totalRate + frac * totalRate) / totalRequired) * 100);
+    const headerFill = document.querySelector(`.task-progress-fill[data-task-id="${task.id}"]`);
+    if (headerFill) headerFill.style.width = `${headerPct.toFixed(1)}%`;
+
+    // Update per-bucket work-item bars and value labels
+    for (const req of reqs) {
+      const key     = req.name || '';
+      const stored  = task.workProgress?.[key] ?? 0;
+      const rate    = buckets[key] ?? 0;
+      const interp  = Math.max(0, stored - rate + frac * rate);
+      const pct     = Math.min(100, (interp / req.value) * 100);
+      const sel     = `[data-task-id="${task.id}"][data-work-key="${key}"]`;
+      const barFill = document.querySelector(`.work-item-bar-fill${sel}`);
+      if (barFill) barFill.style.width = `${pct.toFixed(1)}%`;
+      const valEl = document.querySelector(`.work-item-value${sel}`);
+      if (valEl) valEl.textContent = `${Math.floor(interp)} / ${req.value}`;
+    }
   }
 
   ui.animationFrameId = requestAnimationFrame(updateClockDisplay);
 }
 
 function getPlayIntervalMs() {
-  // rate = game-minutes per real second; step = game-minutes per tick
-  // → interval = step / rate seconds = step * 1000 / rate ms
+  // rate = game-days per real second; step = game-minutes per tick
+  // → stepDays = step / 1440; interval = (stepDays / rate) * 1000 ms
   const rate = state.session.rateMultiplier || 1;
-  const step = getStepMinutes();
-  return Math.max(16, (step * 1000) / rate);
+  const stepDays = getStepMinutes() / 1440;
+  return Math.max(16, (stepDays / rate) * 1000);
 }
 
 function startPlay() {
@@ -1667,7 +1648,7 @@ function resetAll() {
   if (ui.playing) stopPlay();
   localStorage.removeItem(STORAGE_KEY);
   state = {
-    session: { id: '001', clock: 0, timeStep: '60', playbackRate: '1', bank: 100, rateMultiplier: 1, workRate: 1, skillBonus: 1 },
+    session: { id: '001', clock: 0, timeStep: '1', playbackRate: '1', bank: 100, rateMultiplier: 1, workRate: 1, skillBonus: 1 },
     agents: [],
     tasks: [],
     inventory: [],
@@ -1701,11 +1682,25 @@ function wireMenu() {
 
   const ts = document.getElementById('time-step');
   ts.addEventListener('blur', () => {
-    state.session.timeStep = ts.textContent.trim() || '60';
+    state.session.timeStep = ts.textContent.trim() || '1';
     save(); render();
     if (ui.playing) { stopPlay(); startPlay(); }  // restart so interval reflects new step
   });
   ts.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ts.blur(); } });
+
+  // Clock year/week/day editables
+  ['clock-year', 'clock-week', 'clock-day'].forEach(id => {
+    const clockField = document.getElementById(id);
+    clockField.addEventListener('blur', () => {
+      const cur = formatClockParts(state.session.clock);
+      const y = id === 'clock-year' ? Math.max(1, parseInt(document.getElementById('clock-year').textContent) || 1) : cur.year;
+      const w = id === 'clock-week' ? Math.max(1, parseInt(document.getElementById('clock-week').textContent) || 1) : cur.week;
+      const d = id === 'clock-day'  ? Math.max(1, parseInt(document.getElementById('clock-day').textContent)  || 1) : cur.day;
+      state.session.clock = clockMinutesFromParts(y, w, d);
+      save(); render();
+    });
+    clockField.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); clockField.blur(); } });
+  });
 
   const rateEl = document.getElementById('playback-rate');
   if (rateEl) {

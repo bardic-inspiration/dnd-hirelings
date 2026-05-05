@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 D&D Hirelings is a single-page dashboard for managing NPC agents (hirelings) during D&D downtime. Players create agents, assign tasks, and advance a game clock that drives automated progress.
 
-**Design principles:** Ultra-minimalist. Lightweight. Configurable. Versatile. Intuitive. No page scroll.
+**Design principles:** Lightweight. Configurable. Versatile. Intuitive. No page scroll. Less is more.
 
 **Engineering principles:** Vanilla JS, no build step, no bundler. Mutate `state`, call `save(); render();`.
 
@@ -40,7 +40,6 @@ Every mutation: `save(); render();` — `render()` does a full DOM rebuild from 
 - `activities[]` — tag strings linking to tasks (`#task:id`); first incomplete task is current work
 - `lastAssigned` — `null` if never assigned; used for sort order alongside `createdAt`
 - `agentDefaults(DEFAULT_CONFIG)` — single source of default field values; used by `createAgent()` and `duplicateAgent()`
-- Backfill uses `??=` throughout `load()`
 
 ### Tasks
 
@@ -52,6 +51,12 @@ Every mutation: `save(); render();` — `render()` does a full DOM rebuild from 
 - `workProgress` — object keyed by skill name (or `''` for nameless work); accumulates per clock step
 - `completeTask(task)` — canonical completion path: sets `isComplete`, prunes agents, consumes items, executes rewards
 - All tasks auto-complete: `getWorkReqs()` returns a synthetic `{ value: 1 }` default when no work tags exist
+
+**Task card sections (expanded view):**
+- **PROGRESS** — one row per `#work` tag (or a default General row); shows label, progress bar, value, × remove. No add button.
+- **REQUIREMENTS** — rows for `isReq` tags (skill/tool/trait/class/race/item/consumable). No add button.
+- **RESULTS** — rows for reward tags. No add button.
+- **ATTRIBUTES** — catch-all for remaining tags (not work, not req, not reward). Has `+ TAG` button.
 
 ### Tags
 
@@ -93,14 +98,12 @@ Agents split into ACTIVE / IDLE columns by `activeTaskCount(agent) > 0`. Sorted 
 
 - `editable(text, oncommit)` — `contenteditable` span; commits on blur/Enter, reverts on Escape. Click is `stopPropagation`'d.
 - Click-to-assign: clicking a task sets `ui.selectedTaskId`, outlines agent cards (`.assignable`). Clicking an agent pushes `#task:<id>` to activities.
-- Panels (inventory, config, tag builder) are overlays rendered into a dynamically created element; dismissed by clicking outside or pressing Escape.
+- Panels (inventory, settings, tag builder) are overlays rendered into a dynamically created element; dismissed by clicking outside or pressing Escape.
 - `showTagBuilder({ context, onSave, onCancel })` — unified builder for both agent attributes (`context: 'attribute'`) and task tags (`context: 'task'`). Task context groups patterns by `context` field derived dynamically from schema; includes a Custom option for free-form types.
 
 ### Palettes
 
 Multiple built-in color themes in `PALETTES` object. Stored separately in `localStorage` (`dnd-hirelings-palette`). Applied via `applyPalette(name)` which sets all CSS custom properties on `:root`.
-
-Palette scaffolding supports configurable image and font assets for future buildouts.
 
 ## Common Extension Patterns
 
@@ -129,13 +132,6 @@ python -m http.server 8000
 ```
 
 State reset: `localStorage.removeItem('dnd-hirelings-state-v1')` in DevTools.
-
-Manual testing checklist:
-- Add/assign/complete agents and tasks
-- Advance clock — verify work accumulates, cost deducted, tasks auto-complete
-- Item/consumable reqs — verify blocking and depletion
-- Export → clear localStorage → import round-trip
-- Page never scrolls (only inner grids/task list)
 
 ## Git
 

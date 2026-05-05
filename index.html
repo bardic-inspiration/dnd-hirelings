@@ -18,8 +18,12 @@
       <span class="value" id="session-id" contenteditable="true" spellcheck="false">001</span>
     </div>
     <div class="menu-section">
-      <span class="label">TIME</span>
-      <span class="value mono" id="clock">D1 00:00</span>
+      <span class="label">YEAR</span>
+      <span class="value mono" id="clock-year" contenteditable="true" spellcheck="false">1</span>
+      <span class="label">WEEK</span>
+      <span class="value mono" id="clock-week" contenteditable="true" spellcheck="false">1</span>
+      <span class="label">DAY</span>
+      <span class="value mono" id="clock-day" contenteditable="true" spellcheck="false">1</span>
     </div>
     <div class="menu-section">
       <span class="label">RATE</span>
@@ -27,7 +31,8 @@
     </div>
     <div class="menu-section">
       <span class="label">STEP</span>
-      <span class="value" id="time-step" contenteditable="true" spellcheck="false">60</span>
+      <span class="value" id="time-step" contenteditable="true" spellcheck="false">1</span>
+      <span class="label">DAYS</span>
       <button class="ctrl" id="play-btn"     title="Play">&#9654;</button>
       <button class="ctrl" id="pause-btn"    title="Pause">&#9646;&#9646;</button>
       <button class="ctrl" id="advance-time" title="Step forward">&#9654;|</button>
@@ -81,6 +86,7 @@
   <!-- Hidden file input for JSON import -->
   <input type="file" id="import-file" accept="application/json" hidden>
 
+  <script src="palettes.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
