@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(curl -s http://localhost:8000/index.html)",
-      "PowerShell(Set-ExecutionPolicy *)"
+      "PowerShell(Set-ExecutionPolicy *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\reifz\\\\Documents\\\\dnd-hirelings\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)"
     ]
   }
 }
