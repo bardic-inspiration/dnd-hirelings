@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment } from '../../logic/agents.js';
@@ -29,8 +28,7 @@ function TagChip({ tagStr, active, onRemove }) {
 
 export default function AgentCard({ agent }) {
   const { state, dispatch } = useGame();
-  const { selectedTaskId, openTagBuilder } = useUI();
-  const fileInputRef = useRef(null);
+  const { selectedTaskId, openTagBuilder, openPortraits } = useUI();
 
   const selectedTask = selectedTaskId ? state.tasks.find(t => t.id === selectedTaskId) : null;
   const assignClass = selectedTask
@@ -48,16 +46,7 @@ export default function AgentCard({ agent }) {
 
   const handleIconClick = (e) => {
     e.stopPropagation();
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { icon: reader.result } });
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    openPortraits((url) => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { icon: url } }));
   };
 
   // Activities: show only non-complete task tags
@@ -89,7 +78,6 @@ export default function AgentCard({ agent }) {
         onClick={handleIconClick}
       >
         {!agent.icon && 'NO IMAGE'}
-        <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
       </div>
 
       <div className="agent-rate">

@@ -9,6 +9,7 @@ export function UIProvider({ children }) {
   const [tagBuilderProps, setTagBuilderProps] = useState(null);
   const [showInventory, setShowInventory]   = useState(false);
   const [showConfig, setShowConfig]         = useState(false);
+  const [portraitsProps, setPortraitsProps] = useState(null);
 
   const toggleExpanded = useCallback((id) => {
     setExpandedTasks(prev => {
@@ -21,6 +22,9 @@ export function UIProvider({ children }) {
   const openTagBuilder  = useCallback((props) => setTagBuilderProps(props), []);
   const closeTagBuilder = useCallback(() => setTagBuilderProps(null), []);
 
+  const openPortraits  = useCallback((onSelect) => setPortraitsProps({ onSelect }), []);
+  const closePortraits = useCallback(() => setPortraitsProps(null), []);
+
   return (
     <UIContext.Provider value={{
       selectedTaskId, setSelectedTaskId,
@@ -29,6 +33,7 @@ export function UIProvider({ children }) {
       tagBuilderProps, openTagBuilder, closeTagBuilder,
       showInventory, setShowInventory,
       showConfig, setShowConfig,
+      portraitsProps, openPortraits, closePortraits,
     }}>
       {children}
     </UIContext.Provider>

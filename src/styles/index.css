@@ -926,6 +926,126 @@ select.tag-builder-field {
 .inventory-row .x:hover { color: var(--fg); }
 
 /* ============================================================
+   PORTRAITS PANEL
+   ============================================================ */
+.portraits-panel {
+  background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  width: min(60vw, 600px);
+}
+
+.portraits-grid-wrap {
+  aspect-ratio: 1 / 1;
+  overflow-y: auto;
+}
+
+.portraits-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+
+.portrait-frame {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--dimmer);
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.portrait-frame:hover {
+  border-color: var(--highlight);
+}
+
+.portrait-frame--lit {
+  border-color: var(--highlight);
+}
+
+.portrait-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--highlight);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.portrait-frame--lit::after {
+  opacity: 0;
+  transition: none;
+}
+
+.portrait-frame--lit.portrait-frame--decay::after {
+  opacity: 1;
+  transition: opacity 200ms linear;
+}
+
+.portrait-caption {
+  position: absolute;
+  bottom: 5%;
+  left: 5%;
+  right: 5%;
+  text-align: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  transition: color 0.15s;
+}
+
+.portrait-frame:hover .portrait-caption {
+  color: var(--highlight);
+}
+
+.portraits-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.portraits-search-input {
+  flex: 1;
+  background: var(--dimmer);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  outline: none;
+  transition: border-color 0.1s;
+}
+
+.portraits-search-input::placeholder {
+  color: var(--dim);
+  letter-spacing: 0.12em;
+}
+
+.portraits-search-input:focus { border-color: var(--highlight); }
+
+.portraits-file-btn {
+  flex-shrink: 0;
+}
+
+/* ============================================================
    MISC
    ============================================================ */
 .delete-btn {

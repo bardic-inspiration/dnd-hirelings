@@ -12,5 +12,7 @@ D&D Hirelings is a single-page dashboard for managing NPC agents (hirelings). Pl
 
 **Dependencies:** Before adding any external tool or library, evaluate if the task can be completed using the existing environment. Request approval before introducing new dependencies.
 
+**Development Practices:** After implementing and refactoring features, prune resulting dead code and delete resulting obsolete files.
+
 ## Git
 Commit messages: 50–100 characters.

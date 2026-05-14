@@ -8,9 +8,10 @@ import Dashboard from './components/Dashboard/Dashboard.jsx';
 import TagBuilderModal from './components/Modals/TagBuilderModal.jsx';
 import InventoryPanel from './components/Modals/InventoryPanel.jsx';
 import ConfigPanel from './components/Modals/ConfigPanel.jsx';
+import PortraitsPanel from './components/Modals/PortraitsPanel.jsx';
 
 export default function App() {
-  const { tagBuilderProps, closeTagBuilder, showInventory, showConfig, setSelectedTaskId } = useUI();
+  const { tagBuilderProps, closeTagBuilder, showInventory, showConfig, portraitsProps, setSelectedTaskId } = useUI();
   const { start, stop, advance } = usePlayClock();
 
   usePalette();
@@ -28,7 +29,7 @@ export default function App() {
 
   return (
     <>
-      <div id="page-title">THE FLOCK</div>
+      <div id="page-title">GUILD MANAGER</div>
       <MenuBar onPlay={start} onStop={stop} onAdvance={advance} />
       <Dashboard />
 
@@ -39,8 +40,9 @@ export default function App() {
           onClose={closeTagBuilder}
         />
       )}
-      {showInventory && <InventoryPanel />}
-      {showConfig    && <ConfigPanel onRestartPlay={() => { stop(); start(); }} />}
+      {showInventory    && <InventoryPanel />}
+      {showConfig       && <ConfigPanel onRestartPlay={() => { stop(); start(); }} />}
+      {portraitsProps   && <PortraitsPanel />}
     </>
   );
 }
