@@ -4,15 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-D&D Hirelings is a single-page dashboard for managing NPC agents (hirelings). Players create agents, assign tasks, and advance a game clock that drives automated progress.
+- **Guild Manager** is a single-page dashboard for managing NPC agents in roleplaying games. 
+- Players create **agents**, assign **tasks**, and operate a **game clock** that drives automated progress.
 
-**Design principles:** Less is more. Versatile. Intuitive. No page scroll.
+## UI principles: 
+- Minimalist: Less is more. No duplicate functions.
+- Versatile: Components serve multiple functions.
+- Modular
+- Intuitive
+- Transparent: UI structure mirrors data schema
+- No page scroll
 
-**Engineering principles:** Modern. Legible. Efficient. Lightweight. Modular. Configurable. Observe modern best practices for coding and annotation.
+## Engineering principles: 
+- Legible code
+- Configurable
+- Extensible
+- Modular architecture
+- Lightweight
+- Observe modern best practices for coding and annotation
 
-**Dependencies:** Before adding any external tool or library, evaluate if the task can be completed using the existing environment. Request approval before introducing new dependencies.
+### Dependencies: 
+Before adding any external tool or library, evaluate if the task can be completed using the existing environment. 
+Request approval before introducing new dependencies.
 
-**Development Practices:** After implementing and refactoring features, prune resulting dead code and delete resulting obsolete files.
+### Development Practices: 
+After implementing and/or refactoring features, prune resulting dead code and delete resulting obsolete files.
 
-## Git
+## Git:
 Commit messages: 50–100 characters.
+Atomic commits. One logical unit per commit.

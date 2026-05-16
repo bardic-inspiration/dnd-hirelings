@@ -4,7 +4,24 @@
       "Bash(curl -s http://localhost:8000/index.html)",
       "PowerShell(Set-ExecutionPolicy *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\reifz\\\\Documents\\\\dnd-hirelings\" -Force)",
-      "Bash(Select-Object Name, PSIsContainer)"
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\reifz\\\\Documents\\\\dnd-hirelings\" -Recurse -Depth 3)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\reifz\\\\Documents\\\\dnd-hirelings\" -Recurse -Depth 3 | Select-Object FullName | ForEach-Object { $_.FullName })",
+      "Bash(Select-Object -Last 20)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\reifz\\\\Documents\\\\dnd-hirelings\\\\public\\\\assets\\\\portraits\" -File | Where-Object { $_.Extension -match '\\\\.\\(jpg|jpeg|png|gif|webp\\)$' } | Sort-Object Name | Select-Object -ExpandProperty Name)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\reifz\\\\Documents\\\\dnd-hirelings\" -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "PowerShell(\\(Get-ChildItem -Path \"C:\\\\Users\\\\reifz\\\\Documents\\\\dnd-hirelings\\\\public\\\\assets\\\\portraits\" -File 2>$null | Measure-Object\\).Count)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\reifz\\\\Documents\\\\dnd-hirelings\\\\public\\\\assets\\\\portraits\" -File | Where-Object { $_.Extension -eq \".py\" } | Select-Object -ExpandProperty Name)",
+      "Bash(Select-Object -First 20)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\reifz\\\\Documents\\\\dnd-hirelings\\\\public\\\\assets\\\\portraits\" | Select-Object -First 20 | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\reifz\\\\Documents\\\\dnd-hirelings\\\\public\\\\assets\\\\portraits\" | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\reifz\\\\Documents\\\\dnd-hirelings\\\\public\\\\assets\\\\portraits\" -File | Where-Object { $_.Name -match '\\\\.\\(jpg|jpeg|png|gif|webp\\)$' } | Measure-Object)"
     ]
   }
 }
