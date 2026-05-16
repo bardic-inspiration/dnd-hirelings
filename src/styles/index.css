@@ -82,29 +82,42 @@ body {
 }
 
 /* ============================================================
-   MENU
+   TOP BAR
    ============================================================ */
-#menu {
+#topbar {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 12px;
+  gap: 12px;
+  padding: 4px 6px;
   border: var(--line) solid var(--border);
   border-radius: var(--radius-lg);
-  height: 36px;
+  height: 40px;
   flex-shrink: 0;
   background: color-mix(in srgb, var(--dimmer) calc(var(--fill-opacity) * 100%), transparent);
 }
 
-.menu-section {
+.clock-controls,
+.palette-picker {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
 }
-.menu-section.right { margin-left: auto; }
 
-.menu-section .label {
+.inset-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 10px;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--dimmer);
+}
+
+.inset-panel.right { margin-left: auto; }
+
+.inset-panel .label {
   font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -112,14 +125,19 @@ body {
   color: var(--dim);
 }
 
-.menu-section .value {
+.inset-panel .value {
   font-size: var(--fs-sm);
   font-weight: 500;
   outline: none;
   min-width: 18px;
 }
 
-.menu-section .value.mono {
+.inset-panel .value.bright {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.inset-panel .value.mono {
   font-family: ui-monospace, "Courier New", monospace;
   letter-spacing: 0.04em;
 }
@@ -144,6 +162,31 @@ body {
   background: var(--fg);
   border-color: var(--fg);
   color: var(--bg);
+}
+
+.ctrl.combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  touch-action: none;
+  user-select: none;
+}
+
+.ctrl.combo .combo-glyph {
+  font-size: var(--fs-sm);
+  line-height: 1;
+}
+
+.ctrl.combo .combo-value {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+}
+
+.ctrl.holding {
+  border-color: var(--highlight);
+  color: var(--highlight);
+  background: transparent;
 }
 
 /* ============================================================
@@ -870,6 +913,30 @@ select.tag-builder-field {
    ============================================================ */
 .inventory-panel { max-height: 70vh; }
 
+.bank-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--dimmer);
+}
+
+.bank-row .label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.bank-row .bank-value {
+  flex: 1;
+  text-align: right;
+  font-size: var(--fs-base);
+}
+
 .inventory-list {
   display: flex;
   flex-direction: column;
@@ -1075,6 +1142,7 @@ select.tag-builder-field {
 }
 
 [contenteditable]:focus { background: var(--dimmer); border-radius: 3px; }
+.inset-panel [contenteditable]:focus { background: var(--bg); }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

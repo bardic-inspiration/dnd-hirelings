@@ -6,7 +6,7 @@ import { useUI } from '../../state/UIContext.jsx';
 export default function InventoryPanel() {
   const { state, dispatch } = useGame();
   const { setShowInventory } = useUI();
-  const { inventory } = state;
+  const { inventory, session } = state;
 
   const close = () => setShowInventory(false);
 
@@ -14,6 +14,20 @@ export default function InventoryPanel() {
     <Modal onClose={close}>
       <div className="config-panel inventory-panel" onClick={e => e.stopPropagation()}>
         <h2>INVENTORY</h2>
+        <div className="bank-row">
+          <span className="label">GP</span>
+          <EditableSpan
+            className="value bright mono bank-value"
+            value={(session.bank ?? 0).toFixed(1)}
+            onCommit={v => {
+              const n = parseFloat(v);
+              dispatch({
+                type: 'SESSION_UPDATE',
+                payload: { bank: isNaN(n) ? 0 : Math.round(n * 100) / 100 },
+              });
+            }}
+          />
+        </div>
         <div className="inventory-list">
           {!inventory.length && <div className="empty-state">No items</div>}
           {inventory.map(item => (

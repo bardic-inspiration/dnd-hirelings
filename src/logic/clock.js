@@ -115,18 +115,13 @@ export function updateClockDisplayDOM(state, tickInfo) {
   const frac     = Math.min(1, elapsed / tickInfo.tickIntervalMs);
   const stepMins = getStepMinutes(state.session);
 
-  const { year, week, day } = formatClockParts(state.session.clock + frac * stepMins);
+  const { year, day } = formatClockParts(state.session.clock + frac * stepMins);
   const set = (id, val) => {
     const el = document.getElementById(id);
     if (el && document.activeElement !== el) el.textContent = val;
   };
   set('clock-year', year);
-  set('clock-week', week);
   set('clock-day', day);
-
-  const bankEl = document.getElementById('bank');
-  if (bankEl && document.activeElement !== bankEl)
-    bankEl.textContent = (state.session.bank ?? 0).toFixed(1);
 
   const rates = tickInfo.taskWorkPerTick || {};
   for (const task of state.tasks) {

@@ -3,7 +3,7 @@ import { useUI } from './state/UIContext.jsx';
 import { useGame } from './state/GameContext.jsx';
 import { usePalette } from './hooks/usePalette.js';
 import { usePlayClock } from './hooks/usePlayClock.js';
-import MenuBar from './components/MenuBar/MenuBar.jsx';
+import TopBar from './components/TopBar/TopBar.jsx';
 import Dashboard from './components/Dashboard/Dashboard.jsx';
 import TagBuilderModal from './components/Modals/TagBuilderModal.jsx';
 import InventoryPanel from './components/Modals/InventoryPanel.jsx';
@@ -30,7 +30,7 @@ export default function App() {
   return (
     <>
       <div id="page-title">GUILD MANAGER</div>
-      <MenuBar onPlay={start} onStop={stop} onAdvance={advance} />
+      <TopBar onPlay={start} onStop={stop} onAdvance={advance} />
       <Dashboard />
 
       {tagBuilderProps && (

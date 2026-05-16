@@ -2,7 +2,7 @@ export const STORAGE_KEY = 'dnd-hirelings-state-v2';
 export const PALETTE_KEY = 'dnd-hirelings-palette';
 
 export const DEFAULT_STATE = {
-  session: { id: '001', clock: 0, timeStep: '1', playbackRate: '1', bank: 100, rateMultiplier: 1, workRate: 1, skillBonus: 1 },
+  session: { id: '001', clock: 0, timeStep: '1', bank: 100, rateMultiplier: 1, workRate: 1, skillBonus: 1 },
   agents: [],
   tasks: [],
   inventory: [],
@@ -38,7 +38,6 @@ export function normalizeState(raw) {
     ...DEFAULT_STATE.session,
     ...s,
     timeStep:       (isNaN(tsNum) || tsNum >= 30) ? '1' : (s.timeStep ?? '1'),
-    playbackRate:   s.playbackRate   ?? '1',
     rateMultiplier: s.rateMultiplier ?? 1,
     workRate:       s.workRate       ?? 1,
     skillBonus:     s.skillBonus     ?? 1,

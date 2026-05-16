@@ -17,6 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Engineering principles: 
 - Legible code
+- "Don't Repeat Yourself"
 - Configurable
 - Extensible
 - Modular architecture

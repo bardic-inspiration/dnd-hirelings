@@ -82,15 +82,6 @@ export function reducer(state, action) {
         }),
       };
 
-    case 'AGENTS_CLEAR_TASKS':
-      return {
-        ...state,
-        agents: state.agents.map(a => ({
-          ...a,
-          activities: a.activities.filter(t => !t.startsWith('#task:')),
-        })),
-      };
-
     /* ---------- Tasks ---------- */
     case 'TASK_CREATE':
       return {
