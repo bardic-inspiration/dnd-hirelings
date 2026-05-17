@@ -10,15 +10,16 @@ import InventoryPanel from './components/Modals/InventoryPanel.jsx';
 import ConfigPanel from './components/Modals/ConfigPanel.jsx';
 import PortraitsPanel from './components/Modals/PortraitsPanel.jsx';
 
+
 export default function App() {
   const { tagBuilderProps, closeTagBuilder, showInventory, showConfig, portraitsProps, setSelectedTaskId } = useUI();
   const { start, stop, advance } = usePlayClock();
 
-  usePalette();
+  usePalette(); // Apply the stored color palette on app load
 
-  // Click outside cards clears task selection
+  // Adds a click event listener to the document that clears the selected task ID when clicking outside of task or agent cards
   useEffect(() => {
-    const handler = (e) => {
+    const handler = (e) => { // Check if the click target is outside of elements with class 'task-card' or 'agent-card'
       if (!e.target.closest('.task-card') && !e.target.closest('.agent-card')) {
         setSelectedTaskId(null);
       }
@@ -27,6 +28,7 @@ export default function App() {
     return () => document.removeEventListener('click', handler);
   }, [setSelectedTaskId]);
 
+  // The main render function of the app, displaying the top bar, dashboard, and conditionally rendering modals and panels based on UI state
   return (
     <>
       <div id="page-title">GUILD MANAGER</div>

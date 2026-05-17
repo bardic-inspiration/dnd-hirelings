@@ -85,7 +85,11 @@ export default function TaskCard({ task }) {
 
   const handleComplete = (e) => {
     e.stopPropagation();
-    dispatch({ type: 'TASK_SET_COMPLETE', id: task.id, isComplete: !task.isComplete });
+    if (task.isComplete) {
+      dispatch({ type: 'TASK_UPDATE', id: task.id, changes: { isComplete: false, workProgress: {} } });
+    } else {
+      dispatch({ type: 'TASK_SET_COMPLETE', id: task.id, isComplete: true });
+    }
   };
 
   return (
@@ -131,7 +135,7 @@ export default function TaskCard({ task }) {
           <span className="tag-label">STATUS:</span>
           <button
             className="tag-add"
-            title={task.isComplete ? 'Mark incomplete' : 'Mark complete'}
+            title={task.isComplete ? 'Reset task' : 'Mark complete'}
             onClick={handleComplete}
           >{task.isComplete ? '↻' : '✓'}</button>
           <span>{task.isComplete ? 'COMPLETE' : 'INCOMPLETE'}</span>
