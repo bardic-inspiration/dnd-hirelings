@@ -1,13 +1,23 @@
 export const STORAGE_KEY = 'dnd-hirelings-state-v2';
 export const PALETTE_KEY = 'dnd-hirelings-palette';
 
+// Default state structure for the application
 export const DEFAULT_STATE = {
-  session: { id: '001', clock: 0, timeStep: '1', bank: 100, rateMultiplier: 1, workRate: 1, skillBonus: 1 },
+  session: { 
+    id: '001', 
+    clock: 0, 
+    timeStep: '1', 
+    bank: 100, 
+    rateMultiplier: 1, 
+    workRate: 1, 
+    skillBonus: 1 
+  },
   agents: [],
   tasks: [],
   inventory: [],
 };
 
+// Normalizes a raw state object (e.g. from localStorage) to ensure all required fields are present and have valid values
 export function normalizeState(raw) {
   const state = { ...DEFAULT_STATE, ...raw };
   state.agents = (raw.agents || []).map(a => ({
@@ -46,6 +56,7 @@ export function normalizeState(raw) {
   return state;
 }
 
+// Loads state from localStorage, or returns default state if not found or on error
 export function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -56,6 +67,7 @@ export function loadState() {
   }
 }
 
+// Saves the given state to localStorage as a JSON string
 export function saveState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
