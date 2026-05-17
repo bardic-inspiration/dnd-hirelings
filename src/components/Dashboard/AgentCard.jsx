@@ -2,8 +2,16 @@ import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment } from '../../logic/agents.js';
 import { parseTag } from '../../logic/tags.js';
-import { flashAgentCard } from '../../utils.js';
 import EditableSpan from '../EditableSpan.jsx';
+
+function flashAgentCard(agentId) {
+  const card = document.querySelector(`.agent-card[data-id="${agentId}"]`);
+  if (!card) return;
+  card.classList.remove('flash-error');
+  void card.offsetWidth;
+  card.classList.add('flash-error');
+  card.addEventListener('animationend', () => card.classList.remove('flash-error'), { once: true });
+}
 
 function TagChip({ tagStr, active, onRemove }) {
   const p = parseTag(tagStr);

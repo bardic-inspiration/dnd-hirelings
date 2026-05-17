@@ -2,7 +2,15 @@ import { useRef, useEffect, useCallback } from 'react';
 import { useGame } from '../state/GameContext.jsx';
 import { useUI } from '../state/UIContext.jsx';
 import { advanceTime, getPlayIntervalMs, updateClockDisplayDOM } from '../logic/clock.js';
-import { flashAgentCard } from '../utils.js';
+
+function flashAgentCard(agentId) {
+  const card = document.querySelector(`.agent-card[data-id="${agentId}"]`);
+  if (!card) return;
+  card.classList.remove('flash-error');
+  void card.offsetWidth;
+  card.classList.add('flash-error');
+  card.addEventListener('animationend', () => card.classList.remove('flash-error'), { once: true });
+}
 
 export function usePlayClock() {
   const { state, dispatch } = useGame();
