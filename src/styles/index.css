@@ -73,12 +73,24 @@ body {
    ============================================================ */
 #page-title {
   width: 100%;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+
+#page-title-text {
   font-family: 'BNBrickHouse', var(--font);
   font-size: 30px;
   letter-spacing: 0.06em;
   color: var(--fg);
-  padding: 0 12px;
-  flex-shrink: 0;
+  outline: none;
+  cursor: text;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+#page-title-text.editing {
+  color: var(--highlight);
+  background: transparent;
 }
 
 /* ============================================================
@@ -1142,6 +1154,7 @@ select.tag-builder-field {
 }
 
 [contenteditable]:focus { background: var(--dimmer); border-radius: 3px; }
+#page-title-text:focus { background: transparent; }
 .inset-panel [contenteditable]:focus { background: var(--bg); }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }

@@ -3,14 +3,15 @@ export const PALETTE_KEY = 'dnd-hirelings-palette';
 
 // Default state structure for the application
 export const DEFAULT_STATE = {
-  session: { 
-    id: '001', 
-    clock: 0, 
-    timeStep: '1', 
-    bank: 100, 
-    rateMultiplier: 1, 
-    workRate: 1, 
-    skillBonus: 1 
+  session: {
+    id: '001',
+    title: 'GUILD MANAGER',
+    clock: 0,
+    timeStep: '1',
+    bank: 100,
+    rateMultiplier: 1,
+    workRate: 1,
+    skillBonus: 1
   },
   agents: [],
   tasks: [],
@@ -52,6 +53,7 @@ export function normalizeState(raw) {
     workRate:       s.workRate       ?? 1,
     skillBonus:     s.skillBonus     ?? 1,
     bank:           s.bank           ?? 100,
+    title:          s.title          ?? 'GUILD MANAGER',
   };
   return state;
 }

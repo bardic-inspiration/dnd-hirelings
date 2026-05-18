@@ -4,6 +4,7 @@ import { useGame } from './state/GameContext.jsx';
 import { usePalette } from './hooks/usePalette.js';
 import { usePlayClock } from './hooks/usePlayClock.js';
 import TopBar from './components/TopBar/TopBar.jsx';
+import PageTitle from './components/TopBar/PageTitle.jsx';
 import Dashboard from './components/Dashboard/Dashboard.jsx';
 import TagBuilderModal from './components/Modals/TagBuilderModal.jsx';
 import InventoryModal from './components/Modals/InventoryModal.jsx';
@@ -30,7 +31,7 @@ export default function App() {
 
   return (
     <>
-      <div id="page-title">GUILD MANAGER</div>
+      <PageTitle />
       <TopBar onPlay={start} onStop={stop} onAdvance={advance} />
       <Dashboard />
 
