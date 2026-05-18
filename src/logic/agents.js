@@ -1,5 +1,14 @@
 import { parseTag, tagFn } from './tags.js';
 
+// Returns true if a non-requirement candidate tag matches a target requirement's type
+// and name (case-insensitive; target.name === null wildcards the name).
+function matchesTypeAndName(candidate, target) {
+  if (candidate.isReq) return false;
+  if (candidate.type !== target.type) return false;
+  if (target.name === null) return true;
+  return !!candidate.name && candidate.name.toLowerCase() === target.name.toLowerCase();
+}
+
 export function getCurrentTask(agent, tasks) {
   for (const tag of agent.activities) {
     const p = parseTag(tag);
@@ -36,11 +45,7 @@ export function validateAssignment(agent, task) {
   for (const attr of agent.attributes) {
     const reqP = parseTag(attr);
     if (!reqP.isReq) continue;
-    const match = task.requirements.find(t => {
-      const p = parseTag(t);
-      if (p.isReq) return false;
-      return p.type === reqP.type && (reqP.name === null || (p.name && p.name.toLowerCase() === reqP.name.toLowerCase()));
-    });
+    const match = task.requirements.find(t => matchesTypeAndName(parseTag(t), reqP));
     if (!match) return false;
     if (reqP.value !== null && (parseTag(match).value ?? 0) < reqP.value) return false;
   }
@@ -74,11 +79,7 @@ export function isAttributeActive(attrTag, agent, tasks) {
     const task = tasks.find(t => t.id === actP.name);
     if (!task || task.isComplete) continue;
     if (attrP.isReq) {
-      const match = task.requirements.find(t => {
-        const p = parseTag(t);
-        if (p.isReq) return false;
-        return p.type === attrP.type && (attrP.name === null || (p.name && p.name.toLowerCase() === attrP.name.toLowerCase()));
-      });
+      const match = task.requirements.find(t => matchesTypeAndName(parseTag(t), attrP));
       if (match && (attrP.value === null || (parseTag(match).value ?? 0) >= attrP.value)) return true;
     } else {
       for (const req of task.requirements) {
