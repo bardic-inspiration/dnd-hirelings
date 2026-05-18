@@ -6,9 +6,9 @@ import { usePlayClock } from './hooks/usePlayClock.js';
 import TopBar from './components/TopBar/TopBar.jsx';
 import Dashboard from './components/Dashboard/Dashboard.jsx';
 import TagBuilderModal from './components/Modals/TagBuilderModal.jsx';
-import InventoryPanel from './components/Modals/InventoryPanel.jsx';
-import ConfigPanel from './components/Modals/ConfigPanel.jsx';
-import PortraitsPanel from './components/Modals/PortraitsPanel.jsx';
+import InventoryModal from './components/Modals/InventoryModal.jsx';
+import ConfigModal from './components/Modals/ConfigModal.jsx';
+import PortraitsModal from './components/Modals/PortraitsModal.jsx';
 
 
 export default function App() {
@@ -42,9 +42,9 @@ export default function App() {
           onClose={closeTagBuilder}
         />
       )}
-      {showInventory    && <InventoryPanel />}
-      {showConfig       && <ConfigPanel onRestartPlay={() => { stop(); start(); }} />}
-      {portraitsProps   && <PortraitsPanel />}
+      {showInventory    && <InventoryModal />}
+      {showConfig       && <ConfigModal onRestartPlay={() => { stop(); start(); }} />}
+      {portraitsProps   && <PortraitsModal />}
     </>
   );
 }

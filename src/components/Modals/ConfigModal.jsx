@@ -2,7 +2,7 @@ import Modal from './Modal.jsx';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 
-export default function ConfigPanel({ onRestartPlay }) {
+export default function ConfigModal({ onRestartPlay }) {
   const { state, dispatch } = useGame();
   const { setShowConfig }   = useUI();
   const { session } = state;

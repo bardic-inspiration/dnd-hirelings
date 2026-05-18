@@ -3,7 +3,7 @@ import Modal from './Modal.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { PORTRAIT_URLS, isValidImageFile } from '../../constants/portraits.js';
 
-export default function PortraitsPanel() {
+export default function PortraitsModal() {
   const { portraitsProps, closePortraits } = useUI();
   const [query, setQuery]                 = useState('');
   const fileInputRef                      = useRef(null);

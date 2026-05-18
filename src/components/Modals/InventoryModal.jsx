@@ -3,7 +3,7 @@ import EditableSpan from '../EditableSpan.jsx';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 
-export default function InventoryPanel() {
+export default function InventoryModal() {
   const { state, dispatch } = useGame();
   const { setShowInventory } = useUI();
   const { inventory, session } = state;
