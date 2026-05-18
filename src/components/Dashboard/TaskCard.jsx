@@ -1,7 +1,7 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { agentsAssignedTo } from '../../logic/agents.js';
-import { getWorkReqs } from '../../logic/tasks.js';
+import { getWorkRequirements } from '../../logic/tasks.js';
 import { parseTag, formatTagLabel } from '../../logic/tags.js';
 import EditableSpan from '../EditableSpan.jsx';
 import ProgressSection from './TaskSections/ProgressSection.jsx';
@@ -9,7 +9,7 @@ import RequirementsSection from './TaskSections/RequirementsSection.jsx';
 import ResultsSection from './TaskSections/ResultsSection.jsx';
 
 function TaskProgressBar({ task }) {
-  const reqs = getWorkReqs(task);
+  const reqs = getWorkRequirements(task);
   const totalRequired = reqs.reduce((s, e) => s + e.value, 0);
   const totalProgress = task.isComplete
     ? totalRequired

@@ -1,7 +1,7 @@
 import { parseTag } from './tags.js';
 import { formatClockParts } from './time.js';
 import { getCurrentTask } from './agents.js';
-import { getWorkReqs, checkTaskComplete, computeBlockedTaskIds, applyTaskComplete } from './tasks.js';
+import { getWorkRequirements, checkTaskComplete, computeBlockedTaskIds, applyTaskComplete } from './tasks.js';
 
 export function getStepMinutes(session) {
   const m = String(session.timeStep).match(/\d+(\.\d+)?/);
@@ -57,7 +57,7 @@ export function advanceTime(state) {
           if (!task) continue;
           let agentContributed = false;
 
-          for (const req of getWorkReqs(task)) {
+          for (const req of getWorkRequirements(task)) {
             const key = req.name || '';
             let rate;
             if (req.name) {
@@ -128,7 +128,7 @@ export function updateClockDisplayDOM(state, tickInfo) {
     if (task.isComplete) continue;
     const buckets = rates[task.id];
     if (!buckets) continue;
-    const reqs = getWorkReqs(task);
+    const reqs = getWorkRequirements(task);
     const totalRequired = reqs.reduce((sum, e) => sum + e.value, 0);
     if (!totalRequired) continue;
 

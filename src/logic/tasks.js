@@ -1,6 +1,6 @@
 import { parseTag, tagFn } from './tags.js';
 
-export function getWorkReqs(task) {
+export function getWorkRequirements(task) {
   const all = task.requirements
     .map(r => parseTag(r))
     .filter(p => p.type === 'work' && !p.isReq && p.value !== null && p.value > 0);
@@ -8,7 +8,7 @@ export function getWorkReqs(task) {
 }
 
 export function checkTaskComplete(task) {
-  const reqs = getWorkReqs(task);
+  const reqs = getWorkRequirements(task);
   const totalRequired = reqs.reduce((sum, e) => sum + e.value, 0);
   const totalProgress = reqs.reduce((sum, e) => sum + (task.workProgress?.[e.name || ''] ?? 0), 0);
   return totalProgress >= totalRequired;

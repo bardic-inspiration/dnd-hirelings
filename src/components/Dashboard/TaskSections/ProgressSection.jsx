@@ -1,6 +1,6 @@
 import { useGame } from '../../../state/GameContext.jsx';
 import { parseTag, getSchemaEntry } from '../../../logic/tags.js';
-import { getWorkReqs } from '../../../logic/tasks.js';
+import { getWorkRequirements } from '../../../logic/tasks.js';
 
 function WorkRow({ label, taskId, workKey, target, progress, onRemove }) {
   const done = progress >= target;
@@ -30,7 +30,7 @@ function WorkRow({ label, taskId, workKey, target, progress, onRemove }) {
 
 export default function ProgressSection({ task }) {
   const { dispatch } = useGame();
-  const progMap = task.workProgress ?? {};
+  const workProgressMap = task.workProgress ?? {};
   const workEntries = [];
   task.requirements.forEach((tagStr, idx) => {
     const p = parseTag(tagStr);
@@ -47,7 +47,7 @@ export default function ProgressSection({ task }) {
             taskId={task.id}
             workKey=""
             target={1}
-            progress={progMap[''] ?? 0}
+            progress={workProgressMap[''] ?? 0}
             onRemove={null}
           />
         ) : workEntries.map(({ p, idx }) => {
@@ -63,7 +63,7 @@ export default function ProgressSection({ task }) {
               taskId={task.id}
               workKey={p.name ?? ''}
               target={p.value ?? 1}
-              progress={progMap[p.name || ''] ?? 0}
+              progress={workProgressMap[p.name || ''] ?? 0}
               onRemove={() => dispatch({ type: 'TASK_REMOVE_REQUIREMENT', id: task.id, index: idx })}
             />
           );
