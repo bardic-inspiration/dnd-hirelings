@@ -109,7 +109,8 @@ export function advanceTime(state) {
   };
 }
 
-// Called from RAF loop — updates DOM directly to interpolate between ticks.
+// Called from RAF loop — interpolates clock + per-task progress bars between
+// game ticks so visuals advance smoothly even when state hasn't changed.
 export function updateClockDisplayDOM(state, tickInfo) {
   const elapsed  = Date.now() - tickInfo.lastTickWallTime;
   const frac     = Math.min(1, elapsed / tickInfo.tickIntervalMs);

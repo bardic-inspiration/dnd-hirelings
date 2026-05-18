@@ -4,9 +4,9 @@ const HOLD_MS = 200;
 const DRAG_THRESHOLD_PX = 4;
 const PX_PER_UNIT = 12;
 
-// Click-to-act + click-hold-drag-to-modulate.
-// onClick fires for a quick click without drag.
-// onAdjust(delta) fires while dragging; delta is integer steps (positive = up).
+// Distinguishes a quick click from a press-and-hold drag.
+// Quick click (released < HOLD_MS, no movement): fires onClick.
+// Hold past HOLD_MS, then drag vertically: fires onAdjust(delta) per PX_PER_UNIT pixels.
 export function usePressHoldDrag({ onClick, onAdjust }) {
   const [holding, setHolding] = useState(false);
   const cbRef     = useRef({ onClick, onAdjust });

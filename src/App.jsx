@@ -15,11 +15,11 @@ export default function App() {
   const { tagBuilderProps, closeTagBuilder, showInventory, showConfig, portraitsProps, setSelectedTaskId } = useUI();
   const { start, stop, advance } = usePlayClock();
 
-  usePalette(); // Apply the stored color palette on app load
+  usePalette();
 
-  // Adds a click event listener to the document that clears the selected task ID when clicking outside of task or agent cards
+  // Deselect the focused task when the user clicks outside any task or agent card.
   useEffect(() => {
-    const handler = (e) => { // Check if the click target is outside of elements with class 'task-card' or 'agent-card'
+    const handler = (e) => {
       if (!e.target.closest('.task-card') && !e.target.closest('.agent-card')) {
         setSelectedTaskId(null);
       }
@@ -28,7 +28,6 @@ export default function App() {
     return () => document.removeEventListener('click', handler);
   }, [setSelectedTaskId]);
 
-  // The main render function of the app, displaying the top bar, dashboard, and conditionally rendering modals and panels based on UI state
   return (
     <>
       <div id="page-title">GUILD MANAGER</div>

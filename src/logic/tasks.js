@@ -43,6 +43,8 @@ export function applyTaskComplete(taskId, tasks, agents, inventory) {
 }
 
 // Returns a Set of task IDs whose item/consumable requirements cannot be met.
+// Iterates in createdAt order so earlier tasks claim consumables first
+// and later tasks correctly see a depleted pool.
 export function computeBlockedTaskIds(activeTasks, inventory) {
   const pool = {};
   for (const item of inventory) pool[item.name.toLowerCase()] = item.qty;

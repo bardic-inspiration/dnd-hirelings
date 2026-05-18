@@ -28,6 +28,8 @@ export function activeTaskCount(agent, tasks) {
   }).length;
 }
 
+// Bidirectional check: agent's attributes must satisfy the task's requirements,
+// AND the agent's own required-attributes must be offered by the task.
 export function validateAssignment(agent, task) {
   for (const req of task.requirements) {
     const reqP = parseTag(req);
@@ -71,6 +73,7 @@ export function isActivityActive(activityTag, tasks) {
   return true;
 }
 
+// True if this attribute is currently being exercised by any of the agent's in-progress tasks.
 export function isAttributeActive(attrTag, agent, tasks) {
   const attrP = parseTag(attrTag);
   for (const act of agent.activities) {
