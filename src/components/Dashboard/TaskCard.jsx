@@ -2,7 +2,7 @@ import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { agentsAssignedTo } from '../../logic/agents.js';
 import { getWorkReqs } from '../../logic/tasks.js';
-import { parseTag, getSchemaEntry } from '../../logic/tags.js';
+import { parseTag, formatTagLabel } from '../../logic/tags.js';
 import EditableSpan from '../EditableSpan.jsx';
 import ProgressSection from './TaskSections/ProgressSection.jsx';
 import RequirementsSection from './TaskSections/RequirementsSection.jsx';
@@ -47,12 +47,7 @@ function AttributesSection({ task }) {
       <div className="task-tag-list">
         {!attrs.length && <div className="empty-state">—</div>}
         {attrs.map(({ tag, i }) => {
-          const p = parseTag(tag);
-          const entry = getSchemaEntry(p);
-          const typeLabel = entry ? entry.label.toUpperCase() : p.type.toUpperCase();
-          const showName  = p.name && !entry?.nameFixed;
-          const label     = showName ? `${typeLabel}: ${p.name.toUpperCase()}` : typeLabel;
-          const params    = p.value !== null ? ` =${p.value}` : '';
+          const { label, params } = formatTagLabel(parseTag(tag));
           return (
             <div key={i} className="tag-list-item">
               <span className="tag-content"><strong>{label}</strong>{params}</span>

@@ -61,6 +61,15 @@ export function tagFn(parsed) {
   return getSchemaEntry(parsed)?.fn ?? null;
 }
 
+export function formatTagLabel(parsed) {
+  const entry = getSchemaEntry(parsed);
+  const typeLabel = entry ? entry.label.toUpperCase() : parsed.type.toUpperCase();
+  const showName  = parsed.name && !entry?.nameFixed;
+  const label     = showName ? `${typeLabel}: ${parsed.name.toUpperCase()}` : typeLabel;
+  const params    = parsed.value !== null ? ` =${parsed.value}` : '';
+  return { label, params };
+}
+
 export function getSchemaByContext(...contexts) {
   return Object.entries(TAG_SCHEMA).filter(([, e]) => contexts.includes(e.context));
 }
