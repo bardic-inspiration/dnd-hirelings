@@ -1,12 +1,12 @@
-import { useGame } from '../../../state/GameContext.jsx';
-import { useUI } from '../../../state/UIContext.jsx';
-import { agentsAssignedTo } from '../../../logic/agents.js';
-import { getWorkReqs, applyTaskComplete } from '../../../logic/tasks.js';
-import { parseTag, getSchemaEntry } from '../../../logic/tags.js';
-import EditableSpan from '../../EditableSpan.jsx';
-import ProgressSection from './ProgressSection.jsx';
-import RequirementsSection from './RequirementsSection.jsx';
-import ResultsSection from './ResultsSection.jsx';
+import { useGame } from '../../state/GameContext.jsx';
+import { useUI } from '../../state/UIContext.jsx';
+import { agentsAssignedTo } from '../../logic/agents.js';
+import { getWorkReqs } from '../../logic/tasks.js';
+import { parseTag, getSchemaEntry } from '../../logic/tags.js';
+import EditableSpan from '../EditableSpan.jsx';
+import ProgressSection from './TaskSections/ProgressSection.jsx';
+import RequirementsSection from './TaskSections/RequirementsSection.jsx';
+import ResultsSection from './TaskSections/ResultsSection.jsx';
 
 function TaskProgressBar({ task }) {
   const reqs = getWorkReqs(task);

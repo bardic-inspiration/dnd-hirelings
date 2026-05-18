@@ -1,5 +1,5 @@
 import AgentList from './AgentList.jsx';
-import TaskList from './TaskPane/TaskList.jsx';
+import TaskList from './TaskList.jsx';
 
 export default function Dashboard() {
   return (

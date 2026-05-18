@@ -1,4 +1,4 @@
-import { useGame } from '../../../state/GameContext.jsx';
+import { useGame } from '../../state/GameContext.jsx';
 import TaskCard from './TaskCard.jsx';
 
 export default function TaskList() {
