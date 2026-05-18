@@ -47,3 +47,6 @@ npm run dev
 ```
 
 Open `http://localhost:5173`.
+
+## Credits
+Portrait assets: Neverwinter Nights, BioWare and Obsidian Entertainment, 2002
