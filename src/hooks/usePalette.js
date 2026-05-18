@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { PALETTES } from '../palettes.js';
+import { PALETTES } from '../constants/palettes.js';
 import { PALETTE_KEY } from '../state/storage.js';
 
 // Manages color palette application and persistence

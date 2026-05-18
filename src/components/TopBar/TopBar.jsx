@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
-import { PALETTES } from '../../palettes.js';
+import { PALETTES } from '../../constants/palettes.js';
 import { applyPalette, getStoredPalette } from '../../hooks/usePalette.js';
 import { formatClockParts, clockMinutesFromParts, DAYS_PER_YEAR } from '../../logic/time.js';
 import { saveStateToFile, loadStateFromFile } from '../../logic/session.js';

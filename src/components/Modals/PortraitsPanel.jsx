@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import Modal from './Modal.jsx';
 import { useUI } from '../../state/UIContext.jsx';
-import { PORTRAIT_URLS, isValidImageFile } from '../../portraits.js';
+import { PORTRAIT_URLS, isValidImageFile } from '../../constants/portraits.js';
 
 export default function PortraitsPanel() {
   const { portraitsProps, closePortraits } = useUI();
