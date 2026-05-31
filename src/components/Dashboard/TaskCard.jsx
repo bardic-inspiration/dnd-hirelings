@@ -13,7 +13,7 @@ function TaskProgressBar({ task }) {
   const totalRequired = reqs.reduce((s, e) => s + e.value, 0);
   const totalProgress = task.isComplete
     ? totalRequired
-    : reqs.reduce((s, e) => s + (task.workProgress?.[e.name || ''] ?? 0), 0);
+    : reqs.reduce((s, e) => s + Math.min(e.value, task.workProgress?.[e.name || ''] ?? 0), 0);
   const pct = totalRequired > 0 ? Math.min(100, (totalProgress / totalRequired) * 100) : 0;
   return (
     <div className="task-progress">

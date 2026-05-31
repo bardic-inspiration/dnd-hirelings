@@ -133,13 +133,17 @@ export function updateClockDisplayDOM(state, tickInfo) {
     const totalRequired = reqs.reduce((sum, e) => sum + e.value, 0);
     if (!totalRequired) continue;
 
-    let totalStored = 0, totalRate = 0;
+    // Cap each bucket at its own target so overshoot in one skill can't inflate
+    // the overall bar past the sum-of-targets denominator.
+    let totalCapped = 0;
     for (const req of reqs) {
-      const key = req.name || '';
-      totalStored += task.workProgress?.[key] ?? 0;
-      totalRate   += buckets[key] ?? 0;
+      const key    = req.name || '';
+      const stored = task.workProgress?.[key] ?? 0;
+      const rate   = buckets[key] ?? 0;
+      const interp = Math.max(0, stored - rate + frac * rate);
+      totalCapped += Math.min(req.value, interp);
     }
-    const headerPct = Math.min(100, ((totalStored - totalRate + frac * totalRate) / totalRequired) * 100);
+    const headerPct = Math.min(100, (totalCapped / totalRequired) * 100);
     const hFill = document.querySelector(`.task-progress-fill[data-task-id="${task.id}"]`);
     if (hFill) hFill.style.width = `${headerPct.toFixed(1)}%`;
 
@@ -153,7 +157,7 @@ export function updateClockDisplayDOM(state, tickInfo) {
       const bFill  = document.querySelector(`.work-item-bar-fill${sel}`);
       if (bFill) bFill.style.width = `${pct.toFixed(1)}%`;
       const valEl  = document.querySelector(`.work-item-value${sel}`);
-      if (valEl)   valEl.textContent = `${Math.floor(interp)} / ${req.value}`;
+      if (valEl)   valEl.textContent = `${Math.floor(Math.min(interp, req.value))} / ${req.value}`;
     }
   }
 }

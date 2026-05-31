@@ -21,7 +21,7 @@ function WorkRow({ label, taskId, workKey, target, progress, onRemove }) {
           className="work-item-value"
           data-task-id={taskId}
           data-work-key={workKey}
-        >{Math.floor(progress)} / {target}</span>
+        >{Math.floor(Math.min(progress, target))} / {target}</span>
         {onRemove && <span className="x" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>}
       </div>
     </div>

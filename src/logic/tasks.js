@@ -9,12 +9,10 @@ export function getWorkRequirements(task) {
   return all.length > 0 ? all : [{ type: 'work', name: null, value: 1, isReq: false }];
 }
 
-// Checks if the task is complete by comparing total work progress to total required work.
+// Task is complete only when every work requirement is independently satisfied —
+// overshooting one skill must not mask a deficit in another.
 export function checkTaskComplete(task) {
-  const reqs = getWorkRequirements(task);
-  const totalRequired = reqs.reduce((sum, e) => sum + e.value, 0);
-  const totalProgress = reqs.reduce((sum, e) => sum + (task.workProgress?.[e.name || ''] ?? 0), 0);
-  return totalProgress >= totalRequired;
+  return getWorkRequirements(task).every(req => (task.workProgress?.[req.name || ''] ?? 0) >= req.value);
 }
 
 // Applies the task's structured results to the world: consumes #req:consumable inputs,
