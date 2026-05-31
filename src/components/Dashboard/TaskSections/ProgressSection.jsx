@@ -1,6 +1,6 @@
 import { useGame } from '../../../state/GameContext.jsx';
+import { useUI } from '../../../state/UIContext.jsx';
 import { parseTag, getSchemaEntry } from '../../../logic/tags.js';
-import { getWorkRequirements } from '../../../logic/tasks.js';
 
 function WorkRow({ label, taskId, workKey, target, progress, onRemove }) {
   const done = progress >= target;
@@ -30,11 +30,13 @@ function WorkRow({ label, taskId, workKey, target, progress, onRemove }) {
 
 export default function ProgressSection({ task }) {
   const { dispatch } = useGame();
+  const { openTagBuilder } = useUI();
   const workProgressMap = task.workProgress ?? {};
-  const workEntries = [];
-  task.requirements.forEach((tagStr, idx) => {
-    const p = parseTag(tagStr);
-    if (p.type === 'work' && !p.isReq) workEntries.push({ p, idx });
+  const workEntries = (task.work || []).map((tagStr, idx) => ({ p: parseTag(tagStr), idx }));
+
+  const handleAdd = () => openTagBuilder({
+    context: 'work',
+    onSave: (tag) => dispatch({ type: 'TASK_ADD_TAG', id: task.id, field: 'work', tag }),
   });
 
   return (
@@ -64,11 +66,12 @@ export default function ProgressSection({ task }) {
               workKey={p.name ?? ''}
               target={p.value ?? 1}
               progress={workProgressMap[p.name || ''] ?? 0}
-              onRemove={() => dispatch({ type: 'TASK_REMOVE_REQUIREMENT', id: task.id, index: idx })}
+              onRemove={() => dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'work', index: idx })}
             />
           );
         })}
       </div>
+      <button className="tag-add" onClick={e => { e.stopPropagation(); handleAdd(); }}>+ WORK</button>
     </div>
   );
 }

@@ -3,11 +3,21 @@ import Modal from './Modal.jsx';
 import { TAG_SCHEMA, buildTag, getSchemaByContext } from '../../logic/tags.js';
 
 export default function TagBuilderModal({ context, onSave, onClose }) {
-  const isTask = context === 'task';
+  // Map a caller-supplied context to the set of TAG_SCHEMA contexts shown as presets.
+  const allowedContexts = (() => {
+    if (context === 'requirement') return ['requirement'];
+    if (context === 'work')        return ['work'];
+    if (context === 'attribute')   return ['attribute'];
+    if (context === 'task')        return ['requirement', 'work']; // legacy fallback
+    return ['attribute'];
+  })();
+  const title = context === 'attribute'
+    ? 'NEW ATTRIBUTE'
+    : context === 'work'
+      ? 'ADD WORK'
+      : 'ADD TAG';
 
-  const defaultKey = isTask
-    ? Object.keys(TAG_SCHEMA).find(k => TAG_SCHEMA[k].context !== 'attribute')
-    : Object.keys(TAG_SCHEMA).find(k => TAG_SCHEMA[k].context === 'attribute');
+  const defaultKey = Object.keys(TAG_SCHEMA).find(k => allowedContexts.includes(TAG_SCHEMA[k].context));
 
   const [presetKey,  setPresetKey]  = useState(defaultKey ?? '');
   const [typeVal,    setTypeVal]    = useState('');
@@ -67,33 +77,27 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
     if (e.key === 'Escape') { e.preventDefault(); onClose(); }
   };
 
-  const taskContexts = isTask
-    ? [...new Set(Object.values(TAG_SCHEMA).filter(e => e.context !== 'attribute').map(e => e.context))]
-    : [];
+  const groupContexts = [...new Set(
+    Object.values(TAG_SCHEMA).filter(e => allowedContexts.includes(e.context)).map(e => e.context)
+  )];
 
   return (
     <Modal onClose={onClose} overlayClass="tag-builder-overlay">
       <div className="tag-builder-card" onClick={e => e.stopPropagation()}>
-        <div className="tag-builder-title">{isTask ? 'ADD TAG' : 'NEW ATTRIBUTE'}</div>
+        <div className="tag-builder-title">{title}</div>
         <div className="tag-builder-fields">
 
           <div className="tag-builder-row">
             <label className="tag-builder-label">PRESET</label>
             <select ref={presetRef} className="tag-builder-field" value={presetKey} onChange={handlePresetChange} onKeyDown={onKeyDown}>
               <option value="">— custom —</option>
-              {isTask ? taskContexts.map(ctx => (
+              {groupContexts.map(ctx => (
                 <optgroup key={ctx} label={ctx.toUpperCase()}>
                   {getSchemaByContext(ctx).map(([key, entry]) => (
                     <option key={key} value={key}>{entry.label}</option>
                   ))}
                 </optgroup>
-              )) : (
-                <optgroup label="ATTRIBUTE">
-                  {getSchemaByContext('attribute').map(([key, entry]) => (
-                    <option key={key} value={key}>{entry.label}</option>
-                  ))}
-                </optgroup>
-              )}
+              ))}
             </select>
           </div>
 

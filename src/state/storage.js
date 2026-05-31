@@ -1,5 +1,7 @@
-export const STORAGE_KEY = 'dnd-hirelings-state-v2';
+export const STORAGE_KEY = 'dnd-hirelings-state-v3';
 export const PALETTE_KEY = 'dnd-hirelings-palette';
+
+export const DEFAULT_RESULTS = { gold: 0, items: [], agents: [] };
 
 // Default state structure for the application
 export const DEFAULT_STATE = {
@@ -17,6 +19,30 @@ export const DEFAULT_STATE = {
   tasks: [],
   inventory: [],
 };
+
+function normalizeResults(r) {
+  const src = r && typeof r === 'object' ? r : {};
+  const gold = Number(src.gold);
+  return {
+    gold: Number.isFinite(gold) ? gold : 0,
+    items: Array.isArray(src.items)
+      ? src.items.map(it => ({ name: String(it?.name ?? ''), qty: Number(it?.qty) || 0 })).filter(it => it.name)
+      : [],
+    agents: Array.isArray(src.agents)
+      ? src.agents.map(a => ({
+          template: {
+            name:        a?.template?.name        ?? 'NEW HIRELING',
+            icon:        a?.template?.icon        ?? '',
+            rate:        a?.template?.rate        ?? 1,
+            rateUnit:    a?.template?.rateUnit    ?? 'GP/DAY',
+            description: a?.template?.description ?? '',
+            attributes:  Array.isArray(a?.template?.attributes) ? a.template.attributes : [],
+          },
+          qty: Number(a?.qty) || 1,
+        }))
+      : [],
+  };
+}
 
 // Normalizes a raw state object (e.g. from localStorage) to ensure all required fields are present and have valid values
 export function normalizeState(raw) {
@@ -37,11 +63,14 @@ export function normalizeState(raw) {
   }));
   state.tasks = (raw.tasks || []).map(t => ({
     ...t,
-    requirements: (t.requirements || []).filter(Boolean),
+    requirements: Array.isArray(t.requirements) ? t.requirements.filter(Boolean) : [],
+    work:         Array.isArray(t.work)         ? t.work.filter(Boolean)         : [],
+    attributes:   Array.isArray(t.attributes)   ? t.attributes.filter(Boolean)   : [],
     description:  t.description  ?? '',
     isComplete:   t.isComplete   ?? false,
     createdAt:    t.createdAt    ?? Date.now(),
     workProgress: t.workProgress ?? {},
+    results:      normalizeResults(t.results),
   }));
   const s = raw.session || {};
   const tsNum = parseFloat(s.timeStep ?? '0');

@@ -1,7 +1,9 @@
 import { uid, now } from '../utils.js';
-import { normalizeState, DEFAULT_STATE } from './storage.js';
+import { normalizeState, DEFAULT_STATE, DEFAULT_RESULTS } from './storage.js';
 import { applyTaskComplete } from '../logic/tasks.js';
 import { parseTag } from '../logic/tags.js';
+
+const TASK_TAG_FIELDS = new Set(['requirements', 'work', 'attributes']);
 
 const DEFAULT_AGENT = {
   name: 'NEW HIRELING',
@@ -91,7 +93,10 @@ export function reducer(state, action) {
           name: 'NEW TASK',
           description: '',
           requirements: [],
+          work: [],
+          attributes: [],
           workProgress: {},
+          results: { ...DEFAULT_RESULTS, items: [], agents: [] },
           isComplete: false,
           createdAt: now(),
         }],
@@ -133,18 +138,33 @@ export function reducer(state, action) {
       };
     }
 
-    case 'TASK_ADD_REQUIREMENT':
+    case 'TASK_ADD_TAG': {
+      const { field } = action;
+      if (!TASK_TAG_FIELDS.has(field)) return state;
       return {
         ...state,
-        tasks: state.tasks.map(t => t.id !== action.id ? t : { ...t, requirements: [...t.requirements, action.tag] }),
+        tasks: state.tasks.map(t => t.id !== action.id ? t : { ...t, [field]: [...(t[field] || []), action.tag] }),
       };
+    }
 
-    case 'TASK_REMOVE_REQUIREMENT':
+    case 'TASK_REMOVE_TAG': {
+      const { field } = action;
+      if (!TASK_TAG_FIELDS.has(field)) return state;
       return {
         ...state,
         tasks: state.tasks.map(t => t.id !== action.id ? t : {
           ...t,
-          requirements: t.requirements.filter((_, i) => i !== action.index),
+          [field]: (t[field] || []).filter((_, i) => i !== action.index),
+        }),
+      };
+    }
+
+    case 'TASK_UPDATE_RESULTS':
+      return {
+        ...state,
+        tasks: state.tasks.map(t => t.id !== action.id ? t : {
+          ...t,
+          results: { ...(t.results || DEFAULT_RESULTS), ...action.changes },
         }),
       };
 

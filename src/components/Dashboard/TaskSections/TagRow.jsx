@@ -1,7 +1,7 @@
 import { useGame } from '../../../state/GameContext.jsx';
 import { parseTag, formatTagLabel } from '../../../logic/tags.js';
 
-export default function TagRow({ taskId, tagStr, index }) {
+export default function TagRow({ taskId, tagStr, index, field }) {
   const { dispatch } = useGame();
   const { label, params } = formatTagLabel(parseTag(tagStr));
   return (
@@ -13,7 +13,7 @@ export default function TagRow({ taskId, tagStr, index }) {
         className="x"
         onClick={e => {
           e.stopPropagation();
-          dispatch({ type: 'TASK_REMOVE_REQUIREMENT', id: taskId, index });
+          dispatch({ type: 'TASK_REMOVE_TAG', id: taskId, field, index });
         }}
       >×</span>
     </div>

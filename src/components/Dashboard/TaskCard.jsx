@@ -29,16 +29,11 @@ function TaskProgressBar({ task }) {
 function AttributesSection({ task }) {
   const { dispatch } = useGame();
   const { openTagBuilder } = useUI();
-  const attrs = task.requirements
-    .map((tag, i) => ({ tag, i }))
-    .filter(({ tag }) => {
-      const p = parseTag(tag);
-      return !p.isReq && p.type !== 'work' && p.type !== 'reward';
-    });
+  const attrs = task.attributes || [];
 
   const handleAdd = () => openTagBuilder({
-    context: 'task',
-    onSave: (tag) => dispatch({ type: 'TASK_ADD_REQUIREMENT', id: task.id, tag }),
+    context: 'attribute',
+    onSave: (tag) => dispatch({ type: 'TASK_ADD_TAG', id: task.id, field: 'attributes', tag }),
   });
 
   return (
@@ -46,12 +41,12 @@ function AttributesSection({ task }) {
       <div className="tag-label">ATTRIBUTES</div>
       <div className="task-tag-list">
         {!attrs.length && <div className="empty-state">—</div>}
-        {attrs.map(({ tag, i }) => {
+        {attrs.map((tag, i) => {
           const { label, params } = formatTagLabel(parseTag(tag));
           return (
             <div key={i} className="tag-list-item">
               <span className="tag-content"><strong>{label}</strong>{params}</span>
-              <span className="x" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_REMOVE_REQUIREMENT', id: task.id, index: i }); }}>×</span>
+              <span className="x" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'attributes', index: i }); }}>×</span>
             </div>
           );
         })}

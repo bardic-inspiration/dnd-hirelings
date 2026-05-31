@@ -14,7 +14,6 @@ export const TAG_SCHEMA = {
   'req:consumable': { label: 'Consumable', context: 'requirement', type: 'consumable', isReq: true,  hasName: true,  hasValue: true,  nameLabel: 'Name', valueLabel: 'Qty',        fn: 'consume'     },
   work:             { label: 'General',    context: 'work',        type: 'work',       isReq: false, hasName: false, hasValue: true,  valueLabel: 'Target',                        fn: 'work'        },
   'work:skill':     { label: 'Skill',      context: 'work',        type: 'work',       isReq: false, hasName: true,  hasValue: true,  nameLabel: 'Skill', valueLabel: 'Target',    fn: 'work-skill'  },
-  'reward:gold':    { label: 'Gold',       context: 'reward',      type: 'reward',     isReq: false, hasName: false, hasValue: true,  nameFixed: 'gold', valueLabel: 'Amount',     fn: 'reward-gold' },
 };
 
 export function parseTag(s) {
