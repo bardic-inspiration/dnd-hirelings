@@ -10,7 +10,7 @@ import HoldButton from './HoldButton.jsx';
 
 export default function TopBar({ onPlay, onStop, onAdvance }) {
   const { state, dispatch } = useGame();
-  const { playing, setShowInventory, setShowConfig } = useUI();
+  const { playing, setShowConfig } = useUI();
   const { session } = state;
   const [palette, setPalette] = useState(getStoredPalette);
 
@@ -125,7 +125,6 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
           LOAD
           <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleLoad} />
         </label>
-        <button className="ctrl" onClick={() => setShowInventory(true)}>INVENTORY</button>
         <button className="ctrl" onClick={() => setShowConfig(true)}>SETTINGS</button>
       </div>
     </nav>

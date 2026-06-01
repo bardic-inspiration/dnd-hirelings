@@ -7,9 +7,10 @@ export function UIProvider({ children }) {
   const [expandedTasks, setExpandedTasks]   = useState(new Set());
   const [playing, setPlaying]               = useState(false);
   const [tagBuilderProps, setTagBuilderProps] = useState(null);
-  const [showInventory, setShowInventory]   = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState(null);
   const [showConfig, setShowConfig]         = useState(false);
   const [portraitsProps, setPortraitsProps] = useState(null);
+  const [itemIconsProps, setItemIconsProps] = useState(null);
 
   const toggleExpanded = useCallback((id) => {
     setExpandedTasks(prev => {
@@ -25,15 +26,19 @@ export function UIProvider({ children }) {
   const openPortraits  = useCallback((onSelect) => setPortraitsProps({ onSelect }), []);
   const closePortraits = useCallback(() => setPortraitsProps(null), []);
 
+  const openItemIcons  = useCallback((onSelect) => setItemIconsProps({ onSelect }), []);
+  const closeItemIcons = useCallback(() => setItemIconsProps(null), []);
+
   return (
     <UIContext.Provider value={{
       selectedTaskId, setSelectedTaskId,
       expandedTasks, toggleExpanded,
       playing, setPlaying,
       tagBuilderProps, openTagBuilder, closeTagBuilder,
-      showInventory, setShowInventory,
+      selectedItemId, setSelectedItemId,
       showConfig, setShowConfig,
       portraitsProps, openPortraits, closePortraits,
+      itemIconsProps, openItemIcons, closeItemIcons,
     }}>
       {children}
     </UIContext.Provider>

@@ -28,7 +28,7 @@ export function applyResults(task, inventory, agents) {
     const item = newInventory.find(i => i.name.toLowerCase() === p.name.toLowerCase());
     if (item) item.qty = Math.max(0, item.qty - (p.value ?? 1));
   }
-  newInventory = newInventory.filter(i => i.qty > 0);
+  // Depleted items remain in the inventory (shown grayed); they are not pruned.
 
   // 2. Merge result items into inventory.
   for (const reward of task.results?.items || []) {
@@ -36,7 +36,7 @@ export function applyResults(task, inventory, agents) {
     if (!reward.name || qty <= 0) continue;
     const existing = newInventory.find(i => i.name.toLowerCase() === reward.name.toLowerCase());
     if (existing) existing.qty += qty;
-    else newInventory.push({ id: uid(), name: reward.name, qty });
+    else newInventory.push({ id: uid(), name: reward.name, qty, icon: '', description: '', value: 0, attributes: [] });
   }
 
   // 3. Spawn result agents from templates.

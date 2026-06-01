@@ -57,9 +57,13 @@ export function normalizeState(raw) {
     lastAssigned: a.lastAssigned ?? null,
   }));
   state.inventory = (raw.inventory || []).map(item => ({
-    id:   item.id   ?? Math.random().toString(36).slice(2, 9),
-    name: item.name ?? 'ITEM',
-    qty:  item.qty  ?? 1,
+    id:          item.id   ?? Math.random().toString(36).slice(2, 9),
+    name:        item.name ?? 'ITEM',
+    qty:         Number(item.qty)   || 1,
+    icon:        item.icon        ?? '',
+    description: item.description  ?? '',
+    value:       Number(item.value) || 0,
+    attributes:  Array.isArray(item.attributes) ? item.attributes : [],
   }));
   state.tasks = (raw.tasks || []).map(t => ({
     ...t,

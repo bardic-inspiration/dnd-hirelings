@@ -5,10 +5,9 @@ import path from 'path';
 
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp']);
 
-function portraitManifestPlugin(opts = {}) {
-  const dir      = opts.dir      ?? 'public/assets/portraits';
-  const basePath = opts.basePath ?? '/assets/portraits/';
-  const virtualId  = 'virtual:portrait-manifest';
+// Exposes the image files of an asset folder as a virtual module the client can
+// import. One instance per asset type (portraits, items, …).
+function imageManifestPlugin({ name, virtualId, dir, basePath }) {
   const resolvedId = '\0' + virtualId;
 
   function getFiles() {
@@ -20,7 +19,7 @@ function portraitManifestPlugin(opts = {}) {
   }
 
   return {
-    name: 'portrait-manifest',
+    name,
     resolveId(id) { if (id === virtualId) return resolvedId; },
     load(id) {
       if (id !== resolvedId) return;
@@ -37,5 +36,19 @@ function portraitManifestPlugin(opts = {}) {
 }
 
 export default defineConfig({
-  plugins: [react(), portraitManifestPlugin()],
+  plugins: [
+    react(),
+    imageManifestPlugin({
+      name: 'portrait-manifest',
+      virtualId: 'virtual:portrait-manifest',
+      dir: 'public/assets/portraits',
+      basePath: '/assets/portraits/',
+    }),
+    imageManifestPlugin({
+      name: 'item-manifest',
+      virtualId: 'virtual:item-manifest',
+      dir: 'public/assets/items',
+      basePath: '/assets/items/',
+    }),
+  ],
 });

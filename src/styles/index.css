@@ -245,6 +245,16 @@ body {
   min-height: 0;
 }
 
+/* Right column: TASKS (3) stacked above INVENTORY (2). */
+#right-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+}
+#tasks-pane     { flex: 3; }
+#inventory-pane { flex: 2; }
+
 .pane {
   border: var(--line) solid var(--border);
   border-radius: var(--radius-lg);
@@ -921,79 +931,105 @@ select.tag-builder-field {
 }
 
 /* ============================================================
-   INVENTORY PANEL
+   INVENTORY FRAME
    ============================================================ */
-.inventory-panel { max-height: 70vh; }
-
-.bank-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 6px 8px;
-  border: var(--line) solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--dimmer);
-}
-
-.bank-row .label {
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--dim);
-}
-
-.bank-row .bank-value {
+#inventory-list {
   flex: 1;
-  text-align: right;
-  font-size: var(--fs-base);
-}
-
-.inventory-list {
+  overflow-y: auto;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  overflow-y: auto;
-  max-height: 50vh;
+  gap: 5px;
 }
 
-.inventory-row {
+.item-row {
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.item-row.selected {
+  border-color: var(--highlight);
+  background: linear-gradient(145deg, var(--highlight-bg) 0%, color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent) 70%);
+}
+
+/* Depleted (qty 0) items stay in the list, dimmed, until manually deleted. */
+.item-row.depleted .item-head { opacity: 0.4; }
+.item-row.depleted .item-icon { filter: grayscale(1); }
+
+.item-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 8px;
-  border: var(--line) solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--dimmer);
 }
 
-.inventory-name {
+.item-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--dimmer);
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.item-icon:hover { border-color: var(--highlight); }
+
+.item-name {
   flex: 1;
   outline: none;
   font-size: var(--fs-sm);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--fg);
   min-width: 0;
 }
 
-.inventory-sep {
-  color: var(--border);
-  font-size: var(--fs-sm);
-  flex-shrink: 0;
-  user-select: none;
+/* Drag-to-adjust numeric field wrapper (qty / value). */
+.drag-number {
+  cursor: ns-resize;
+  display: inline-flex;
 }
 
-.inventory-qty {
-  flex: 0 0 44px;
+.item-head > .drag-number {        /* the qty field is a direct flex child */
+  flex: 0 0 36px;
+  justify-content: flex-end;
+}
+
+.item-qty {
   text-align: right;
   outline: none;
   font-size: var(--fs-sm);
   font-weight: 600;
-  font-family: ui-monospace, "Courier New", monospace;
   color: var(--fg);
 }
 
-.inventory-row .x {
+.item-value {
+  flex: 0 0 auto;
+  text-align: right;
+  font-size: var(--fs-sm);
+  color: var(--dim);
+}
+.item-value span[contenteditable] { outline: none; color: var(--fg); }
+
+.item-toggle {
+  font-size: var(--fs-base);
+  color: var(--dim);
+  cursor: pointer;
+  padding: 0 3px;
+  user-select: none;
+  transition: color 0.1s;
+}
+.item-toggle:hover { color: var(--highlight); }
+
+.item-row .x {
   color: var(--border);
   cursor: pointer;
   flex-shrink: 0;
@@ -1002,7 +1038,71 @@ select.tag-builder-field {
   padding: 0 2px;
   transition: color 0.1s;
 }
-.inventory-row .x:hover { color: var(--fg); }
+.item-row .x:hover { color: var(--fg); }
+
+.item-body { display: none; }
+.item-row.expanded .item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.item-desc {
+  outline: none;
+  font-size: var(--fs-sm);
+  color: var(--fg);
+}
+
+/* Bank panel: inset, pinned at frame bottom. */
+.bank-panel {
+  margin-top: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px;
+  padding: 7px 10px;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--dimmer);
+  cursor: ns-resize;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.bank-panel.sellable {
+  border-color: var(--highlight);
+  background: var(--highlight-bg);
+  cursor: pointer;
+}
+
+.bank-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+}
+
+.bank-amount {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--fg);
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+}
+
+@keyframes flash-increase {
+  0%   { color: var(--highlight); text-shadow: 0 0 8px var(--highlight); }
+  100% { color: var(--fg); text-shadow: none; }
+}
+@keyframes flash-decrease {
+  0%   { color: var(--warn); text-shadow: 0 0 8px var(--warn); }
+  100% { color: var(--fg); text-shadow: none; }
+}
+.bank-amount.flash-increase { animation: flash-increase 0.5s ease-out; }
+.bank-amount.flash-decrease { animation: flash-decrease 0.5s ease-out; }
 
 /* ============================================================
    PORTRAITS PANEL
@@ -1123,6 +1223,10 @@ select.tag-builder-field {
 .portraits-file-btn {
   flex-shrink: 0;
 }
+
+/* Item icon picker: wider panel, 12 icons per row. */
+.item-icons-panel { width: min(80vw, 840px); }
+.item-icons-grid  { grid-template-columns: repeat(12, 1fr); }
 
 /* ============================================================
    MISC
