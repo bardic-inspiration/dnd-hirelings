@@ -10,6 +10,7 @@
   src: url('/assets/UI/fonts/BNBreezy.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
 }
 
 :root {

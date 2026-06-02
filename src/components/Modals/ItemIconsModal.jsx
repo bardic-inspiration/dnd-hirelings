@@ -2,11 +2,13 @@ import { useState, useRef, useCallback } from 'react';
 import Modal from './Modal.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { ITEM_URLS, isValidImageFile } from '../../constants/items.js';
+import { useAssetGroup } from '../../hooks/useAssetGroup.js';
 
 export default function ItemIconsModal() {
   const { itemIconsProps, closeItemIcons } = useUI();
   const [query, setQuery]                  = useState('');
   const fileInputRef                       = useRef(null);
+  const { isReady }                        = useAssetGroup(ITEM_URLS.map(p => p.url));
 
   const filtered = query.trim()
     ? ITEM_URLS.filter(p => p.name.toLowerCase().includes(query.trim().toLowerCase()))
@@ -30,11 +32,15 @@ export default function ItemIconsModal() {
     <Modal onClose={closeItemIcons} overlayClass="config-overlay">
       <div className="portraits-panel item-icons-panel" onClick={e => e.stopPropagation()}>
         <div className="portraits-grid-wrap item-icons-grid-wrap">
+          {isReady ? (
           <div className="portraits-grid item-icons-grid">
             {filtered.map(p => (
               <IconFrame key={p.url} url={p.url} onSelect={handleSelect} />
             ))}
           </div>
+          ) : (
+          <ModalLoadingPlaceholder />
+          )}
         </div>
         <div className="portraits-search-bar">
           <input
@@ -61,6 +67,17 @@ export default function ItemIconsModal() {
         </div>
       </div>
     </Modal>
+  );
+}
+
+function ModalLoadingPlaceholder() {
+  return (
+    <div style={{
+      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: 'var(--dim)', fontFamily: 'monospace', letterSpacing: '0.2em', fontSize: '0.75rem',
+    }}>
+      LOADING
+    </div>
   );
 }
 
