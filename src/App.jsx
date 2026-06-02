@@ -10,10 +10,11 @@ import TagBuilderModal from './components/Modals/TagBuilderModal.jsx';
 import ConfigModal from './components/Modals/ConfigModal.jsx';
 import PortraitsModal from './components/Modals/PortraitsModal.jsx';
 import ItemIconsModal from './components/Modals/ItemIconsModal.jsx';
+import LibraryModal from './components/Modals/LibraryModal.jsx';
 
 
 export default function App() {
-  const { tagBuilderProps, closeTagBuilder, showConfig, portraitsProps, itemIconsProps, setSelectedTaskId, setSelectedItemId } = useUI();
+  const { tagBuilderProps, closeTagBuilder, showConfig, portraitsProps, itemIconsProps, libraryProps, setSelectedTaskId, setSelectedItemId } = useUI();
   const { start, stop, advance } = usePlayClock();
 
   usePalette();
@@ -48,6 +49,7 @@ export default function App() {
       {showConfig       && <ConfigModal onRestartPlay={() => { stop(); start(); }} />}
       {portraitsProps   && <PortraitsModal />}
       {itemIconsProps   && <ItemIconsModal />}
+      {libraryProps     && <LibraryModal />}
     </>
   );
 }

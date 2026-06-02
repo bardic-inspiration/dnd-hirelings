@@ -585,30 +585,38 @@ body {
 }
 
 /* ============================================================
-   INLINE ADD BUTTONS
+   ADD BUTTONS
+   Each add button mirrors the geometry of the object it creates,
+   occupying the next slot in that object's layout.
    ============================================================ */
-.add-inline {
-  background: transparent;
+.add-card {
   border: var(--line) dashed var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
+  background: transparent;
   color: var(--dim);
-  padding: 6px 12px;
   font-family: inherit;
   font-size: var(--fs-xs);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.1em;
   cursor: pointer;
-  transition: border-color 0.1s, color 0.1s;
-  align-self: flex-start;
-  margin: 4px;
+  transition: border-color 0.15s, color 0.15s;
 }
-.add-inline:hover { border-color: var(--highlight); color: var(--highlight); }
+.add-card:hover { border-color: var(--highlight); color: var(--highlight); }
 
-.card-grid .add-inline {
-  grid-column: 1 / -1;
-  width: 100%;
-  margin: 0;
-  text-align: center;
+/* +AGENT: shape of an agent card, in the next grid cell. */
+.add-agent {
+  padding: 9px 10px;
+}
+
+/* +TASK: shape of a collapsed task card, on the next row. */
+.add-task {
+  padding: 8px 10px;
+}
+
+/* +ITEM: shape of a collapsed item row, on the next row. */
+.add-item {
+  padding: 5px 8px;
+  min-height: 34px;
 }
 
 /* ============================================================
@@ -1228,6 +1236,139 @@ select.tag-builder-field {
 /* Item icon picker: wider panel, 12 icons per row. */
 .item-icons-panel { width: min(80vw, 840px); }
 .item-icons-grid  { grid-template-columns: repeat(12, 1fr); }
+
+/* ============================================================
+   LIBRARY / BUILDER MODALS
+   ============================================================ */
+.library-panel {
+  background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  width: min(85vw, 720px);
+}
+.library-panel--wide { width: min(90vw, 820px); }
+
+.library-heading {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* Fixed, standard vertical dimension (matches the portrait selector's square
+   grid). Each pane fills this height and scrolls internally when its content
+   overflows. */
+.library-body {
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+  height: min(60vh, 600px);
+}
+
+/* List pane (flex 2): inset, scrollable. */
+.library-list {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--dimmer);
+  overflow-y: auto;
+  height: 100%;
+}
+
+.library-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: var(--line) solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s;
+}
+.library-row:hover { background: var(--highlight-bg); }
+.library-row.selected {
+  border-color: var(--highlight);
+  background: var(--highlight-bg);
+}
+
+.library-row-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg);
+  background-size: cover;
+  background-position: center;
+}
+
+.library-row-name {
+  flex: 1;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-row .x {
+  color: var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  padding: 0 2px;
+  transition: color 0.1s;
+}
+.library-row .x:hover { color: var(--warn); }
+
+/* "+ NEW" row mirrors the dashed add buttons. */
+.library-new-row {
+  border: var(--line) dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--dim);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 5px 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.library-new-row:hover { border-color: var(--highlight); color: var(--highlight); }
+
+/* Preview pane (flex 1): reuses card CSS, scrolls if tall. */
+.library-preview {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* Neutralize board-card interactivity in the static preview, and always show
+   the bodies that the dashboard cards keep collapsed. */
+.library-preview-card { cursor: default; }
+.library-preview-card .task-body,
+.library-preview-card .item-body { display: flex; }
+
+/* Tasks have no icon: a filled square placeholder stands in for a future map. */
+.task-preview-frame {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-sm);
+  background: var(--border);
+}
 
 /* ============================================================
    MISC

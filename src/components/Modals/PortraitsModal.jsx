@@ -3,6 +3,7 @@ import Modal from './Modal.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { PORTRAIT_URLS, isValidImageFile } from '../../constants/portraits.js';
 import { useAssetGroup } from '../../hooks/useAssetGroup.js';
+import { highlight } from '../../logic/text.jsx';
 
 export default function PortraitsModal() {
   const { portraitsProps, closePortraits } = useUI();
@@ -78,19 +79,6 @@ function ModalLoadingPlaceholder() {
     }}>
       LOADING
     </div>
-  );
-}
-
-function highlight(name, query) {
-  if (!query) return name;
-  const idx = name.toLowerCase().indexOf(query.toLowerCase());
-  if (idx === -1) return name;
-  return (
-    <>
-      {name.slice(0, idx)}
-      <span style={{ color: 'var(--highlight)' }}>{name.slice(idx, idx + query.length)}</span>
-      {name.slice(idx + query.length)}
-    </>
   );
 }
 

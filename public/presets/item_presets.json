@@ -1,0 +1,42 @@
+[
+  {
+    "name": "HEALING POTION",
+    "icon": "/assets/items/image2-001.jpg",
+    "qty": 1,
+    "value": 25,
+    "description": "Restores a measure of health when consumed.",
+    "attributes": ["#consumable:potion"]
+  },
+  {
+    "name": "IRON SWORD",
+    "icon": "/assets/items/image2-010.jpg",
+    "qty": 1,
+    "value": 15,
+    "description": "A serviceable blade of plain iron.",
+    "attributes": ["#tool:weapon"]
+  },
+  {
+    "name": "ROPE (50 FT)",
+    "icon": "/assets/items/image2-020.jpg",
+    "qty": 1,
+    "value": 1,
+    "description": "Fifty feet of sturdy hempen rope.",
+    "attributes": ["#tool:gear"]
+  },
+  {
+    "name": "RATIONS",
+    "icon": "/assets/items/image2-030.jpg",
+    "qty": 5,
+    "value": 1,
+    "description": "Dried trail food for a day.",
+    "attributes": ["#consumable:food"]
+  },
+  {
+    "name": "TORCH",
+    "icon": "/assets/items/image2-040.jpg",
+    "qty": 10,
+    "value": 1,
+    "description": "Burns for about an hour.",
+    "attributes": ["#consumable:light"]
+  }
+]

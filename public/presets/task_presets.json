@@ -1,0 +1,30 @@
+[
+  {
+    "name": "CLEAR THE CELLAR",
+    "description": "Drive the vermin from the guild cellar.",
+    "requirements": ["#req:skill:sword=1"],
+    "work": ["#work=10"],
+    "attributes": ["#trait:dungeon"]
+  },
+  {
+    "name": "ESCORT CARAVAN",
+    "description": "Guard a merchant caravan to the next town.",
+    "requirements": ["#req:skill:survival=1"],
+    "work": ["#work=20"],
+    "attributes": ["#trait:travel"]
+  },
+  {
+    "name": "GATHER HERBS",
+    "description": "Collect medicinal herbs from the nearby woods.",
+    "requirements": ["#req:tool:healers-kit"],
+    "work": ["#work:skill:survival=15"],
+    "attributes": ["#trait:foraging"]
+  },
+  {
+    "name": "RESEARCH RITUAL",
+    "description": "Decipher a recovered ritual from the archives.",
+    "requirements": ["#req:skill:arcana=2"],
+    "work": ["#work:skill:arcana=30"],
+    "attributes": ["#trait:study"]
+  }
+]
