@@ -1,32 +1,37 @@
-import { parseTag, tagFn } from './tags.js';
+import { parseTag, buildTag } from './tags.js';
 import { uid, now } from '../utils.js';
 
 // Returns an array of work definitions for the task, or a default of 1 generic work if none specified.
 export function getWorkRequirements(task) {
   const all = (task.work || [])
     .map(r => parseTag(r))
-    .filter(p => p.type === 'work' && !p.isReq && p.value !== null && p.value > 0);
-  return all.length > 0 ? all : [{ type: 'work', name: null, value: 1, isReq: false }];
+    .filter(p => p.segments[0] === 'work' && p.value !== null && parseFloat(p.value) > 0);
+  return all.length > 0 ? all : [{ segments: ['work'], value: null }];
 }
 
 // Task is complete only when every work requirement is independently satisfied —
 // overshooting one skill must not mask a deficit in another.
 export function checkTaskComplete(task) {
-  return getWorkRequirements(task).every(req => (task.workProgress?.[req.name || ''] ?? 0) >= req.value);
+  return getWorkRequirements(task).every(req => {
+    const key = req.segments[1] ?? '';
+    return (task.workProgress?.[key] ?? 0) >= parseFloat(req.value ?? 1);
+  });
 }
 
-// Applies the task's structured results to the world: consumes #req:consumable inputs,
+// Applies the task's structured results to the world: consumes req:consumable inputs,
 // adds results.items into inventory (merging by name), spawns results.agents, and
 // returns the gold delta to add to the bank.
 // Returns { newInventory, newAgents, bankDelta }.
 export function applyResults(task, inventory, agents) {
-  // 1. Consume #req:consumable inputs.
+  // 1. Consume req:consumable inputs.
   let newInventory = inventory.map(i => ({ ...i }));
   for (const req of task.requirements || []) {
     const p = parseTag(req);
-    if (tagFn(p) !== 'consume' || !p.name) continue;
-    const item = newInventory.find(i => i.name.toLowerCase() === p.name.toLowerCase());
-    if (item) item.qty = Math.max(0, item.qty - (p.value ?? 1));
+    if (p.segments[0] !== 'req' || p.segments[1] !== 'consumable') continue;
+    const name = p.segments[2];
+    if (!name) continue;
+    const item = newInventory.find(i => i.name.toLowerCase() === name.toLowerCase());
+    if (item) item.qty = Math.max(0, item.qty - (parseFloat(p.value) || 1));
   }
   // Depleted items remain in the inventory (shown grayed); they are not pruned.
 
@@ -71,7 +76,7 @@ export function applyResults(task, inventory, agents) {
 // Applies task completion: marks done, prunes assignments, and applies results.
 // Returns { newTasks, newAgents, newInventory, bankDelta }
 export function applyTaskComplete(taskId, tasks, agents, inventory) {
-  const taskTag = `#task:${taskId}`;
+  const taskTag = buildTag(['task', taskId]);
   const task = tasks.find(t => t.id === taskId);
   if (!task) return { newTasks: tasks, newAgents: agents, newInventory: inventory, bankDelta: 0 };
 
@@ -94,20 +99,24 @@ export function computeBlockedTaskIds(activeTasks, inventory) {
     let pass = true;
     for (const req of task.requirements) {
       const p = parseTag(req);
-      const fn = tagFn(p);
-      if (!p.name) continue;
-      if (fn === 'block') {
-        const inv = inventory.find(i => i.name.toLowerCase() === p.name.toLowerCase());
-        if (!inv || inv.qty < (p.value ?? 1)) { pass = false; break; }
-      } else if (fn === 'consume') {
-        if ((pool[p.name.toLowerCase()] ?? 0) < (p.value ?? 1)) { pass = false; break; }
+      if (p.segments[0] !== 'req') continue;
+      const kind = p.segments[1];
+      const name = p.segments[2];
+      if (!name) continue;
+      if (kind === 'item') {
+        const inv = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
+        if (!inv || inv.qty < (parseFloat(p.value) || 1)) { pass = false; break; }
+      } else if (kind === 'consumable') {
+        if ((pool[name.toLowerCase()] ?? 0) < (parseFloat(p.value) || 1)) { pass = false; break; }
       }
     }
     if (!pass) { blocked.add(task.id); continue; }
     for (const req of task.requirements) {
       const p = parseTag(req);
-      if (tagFn(p) !== 'consume' || !p.name) continue;
-      pool[p.name.toLowerCase()] = (pool[p.name.toLowerCase()] ?? 0) - (p.value ?? 1);
+      if (p.segments[0] !== 'req' || p.segments[1] !== 'consumable') continue;
+      const name = p.segments[2];
+      if (!name) continue;
+      pool[name.toLowerCase()] = (pool[name.toLowerCase()] ?? 0) - (parseFloat(p.value) || 1);
     }
   }
   return blocked;

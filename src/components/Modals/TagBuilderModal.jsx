@@ -1,74 +1,95 @@
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal.jsx';
-import { TAG_SCHEMA, buildTag, getSchemaByContext } from '../../logic/tags.js';
+import { buildTag } from '../../logic/tags.js';
+
+const PRESETS = {
+  attribute: [
+    { label: 'Skill',  prefix: '',    path: 'skill',       hasValue: true  },
+    { label: 'Tool',   prefix: '',    path: 'tool',        hasValue: false },
+    { label: 'Trait',  prefix: '',    path: 'trait',       hasValue: false },
+    { label: 'Class',  prefix: '',    path: 'class',       hasValue: false },
+    { label: 'Race',   prefix: '',    path: 'race',        hasValue: false },
+    { label: 'Level',  prefix: '',    path: 'level',       hasValue: true  },
+  ],
+  requirement: [
+    { label: 'Skill',      prefix: 'req', path: 'skill',      hasValue: true  },
+    { label: 'Tool',       prefix: 'req', path: 'tool',       hasValue: false },
+    { label: 'Trait',      prefix: 'req', path: 'trait',      hasValue: false },
+    { label: 'Class',      prefix: 'req', path: 'class',      hasValue: false },
+    { label: 'Race',       prefix: 'req', path: 'race',       hasValue: false },
+    { label: 'Item',       prefix: 'req', path: 'item',       hasValue: true  },
+    { label: 'Consumable', prefix: 'req', path: 'consumable', hasValue: true  },
+  ],
+  work: [
+    { label: 'General', prefix: '',     path: 'work',  hasValue: true },
+    { label: 'Skill',   prefix: 'work', path: 'skill', hasValue: true },
+  ],
+};
 
 export default function TagBuilderModal({ context, onSave, onClose }) {
-  // Map a caller-supplied context to the set of TAG_SCHEMA contexts shown as presets.
-  const allowedContexts = (() => {
-    if (context === 'requirement') return ['requirement'];
-    if (context === 'work')        return ['work'];
-    if (context === 'attribute')   return ['attribute'];
-    if (context === 'task')        return ['requirement', 'work']; // legacy fallback
-    return ['attribute'];
+  const presets = (() => {
+    if (context === 'requirement') return PRESETS.requirement;
+    if (context === 'work')        return PRESETS.work;
+    if (context === 'task')        return [...PRESETS.requirement, ...PRESETS.work];
+    return PRESETS.attribute;
   })();
-  const title = context === 'attribute'
-    ? 'NEW ATTRIBUTE'
-    : context === 'work'
-      ? 'ADD WORK'
-      : 'ADD TAG';
 
-  const defaultKey = Object.keys(TAG_SCHEMA).find(k => allowedContexts.includes(TAG_SCHEMA[k].context));
+  const title = context === 'attribute' ? 'NEW ATTRIBUTE'
+    : context === 'work'               ? 'ADD WORK'
+    : 'ADD TAG';
 
-  const [presetKey,  setPresetKey]  = useState(defaultKey ?? '');
-  const [typeVal,    setTypeVal]    = useState('');
+  const defaultPreset = presets[0];
+
+  const [presetIdx,  setPresetIdx]  = useState(0);
+  const [prefixVal,  setPrefixVal]  = useState(defaultPreset?.prefix ?? '');
+  const [pathVal,    setPathVal]    = useState(defaultPreset?.path   ?? '');
   const [nameVal,    setNameVal]    = useState('');
   const [valueVal,   setValueVal]   = useState('');
-  const [reqActive,  setReqActive]  = useState(false);
-  const [nameLabel,  setNameLabel]  = useState('NAME');
-  const [valueLabel, setValueLabel] = useState('VALUE');
-  const [namePlaceholder,  setNamePlaceholder]  = useState('optional');
-  const [valuePlaceholder, setValuePlaceholder] = useState('optional');
-  const [typeError,  setTypeError]  = useState(false);
+  const [pathError,  setPathError]  = useState(false);
 
   const presetRef = useRef(null);
 
-  const preview = typeVal.trim()
-    ? (buildTag(typeVal.trim(), nameVal.trim() || null, valueVal.trim() ? parseFloat(valueVal) : null, reqActive) ?? `#${reqActive ? 'req:' : ''}${typeVal.trim()}`)
-    : '—';
+  const preview = (() => {
+    const prefix = prefixVal.trim();
+    const path   = pathVal.trim();
+    if (!path) return '—';
+    const segments = [
+      ...prefix.split(':').filter(Boolean),
+      ...path.split(':').filter(Boolean),
+    ];
+    const name = nameVal.trim();
+    if (name) segments.push(name);
+    return buildTag(segments, valueVal.trim() || null);
+  })();
 
-  function applyPreset(key) {
-    const entry = key ? TAG_SCHEMA[key] : null;
-    if (entry) {
-      setTypeVal(entry.type);
-      setReqActive(entry.isReq);
-      setNameLabel(entry.nameLabel  ?? 'NAME');
-      setValueLabel(entry.valueLabel ?? 'VALUE');
-      setNameVal(entry.nameFixed ?? '');
-      setNamePlaceholder(entry.hasName  ? 'name'   : 'optional');
-      setValuePlaceholder(entry.hasValue ? 'amount' : 'optional');
-    } else {
-      setTypeVal(''); setReqActive(false);
-      setNameLabel('NAME'); setValueLabel('VALUE');
-      setNameVal(''); setNamePlaceholder('optional'); setValuePlaceholder('optional');
-    }
+  function applyPreset(preset) {
+    setPrefixVal(preset?.prefix ?? '');
+    setPathVal(preset?.path   ?? '');
+    setNameVal('');
     setValueVal('');
-    setTypeError(false);
+    setPathError(false);
   }
 
-  useEffect(() => { applyPreset(defaultKey ?? ''); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { applyPreset(defaultPreset); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { presetRef.current?.focus(); }, []);
 
   function handlePresetChange(e) {
-    const key = e.target.value;
-    setPresetKey(key);
-    applyPreset(key);
+    const idx = Number(e.target.value);
+    setPresetIdx(idx);
+    applyPreset(idx === -1 ? null : presets[idx]);
   }
 
   function save() {
-    if (!typeVal.trim()) { setTypeError(true); return; }
-    const name = nameVal.trim() || null;
-    const val  = valueVal.trim() ? parseFloat(valueVal) : null;
-    onSave(buildTag(typeVal.trim(), name, val, reqActive) ?? `#${reqActive ? 'req:' : ''}${typeVal.trim()}`);
+    const path = pathVal.trim();
+    if (!path) { setPathError(true); return; }
+    const prefix = prefixVal.trim();
+    const segments = [
+      ...prefix.split(':').filter(Boolean),
+      ...path.split(':').filter(Boolean),
+    ];
+    const name = nameVal.trim();
+    if (name) segments.push(name);
+    onSave(buildTag(segments, valueVal.trim() || null));
     onClose();
   }
 
@@ -76,10 +97,6 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
     if (e.key === 'Enter')  { e.preventDefault(); save(); }
     if (e.key === 'Escape') { e.preventDefault(); onClose(); }
   };
-
-  const groupContexts = [...new Set(
-    Object.values(TAG_SCHEMA).filter(e => allowedContexts.includes(e.context)).map(e => e.context)
-  )];
 
   return (
     <Modal onClose={onClose} overlayClass="tag-builder-overlay">
@@ -89,40 +106,43 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
 
           <div className="tag-builder-row">
             <label className="tag-builder-label">PRESET</label>
-            <select ref={presetRef} className="tag-builder-field" value={presetKey} onChange={handlePresetChange} onKeyDown={onKeyDown}>
-              <option value="">— custom —</option>
-              {groupContexts.map(ctx => (
-                <optgroup key={ctx} label={ctx.toUpperCase()}>
-                  {getSchemaByContext(ctx).map(([key, entry]) => (
-                    <option key={key} value={key}>{entry.label}</option>
-                  ))}
-                </optgroup>
+            <select ref={presetRef} className="tag-builder-field" value={presetIdx} onChange={handlePresetChange} onKeyDown={onKeyDown}>
+              <option value={-1}>— custom —</option>
+              {presets.map((p, i) => (
+                <option key={i} value={i}>{p.label}</option>
               ))}
             </select>
           </div>
 
           <div className="tag-builder-row">
-            <label className="tag-builder-label">TYPE</label>
-            <button
-              className={`ctrl tag-builder-req-btn${reqActive ? ' active' : ''}`}
-              title="Prepend req: prefix"
-              onClick={e => { e.preventDefault(); setReqActive(v => !v); }}
-            >REQ</button>
+            <label className="tag-builder-label">PREFIX</label>
             <input
-              className={`tag-builder-field${typeError ? ' error' : ''}`}
-              placeholder="type"
+              className="tag-builder-field"
+              placeholder="optional"
               spellCheck={false}
-              value={typeVal}
-              onChange={e => { setTypeVal(e.target.value); setTypeError(false); }}
+              value={prefixVal}
+              onChange={e => setPrefixVal(e.target.value)}
               onKeyDown={onKeyDown}
             />
           </div>
 
           <div className="tag-builder-row">
-            <label className="tag-builder-label">{nameLabel}</label>
+            <label className="tag-builder-label">PATH</label>
+            <input
+              className={`tag-builder-field${pathError ? ' error' : ''}`}
+              placeholder="e.g. skill"
+              spellCheck={false}
+              value={pathVal}
+              onChange={e => { setPathVal(e.target.value); setPathError(false); }}
+              onKeyDown={onKeyDown}
+            />
+          </div>
+
+          <div className="tag-builder-row">
+            <label className="tag-builder-label">NAME</label>
             <input
               className="tag-builder-field"
-              placeholder={namePlaceholder}
+              placeholder="optional"
               spellCheck={false}
               value={nameVal}
               onChange={e => setNameVal(e.target.value)}
@@ -131,12 +151,11 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
           </div>
 
           <div className="tag-builder-row">
-            <label className="tag-builder-label">{valueLabel}</label>
+            <label className="tag-builder-label">VALUE</label>
             <input
               className="tag-builder-field"
-              type="number"
-              placeholder={valuePlaceholder}
-              step="any"
+              placeholder="optional"
+              spellCheck={false}
               value={valueVal}
               onChange={e => setValueVal(e.target.value)}
               onKeyDown={onKeyDown}

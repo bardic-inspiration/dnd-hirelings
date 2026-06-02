@@ -17,18 +17,16 @@ function TagChip({ tagStr, active, onRemove }) {
   const p = parseTag(tagStr);
   const { state } = useGame();
   let label;
-  if (p.type === 'task') {
-    const task = state.tasks.find(t => t.id === p.name);
-    label = task ? `#${task.name}` : `#${p.type}:${p.name}`;
-  } else if (p.name === null) {
-    label = `#${p.type}`;
+  if (p.segments[0] === 'task') {
+    const task = state.tasks.find(t => t.id === p.segments[1]);
+    label = task ? `${task.name}` : p.segments.join(':');
   } else {
-    label = `#${p.type}:${p.name}`;
+    label = p.segments.join(':');
   }
   return (
     <span className={`tag${active ? ' active' : ''}`}>
       {label}
-      {p.value !== null && p.type !== 'task' && <span className="tag-value">={p.value}</span>}
+      {p.value !== null && p.segments[0] !== 'task' && <span className="tag-value">={p.value}</span>}
       <span className="x" title="Remove" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
     </span>
   );
@@ -48,7 +46,7 @@ export default function AgentCard({ agent }) {
     if (result === 'invalid') {
       flashAgentCard(agent.id);
     } else if (result === 'assigned') {
-      dispatch({ type: 'AGENT_ADD_ACTIVITY', id: agent.id, tag: `#task:${selectedTaskId}` });
+      dispatch({ type: 'AGENT_ADD_ACTIVITY', id: agent.id, tag: `task:${selectedTaskId}` });
     }
   };
 
@@ -60,8 +58,8 @@ export default function AgentCard({ agent }) {
   // Activities: show only non-complete task tags
   const visibleActivities = agent.activities.filter(tag => {
     const p = parseTag(tag);
-    if (p.type !== 'task') return false;
-    const task = state.tasks.find(t => t.id === p.name);
+    if (p.segments[0] !== 'task') return false;
+    const task = state.tasks.find(t => t.id === p.segments[1]);
     return task && !task.isComplete;
   });
 

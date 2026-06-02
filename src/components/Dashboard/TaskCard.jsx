@@ -10,10 +10,10 @@ import ResultsSection from './TaskSections/ResultsSection.jsx';
 
 function TaskProgressBar({ task }) {
   const reqs = getWorkRequirements(task);
-  const totalRequired = reqs.reduce((s, e) => s + e.value, 0);
+  const totalRequired = reqs.reduce((s, e) => s + parseFloat(e.value ?? 1), 0);
   const totalProgress = task.isComplete
     ? totalRequired
-    : reqs.reduce((s, e) => s + Math.min(e.value, task.workProgress?.[e.name || ''] ?? 0), 0);
+    : reqs.reduce((s, e) => s + Math.min(parseFloat(e.value ?? 1), task.workProgress?.[e.segments[1] ?? ''] ?? 0), 0);
   const pct = totalRequired > 0 ? Math.min(100, (totalProgress / totalRequired) * 100) : 0;
   return (
     <div className="task-progress">

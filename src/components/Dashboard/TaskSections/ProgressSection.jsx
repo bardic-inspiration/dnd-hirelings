@@ -1,6 +1,6 @@
 import { useGame } from '../../../state/GameContext.jsx';
 import { useUI } from '../../../state/UIContext.jsx';
-import { parseTag, getSchemaEntry } from '../../../logic/tags.js';
+import { parseTag } from '../../../logic/tags.js';
 
 function WorkRow({ label, taskId, workKey, target, progress, onRemove }) {
   const done = progress >= target;
@@ -53,19 +53,18 @@ export default function ProgressSection({ task }) {
             onRemove={null}
           />
         ) : workEntries.map(({ p, idx }) => {
-          const entry = getSchemaEntry(p);
-          const rawLabel = entry ? entry.label : 'Work';
-          const label = p.name
-            ? `${rawLabel.toUpperCase()}: ${p.name.toUpperCase()}`
-            : rawLabel.toUpperCase();
+          const skillName = p.segments[1] ?? null;
+          const label = skillName
+            ? `${p.segments[0].toUpperCase()}: ${skillName.toUpperCase()}`
+            : p.segments[0].toUpperCase();
           return (
             <WorkRow
               key={idx}
               label={label}
               taskId={task.id}
-              workKey={p.name ?? ''}
-              target={p.value ?? 1}
-              progress={workProgressMap[p.name || ''] ?? 0}
+              workKey={skillName ?? ''}
+              target={parseFloat(p.value ?? 1)}
+              progress={workProgressMap[skillName ?? ''] ?? 0}
               onRemove={() => dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'work', index: idx })}
             />
           );

@@ -58,15 +58,16 @@ export function advanceTime(state) {
           let agentContributed = false;
 
           for (const req of getWorkRequirements(task)) {
-            const key = req.name || '';
+            const skillName = req.segments[1] ?? null;
+            const key = skillName || '';
             let rate;
-            if (req.name) {
+            if (skillName) {
               const skillTag = agent.attributes.find(attr => {
                 const ap = parseTag(attr);
-                return ap.type === 'skill' && ap.name?.toLowerCase() === req.name.toLowerCase();
+                return ap.segments[0] === 'skill' && ap.segments[1]?.toLowerCase() === skillName.toLowerCase();
               });
               if (!skillTag) continue;
-              const skillVal = parseTag(skillTag).value ?? 1;
+              const skillVal = parseFloat(parseTag(skillTag).value) || 1;
               rate = (workRate + skillVal * skillBonus) * stepDays;
             } else {
               rate = workRate * stepDays;

@@ -44,13 +44,18 @@ function normalizeResults(r) {
   };
 }
 
+// Strips the legacy '#' sigil from tag strings produced before the path-based format.
+function migrateTag(t) {
+  return typeof t === 'string' && t.startsWith('#') ? t.slice(1) : t;
+}
+
 // Normalizes a raw state object (e.g. from localStorage) to ensure all required fields are present and have valid values
 export function normalizeState(raw) {
   const state = { ...DEFAULT_STATE, ...raw };
   state.agents = (raw.agents || []).map(a => ({
     ...a,
-    attributes:   a.attributes   ?? [],
-    activities:   a.activities   ?? [],
+    attributes:   (a.attributes  ?? []).map(migrateTag),
+    activities:   (a.activities  ?? []).map(migrateTag),
     description:  a.description  ?? '',
     icon:         a.icon         ?? '',
     createdAt:    a.createdAt    ?? Date.now(),
@@ -63,13 +68,13 @@ export function normalizeState(raw) {
     icon:        item.icon        ?? '',
     description: item.description  ?? '',
     value:       Number(item.value) || 0,
-    attributes:  Array.isArray(item.attributes) ? item.attributes : [],
+    attributes:  Array.isArray(item.attributes) ? item.attributes.map(migrateTag) : [],
   }));
   state.tasks = (raw.tasks || []).map(t => ({
     ...t,
-    requirements: Array.isArray(t.requirements) ? t.requirements.filter(Boolean) : [],
-    work:         Array.isArray(t.work)         ? t.work.filter(Boolean)         : [],
-    attributes:   Array.isArray(t.attributes)   ? t.attributes.filter(Boolean)   : [],
+    requirements: Array.isArray(t.requirements) ? t.requirements.filter(Boolean).map(migrateTag) : [],
+    work:         Array.isArray(t.work)         ? t.work.filter(Boolean).map(migrateTag)         : [],
+    attributes:   Array.isArray(t.attributes)   ? t.attributes.filter(Boolean).map(migrateTag)   : [],
     description:  t.description  ?? '',
     isComplete:   t.isComplete   ?? false,
     createdAt:    t.createdAt    ?? Date.now(),

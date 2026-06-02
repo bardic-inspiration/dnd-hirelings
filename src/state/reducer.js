@@ -156,7 +156,7 @@ export function reducer(state, action) {
       return { ...state, tasks: state.tasks.map(t => t.id !== action.id ? t : { ...t, ...action.changes }) };
 
     case 'TASK_DELETE': {
-      const taskTag = `#task:${action.id}`;
+      const taskTag = `task:${action.id}`;
       return {
         ...state,
         tasks: state.tasks.filter(t => t.id !== action.id),
