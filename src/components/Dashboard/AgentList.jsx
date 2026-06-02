@@ -1,9 +1,11 @@
 import { useGame } from '../../state/GameContext.jsx';
+import { useUI } from '../../state/UIContext.jsx';
 import { activeTaskCount } from '../../logic/agents.js';
 import AgentCard from './AgentCard.jsx';
 
 export default function AgentList() {
   const { state, dispatch } = useGame();
+  const { openLibrary } = useUI();
   const { agents, tasks } = state;
 
   const active = [], idle = [];
@@ -29,7 +31,12 @@ export default function AgentList() {
         <div className="card-grid" id="idle-agents">
           {!idle.length && <div className="empty">—</div>}
           {idle.map(a => <AgentCard key={a.id} agent={a} />)}
-          <button className="add-card add-agent" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_CREATE' }); }}>+ AGENT</button>
+          <button
+            className="add-card add-agent"
+            onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_CREATE' }); }}
+            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); openLibrary('agent'); }}
+            title="Click to add. Right click for the library."
+          >+ AGENT</button>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { uid, now } from '../utils.js';
 import { normalizeState, DEFAULT_STATE, DEFAULT_RESULTS } from './storage.js';
 import { applyTaskComplete } from '../logic/tasks.js';
-import { parseTag } from '../logic/tags.js';
+import { mergeAttribute } from '../logic/tags.js';
 
 const TASK_TAG_FIELDS = new Set(['requirements', 'work', 'attributes']);
 
@@ -31,6 +31,27 @@ const DEFAULT_ITEM = {
 // or adding an item with an existing name pools quantities instead of duplicating.
 // Unnamed placeholders (the default "NEW ITEM") are never merged, so freshly
 // added items stay distinct until the player gives them a real name.
+// Drops keys whose value is undefined, so a preset that omits a field falls
+// back to the object default rather than overwriting it with undefined.
+const defined = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+
+// Whitelist the fields a preset may contribute to a new board object. Runtime
+// fields (id, createdAt, activities, workProgress, isComplete, results) and
+// library bookkeeping (source) are never taken from a preset — the create
+// actions re-stamp those after spreading the picked fields.
+const pickAgentFields = (p) => defined({
+  name: p.name, icon: p.icon, rate: p.rate, rateUnit: p.rateUnit,
+  description: p.description, attributes: p.attributes,
+});
+const pickTaskFields = (p) => defined({
+  name: p.name, description: p.description,
+  requirements: p.requirements, work: p.work, attributes: p.attributes,
+});
+const pickItemFields = (p) => defined({
+  name: p.name, icon: p.icon, qty: p.qty, value: p.value,
+  description: p.description, attributes: p.attributes,
+});
+
 function mergeInventoryByName(inventory) {
   const out = [];
   const indexByName = new Map();
@@ -56,7 +77,11 @@ export function reducer(state, action) {
 
     /* ---------- Agents ---------- */
     case 'AGENT_CREATE':
-      return { ...state, agents: [...state.agents, { id: uid(), ...DEFAULT_AGENT, createdAt: now(), lastAssigned: null }] };
+      return { ...state, agents: [...state.agents, {
+        ...DEFAULT_AGENT,
+        ...(action.preset ? pickAgentFields(action.preset) : null),
+        id: uid(), createdAt: now(), lastAssigned: null, activities: [],
+      }] };
 
     case 'AGENT_UPDATE':
       return { ...state, agents: state.agents.map(a => a.id !== action.id ? a : { ...a, ...action.changes }) };
@@ -71,22 +96,14 @@ export function reducer(state, action) {
       return { ...state, agents: [...state.agents, copy] };
     }
 
-    case 'AGENT_ADD_ATTRIBUTE': {
-      const incoming = parseTag(action.tag);
+    case 'AGENT_ADD_ATTRIBUTE':
       return {
         ...state,
         agents: state.agents.map(a => a.id !== action.id ? a : {
           ...a,
-          attributes: [
-            ...a.attributes.filter(t => {
-              const p = parseTag(t);
-              return !(p.type === incoming.type && p.name === incoming.name);
-            }),
-            action.tag,
-          ],
+          attributes: mergeAttribute(a.attributes, action.tag),
         }),
       };
-    }
 
     case 'AGENT_REMOVE_ATTRIBUTE':
       return {
@@ -121,12 +138,13 @@ export function reducer(state, action) {
       return {
         ...state,
         tasks: [...state.tasks, {
-          id: uid(),
           name: 'NEW TASK',
           description: '',
           requirements: [],
           work: [],
           attributes: [],
+          ...(action.preset ? pickTaskFields(action.preset) : null),
+          id: uid(),
           workProgress: {},
           results: { ...DEFAULT_RESULTS, items: [], agents: [] },
           isComplete: false,
@@ -202,7 +220,11 @@ export function reducer(state, action) {
 
     /* ---------- Inventory ---------- */
     case 'INVENTORY_ADD':
-      return { ...state, inventory: [...state.inventory, { id: uid(), ...DEFAULT_ITEM }] };
+      return { ...state, inventory: [...state.inventory, {
+        ...DEFAULT_ITEM,
+        ...(action.preset ? pickItemFields(action.preset) : null),
+        id: uid(),
+      }] };
 
     case 'INVENTORY_UPDATE_ITEM': {
       const next = state.inventory.map(item => item.id !== action.id ? item : { ...item, ...action.changes });
@@ -213,22 +235,14 @@ export function reducer(state, action) {
     case 'INVENTORY_REMOVE_ITEM':
       return { ...state, inventory: state.inventory.filter(item => item.id !== action.id) };
 
-    case 'INVENTORY_ADD_ATTRIBUTE': {
-      const incoming = parseTag(action.tag);
+    case 'INVENTORY_ADD_ATTRIBUTE':
       return {
         ...state,
         inventory: state.inventory.map(item => item.id !== action.id ? item : {
           ...item,
-          attributes: [
-            ...item.attributes.filter(t => {
-              const p = parseTag(t);
-              return !(p.type === incoming.type && p.name === incoming.name);
-            }),
-            action.tag,
-          ],
+          attributes: mergeAttribute(item.attributes, action.tag),
         }),
       };
-    }
 
     case 'INVENTORY_REMOVE_ATTRIBUTE':
       return {

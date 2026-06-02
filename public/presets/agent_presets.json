@@ -1,0 +1,42 @@
+[
+  {
+    "name": "VETERAN GUARD",
+    "icon": "/assets/portraits/portrait-01.jpg",
+    "rate": 2,
+    "rateUnit": "GP/DAY",
+    "description": "Seasoned melee fighter, steady under pressure.",
+    "attributes": ["#class:fighter", "#skill:sword=2", "#skill:shield=1"]
+  },
+  {
+    "name": "HEDGE WIZARD",
+    "icon": "/assets/portraits/portrait-05.jpg",
+    "rate": 3,
+    "rateUnit": "GP/DAY",
+    "description": "Self-taught spellcaster with a knack for utility magic.",
+    "attributes": ["#class:wizard", "#skill:arcana=2", "#tool:spellbook"]
+  },
+  {
+    "name": "SCOUT",
+    "icon": "/assets/portraits/portrait-12.jpg",
+    "rate": 2,
+    "rateUnit": "GP/DAY",
+    "description": "Quiet tracker, ranges ahead of the party.",
+    "attributes": ["#class:ranger", "#skill:stealth=2", "#skill:survival=2"]
+  },
+  {
+    "name": "FIELD MEDIC",
+    "icon": "/assets/portraits/portrait-18.jpg",
+    "rate": 3,
+    "rateUnit": "GP/DAY",
+    "description": "Keeps the company on its feet.",
+    "attributes": ["#class:cleric", "#skill:medicine=2", "#tool:healers-kit"]
+  },
+  {
+    "name": "LABORER",
+    "icon": "",
+    "rate": 1,
+    "rateUnit": "GP/DAY",
+    "description": "Strong back, willing hands. Cheap and reliable.",
+    "attributes": ["#skill:athletics=1"]
+  }
+]
