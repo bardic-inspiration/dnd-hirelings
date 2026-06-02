@@ -11,7 +11,7 @@ export default function InventoryList() {
       <div id="inventory-list">
         {!state.inventory.length && <div className="empty">—</div>}
         {state.inventory.map(item => <ItemRow key={item.id} item={item} />)}
-        <button className="add-inline" onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_ADD' }); }}>+ ITEM</button>
+        <button className="add-card add-item" onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_ADD' }); }}>+ ITEM</button>
       </div>
       <BankPanel />
     </div>

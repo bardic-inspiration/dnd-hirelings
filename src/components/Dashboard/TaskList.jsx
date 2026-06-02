@@ -11,7 +11,7 @@ export default function TaskList() {
       <div id="task-list">
         {!state.tasks.length && <div className="empty">—</div>}
         {sorted.map(task => <TaskCard key={task.id} task={task} />)}
-        <button className="add-inline" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_CREATE' }); }}>+ TASK</button>
+        <button className="add-card add-task" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_CREATE' }); }}>+ TASK</button>
       </div>
     </div>
   );

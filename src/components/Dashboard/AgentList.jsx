@@ -29,7 +29,7 @@ export default function AgentList() {
         <div className="card-grid" id="idle-agents">
           {!idle.length && <div className="empty">—</div>}
           {idle.map(a => <AgentCard key={a.id} agent={a} />)}
-          <button className="add-inline" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_CREATE' }); }}>+ AGENT</button>
+          <button className="add-card add-agent" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_CREATE' }); }}>+ AGENT</button>
         </div>
       </div>
     </div>

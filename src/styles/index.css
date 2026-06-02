@@ -585,30 +585,38 @@ body {
 }
 
 /* ============================================================
-   INLINE ADD BUTTONS
+   ADD BUTTONS
+   Each add button mirrors the geometry of the object it creates,
+   occupying the next slot in that object's layout.
    ============================================================ */
-.add-inline {
-  background: transparent;
+.add-card {
   border: var(--line) dashed var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
+  background: transparent;
   color: var(--dim);
-  padding: 6px 12px;
   font-family: inherit;
   font-size: var(--fs-xs);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.1em;
   cursor: pointer;
-  transition: border-color 0.1s, color 0.1s;
-  align-self: flex-start;
-  margin: 4px;
+  transition: border-color 0.15s, color 0.15s;
 }
-.add-inline:hover { border-color: var(--highlight); color: var(--highlight); }
+.add-card:hover { border-color: var(--highlight); color: var(--highlight); }
 
-.card-grid .add-inline {
-  grid-column: 1 / -1;
-  width: 100%;
-  margin: 0;
-  text-align: center;
+/* +AGENT: shape of an agent card, in the next grid cell. */
+.add-agent {
+  padding: 9px 10px;
+}
+
+/* +TASK: shape of a collapsed task card, on the next row. */
+.add-task {
+  padding: 8px 10px;
+}
+
+/* +ITEM: shape of a collapsed item row, on the next row. */
+.add-item {
+  padding: 5px 8px;
+  min-height: 34px;
 }
 
 /* ============================================================
