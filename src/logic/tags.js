@@ -72,3 +72,17 @@ export function formatTagLabel(parsed) {
 export function getSchemaByContext(...contexts) {
   return Object.entries(TAG_SCHEMA).filter(([, e]) => contexts.includes(e.context));
 }
+
+// Appends `tag` to an attribute list, replacing any existing attribute that
+// shares the same type and name (so adding a tag updates rather than duplicates
+// it). Shared by the agent/item reducers and the library preview editors.
+export function mergeAttribute(attrs, tag) {
+  const incoming = parseTag(tag);
+  return [
+    ...attrs.filter(t => {
+      const p = parseTag(t);
+      return !(p.type === incoming.type && p.name === incoming.name);
+    }),
+    tag,
+  ];
+}
