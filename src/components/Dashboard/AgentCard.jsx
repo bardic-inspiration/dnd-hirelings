@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
-import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment } from '../../logic/agents.js';
+import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getEquippedItems } from '../../logic/agents.js';
 import { parseTag } from '../../logic/tags.js';
 import EditableSpan from '../EditableSpan.jsx';
 
@@ -32,14 +33,59 @@ function TagChip({ tagStr, active, onRemove }) {
   );
 }
 
+const INLINE_INPUT_STYLE = {
+  background: 'var(--dimmer)',
+  border: 'var(--line) solid var(--border)',
+  borderRadius: 'var(--radius-xs)',
+  color: 'var(--fg)',
+  fontFamily: 'inherit',
+  fontSize: 'var(--fs-xs)',
+  padding: '2px 6px',
+  outline: 'none',
+};
+
 export default function AgentCard({ agent }) {
   const { state, dispatch } = useGame();
   const { selectedTaskId, openTagBuilder, openPortraits } = useUI();
+
+  const [giveOpen, setGiveOpen]     = useState(false);
+  const [giveItemName, setGiveItemName] = useState('');
+  const [giveQty, setGiveQty]       = useState(1);
+  const [equipTarget, setEquipTarget] = useState(null);
+  const [equipSlot, setEquipSlot]   = useState('');
 
   const selectedTask = selectedTaskId ? state.tasks.find(t => t.id === selectedTaskId) : null;
   const assignClass = selectedTask
     ? (validateAssignment(agent, selectedTask) ? ' assignable' : ' not-assignable')
     : '';
+
+  const personalItems   = getPersonalItems(agent.activities);
+  const equippedItems   = getEquippedItems(agent.activities);
+  const availableInventory = state.inventory.filter(i => i.qty > 0);
+
+  const openGive = (e) => {
+    e.stopPropagation();
+    setGiveItemName(availableInventory[0]?.name ?? '');
+    setGiveQty(1);
+    setGiveOpen(true);
+  };
+  const handleGive = (e) => {
+    e.stopPropagation();
+    if (!giveItemName || giveQty < 1) return;
+    dispatch({ type: 'AGENT_GIVE_ITEM', id: agent.id, itemName: giveItemName, qty: giveQty });
+    setGiveOpen(false);
+  };
+  const openEquip = (e, name) => {
+    e.stopPropagation();
+    setEquipTarget(name);
+    setEquipSlot('');
+  };
+  const handleEquip = (e) => {
+    e.stopPropagation();
+    if (!equipSlot.trim()) return;
+    dispatch({ type: 'EQUIP_ITEM', id: agent.id, itemName: equipTarget, slot: equipSlot.trim().toLowerCase() });
+    setEquipTarget(null);
+  };
 
   const handleCardClick = () => {
     const result = tryAssignTask(agent, selectedTaskId, state.tasks);
@@ -127,6 +173,58 @@ export default function AgentCard({ agent }) {
           }}>+</button>
         </div>
       </div>
+
+      {/* Bag */}
+      <div className="tag-section">
+        <div className="tag-label">BAG</div>
+        <div className="tag-list">
+          {personalItems.length === 0 && !giveOpen && <span className="empty-inline">—</span>}
+          {personalItems.map(({ name, qty, tag }) => (
+            <span key={tag} className="tag">
+              {name}
+              {qty > 1 && <span className="tag-value"> ×{qty}</span>}
+              <span className="x" title="Equip" onClick={e => openEquip(e, name)}>⚔</span>
+              <span className="x" title="Return to inventory" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_RETURN_ITEM', id: agent.id, itemName: name }); }}>↩</span>
+            </span>
+          ))}
+          {!giveOpen && availableInventory.length > 0 && (
+            <button className="tag-add" onClick={openGive}>+GIVE</button>
+          )}
+        </div>
+        {giveOpen && (
+          <div className="tag-list" onClick={e => e.stopPropagation()}>
+            <select value={giveItemName} onChange={e => setGiveItemName(e.target.value)} style={INLINE_INPUT_STYLE}>
+              {availableInventory.map(i => <option key={i.id} value={i.name}>{i.name} ({i.qty})</option>)}
+            </select>
+            <input type="number" min={1} max={availableInventory.find(i => i.name === giveItemName)?.qty ?? 1} value={giveQty} onChange={e => setGiveQty(Math.max(1, Number(e.target.value)))} style={{ ...INLINE_INPUT_STYLE, width: '48px' }} />
+            <button className="ctrl" onClick={handleGive}>GIVE</button>
+            <button className="ctrl" onClick={e => { e.stopPropagation(); setGiveOpen(false); }}>✕</button>
+          </div>
+        )}
+        {equipTarget && (
+          <div className="tag-list" onClick={e => e.stopPropagation()}>
+            <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>EQUIP {equipTarget}:</span>
+            <input placeholder="slot" value={equipSlot} onChange={e => setEquipSlot(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleEquip(e); if (e.key === 'Escape') { e.stopPropagation(); setEquipTarget(null); } }} style={{ ...INLINE_INPUT_STYLE, width: '80px' }} />
+            <button className="ctrl" onClick={handleEquip}>OK</button>
+            <button className="ctrl" onClick={e => { e.stopPropagation(); setEquipTarget(null); }}>✕</button>
+          </div>
+        )}
+      </div>
+
+      {/* Equipped */}
+      {equippedItems.length > 0 && (
+        <div className="tag-section">
+          <div className="tag-label">EQUIPPED</div>
+          <div className="tag-list">
+            {equippedItems.map(({ slot, name, tag }) => (
+              <span key={tag} className="tag active">
+                <span className="tag-value">[{slot}]</span>&nbsp;{name}
+                <span className="x" title="Unequip" onClick={e => { e.stopPropagation(); dispatch({ type: 'UNEQUIP_ITEM', id: agent.id, slot, itemName: name }); }}>↩</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tasks */}
       <div className="tag-section">
