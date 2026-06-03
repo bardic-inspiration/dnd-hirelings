@@ -5,20 +5,17 @@ import { buildTag } from '../../logic/tags.js';
 const PRESETS = {
   attribute: [
     { label: 'Skill',  prefix: '',    path: 'skill',       hasValue: true  },
-    { label: 'Tool',   prefix: '',    path: 'tool',        hasValue: false },
     { label: 'Trait',  prefix: '',    path: 'trait',       hasValue: false },
     { label: 'Class',  prefix: '',    path: 'class',       hasValue: false },
     { label: 'Race',   prefix: '',    path: 'race',        hasValue: false },
     { label: 'Level',  prefix: '',    path: 'level',       hasValue: true  },
   ],
   requirement: [
-    { label: 'Skill',      prefix: 'req', path: 'skill',      hasValue: true  },
-    { label: 'Tool',       prefix: 'req', path: 'tool',       hasValue: false },
-    { label: 'Trait',      prefix: 'req', path: 'trait',      hasValue: false },
-    { label: 'Class',      prefix: 'req', path: 'class',      hasValue: false },
-    { label: 'Race',       prefix: 'req', path: 'race',       hasValue: false },
-    { label: 'Item',       prefix: 'req', path: 'item',       hasValue: true  },
-    { label: 'Consumable', prefix: 'req', path: 'consumable', hasValue: true  },
+    { label: 'Skill',  prefix: 'req', path: 'skill',  hasValue: true  },
+    { label: 'Trait',  prefix: 'req', path: 'trait',  hasValue: false },
+    { label: 'Class',  prefix: 'req', path: 'class',  hasValue: false },
+    { label: 'Race',   prefix: 'req', path: 'race',   hasValue: false },
+    { label: 'Item',   prefix: 'req', path: 'item',   hasValue: true  },
   ],
   work: [
     { label: 'General', prefix: '',     path: 'work',  hasValue: true },

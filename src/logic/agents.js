@@ -25,8 +25,8 @@ export function validateAssignment(agent, task) {
   for (const req of task.requirements) {
     const reqP = parseTag(req);
     if (reqP.segments[0] !== 'req') continue;
-    // block/consume requirements are inventory concerns, not agent concerns
-    if (reqP.segments[1] === 'item' || reqP.segments[1] === 'consumable') continue;
+    // item requirements are inventory concerns, not agent concerns
+    if (reqP.segments[1] === 'item') continue;
     // build the attribute-side prefix by dropping the leading 'req' segment
     const attrPrefix = { segments: reqP.segments.slice(1) };
     const allTags = [...agent.attributes, ...agent.activities];
@@ -81,7 +81,7 @@ export function isAttributeActive(attrTag, agent, tasks) {
     for (const req of task.requirements) {
       const reqP = parseTag(req);
       if (reqP.segments[0] !== 'req') continue;
-      if (reqP.segments[1] === 'item' || reqP.segments[1] === 'consumable') continue;
+      if (reqP.segments[1] === 'item') continue;
       const reqAttrPrefix = { segments: reqP.segments.slice(1) };
       if (tagMatches(attrP, reqAttrPrefix)) return true;
     }
