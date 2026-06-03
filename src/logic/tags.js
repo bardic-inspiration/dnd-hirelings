@@ -18,6 +18,17 @@ export const TAG_REGISTRY = {
   'req:consumable':    { label: 'Req: Consumable' },
   'work':              { label: 'Work' },
   'work:skill':        { label: 'Work: Skill' },
+  'item':              { label: 'Item' },
+  'equip':             { label: 'Equipped' },
+  'equip:weapon':      { label: 'Weapon' },
+  'equip:armor':       { label: 'Armor' },
+  'equip:offhand':     { label: 'Off Hand' },
+  'equip:ring':        { label: 'Ring' },
+  'equip:head':        { label: 'Head' },
+  'equip:feet':        { label: 'Feet' },
+  'req:equip':         { label: 'Req: Equipped' },
+  'req:equip:weapon':  { label: 'Req: Weapon' },
+  'req:equip:armor':   { label: 'Req: Armor' },
 };
 
 // Parses a tag string into { segments: string[], value: string|null }.
