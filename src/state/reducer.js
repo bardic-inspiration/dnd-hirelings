@@ -1,7 +1,8 @@
 import { uid, now } from '../utils.js';
 import { normalizeState, DEFAULT_STATE, DEFAULT_RESULTS } from './storage.js';
 import { applyTaskComplete } from '../logic/tasks.js';
-import { mergeAttribute } from '../logic/tags.js';
+import { mergeAttribute, buildTag, parseTag } from '../logic/tags.js';
+import { collectAllHeldItems, mergeItemQty } from '../logic/agents.js';
 
 const TASK_TAG_FIELDS = new Set(['requirements', 'work', 'attributes']);
 
@@ -86,8 +87,21 @@ export function reducer(state, action) {
     case 'AGENT_UPDATE':
       return { ...state, agents: state.agents.map(a => a.id !== action.id ? a : { ...a, ...action.changes }) };
 
-    case 'AGENT_DELETE':
-      return { ...state, agents: state.agents.filter(a => a.id !== action.id) };
+    case 'AGENT_DELETE': {
+      const deleted = state.agents.find(a => a.id === action.id);
+      if (!deleted) return state;
+      const heldItems = collectAllHeldItems(deleted.activities);
+      let inventory = state.inventory;
+      for (const [name, qty] of Object.entries(heldItems)) {
+        const existing = inventory.find(i => i.name.trim().toLowerCase() === name.toLowerCase());
+        if (existing) {
+          inventory = inventory.map(i => i === existing ? { ...i, qty: i.qty + qty } : i);
+        } else {
+          inventory = [...inventory, { ...DEFAULT_ITEM, id: uid(), name, qty }];
+        }
+      }
+      return { ...state, agents: state.agents.filter(a => a.id !== action.id), inventory };
+    }
 
     case 'AGENT_DUPLICATE': {
       const orig = state.agents.find(a => a.id === action.id);
@@ -132,6 +146,59 @@ export function reducer(state, action) {
           activities: a.activities.filter(t => t !== action.tag),
         }),
       };
+
+    case 'AGENT_GIVE_ITEM': {
+      const { id, itemName, qty } = action;
+      const src = state.inventory.find(i => i.name.trim().toLowerCase() === itemName.trim().toLowerCase());
+      if (!src || src.qty < qty) return state;
+      const inventory = src.qty === qty
+        ? state.inventory.filter(i => i !== src)
+        : state.inventory.map(i => i === src ? { ...i, qty: i.qty - qty } : i);
+      const agents = state.agents.map(a => a.id !== id ? a : {
+        ...a, activities: mergeItemQty(a.activities, src.name, qty),
+      });
+      return { ...state, inventory, agents };
+    }
+
+    case 'AGENT_RETURN_ITEM': {
+      const { id, itemName } = action;
+      const agent = state.agents.find(a => a.id === id);
+      if (!agent) return state;
+      const key = `item:${itemName.toLowerCase()}`;
+      const tag = agent.activities.find(t => parseTag(t).segments.join(':').toLowerCase() === key);
+      if (!tag) return state;
+      const qty = Number(parseTag(tag).value) || 1;
+      const agents = state.agents.map(a => a.id !== id ? a : {
+        ...a, activities: a.activities.filter(t => t !== tag),
+      });
+      const existing = state.inventory.find(i => i.name.trim().toLowerCase() === itemName.trim().toLowerCase());
+      const inventory = existing
+        ? state.inventory.map(i => i === existing ? { ...i, qty: i.qty + qty } : i)
+        : [...state.inventory, { ...DEFAULT_ITEM, id: uid(), name: itemName, qty }];
+      return { ...state, agents, inventory };
+    }
+
+    case 'EQUIP_ITEM': {
+      const { id, itemName, slot } = action;
+      const agents = state.agents.map(a => {
+        if (a.id !== id) return a;
+        const activities = mergeItemQty(a.activities, itemName, -1);
+        const equipTag = buildTag(['equip', slot, 'item', itemName]);
+        return { ...a, activities: mergeAttribute(activities, equipTag) };
+      });
+      return { ...state, agents };
+    }
+
+    case 'UNEQUIP_ITEM': {
+      const { id, slot, itemName } = action;
+      const agents = state.agents.map(a => {
+        if (a.id !== id) return a;
+        const equipTag = buildTag(['equip', slot, 'item', itemName]);
+        const without = a.activities.filter(t => t !== equipTag);
+        return { ...a, activities: mergeItemQty(without, itemName, 1) };
+      });
+      return { ...state, agents };
+    }
 
     /* ---------- Tasks ---------- */
     case 'TASK_CREATE':
