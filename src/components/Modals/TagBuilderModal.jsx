@@ -52,10 +52,10 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
 
   const presetRef = useRef(null);
 
-  const preview = (() => {
+  function buildCurrentTag() {
     const prefix = prefixVal.trim();
     const path   = pathVal.trim();
-    if (!path) return '—';
+    if (!path) return null;
     const isModifier = !!MODIFIER_REGISTRY[prefix.toLowerCase()];
     const pathSegs = [
       ...(isModifier ? [] : prefix.split(':').filter(Boolean)),
@@ -64,7 +64,9 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
     const name = nameVal.trim();
     if (name) pathSegs.push(name);
     return buildTag(pathSegs, valueVal.trim() || null, isModifier ? prefix : null);
-  })();
+  }
+
+  const preview = buildCurrentTag() ?? '—';
 
   function applyPreset(preset) {
     setPrefixVal(preset?.prefix ?? '');
@@ -84,17 +86,9 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
   }
 
   function save() {
-    const path = pathVal.trim();
-    if (!path) { setPathError(true); return; }
-    const prefix = prefixVal.trim();
-    const isModifier = !!MODIFIER_REGISTRY[prefix.toLowerCase()];
-    const pathSegs = [
-      ...(isModifier ? [] : prefix.split(':').filter(Boolean)),
-      ...path.split(':').filter(Boolean),
-    ];
-    const name = nameVal.trim();
-    if (name) pathSegs.push(name);
-    onSave(buildTag(pathSegs, valueVal.trim() || null, isModifier ? prefix : null));
+    const tag = buildCurrentTag();
+    if (!tag) { setPathError(true); return; }
+    onSave(tag);
     onClose();
   }
 
