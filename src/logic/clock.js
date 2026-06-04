@@ -58,13 +58,15 @@ export function advanceTime(state) {
           let agentContributed = false;
 
           for (const req of getWorkRequirements(task)) {
-            const skillName = req.segments[1] ?? null;
-            const key = skillName || '';
+            const workType  = req.segments[1] ?? null;  // e.g. 'skill'
+            const skillName = req.segments[2] ?? null;  // e.g. 'arcana', or null for any
+            const key = workType || '';
             let rate;
-            if (skillName) {
+            if (workType === 'skill') {
               const skillTag = agent.attributes.find(attr => {
                 const ap = parseTag(attr);
-                return ap.segments[0] === 'skill' && ap.segments[1]?.toLowerCase() === skillName.toLowerCase();
+                if (ap.segments[0] !== 'skill') return false;
+                return !skillName || ap.segments[1]?.toLowerCase() === skillName.toLowerCase();
               });
               if (!skillTag) continue;
               const skillVal = parseFloat(parseTag(skillTag).value) || 1;
@@ -138,7 +140,7 @@ export function updateClockDisplayDOM(state, tickInfo) {
     // the overall bar past the sum-of-targets denominator.
     let totalCapped = 0;
     for (const req of reqs) {
-      const key    = req.name || '';
+      const key    = req.segments[1] || '';
       const stored = task.workProgress?.[key] ?? 0;
       const rate   = buckets[key] ?? 0;
       const interp = Math.max(0, stored - rate + frac * rate);
@@ -149,7 +151,7 @@ export function updateClockDisplayDOM(state, tickInfo) {
     if (hFill) hFill.style.width = `${headerPct.toFixed(1)}%`;
 
     for (const req of reqs) {
-      const key    = req.name || '';
+      const key    = req.segments[1] || '';
       const stored = task.workProgress?.[key] ?? 0;
       const rate   = buckets[key] ?? 0;
       const interp = Math.max(0, stored - rate + frac * rate);
