@@ -1,35 +1,55 @@
-// Namespace registry: known path prefixes with display labels.
-// Non-exhaustive — tags outside this registry are valid.
-export const TAG_REGISTRY = {
-  'task':              { label: 'Task' },
-  'skill':             { label: 'Skill' },
-  'tool':              { label: 'Tool' },
-  'trait':             { label: 'Trait' },
-  'class':             { label: 'Class' },
-  'race':              { label: 'Race' },
-  'level':             { label: 'Level' },
-  'req':               { label: 'Requirement' },
-  'req:skill':         { label: 'Req: Skill' },
-  'req:tool':          { label: 'Req: Tool' },
-  'req:trait':         { label: 'Req: Trait' },
-  'req:class':         { label: 'Req: Class' },
-  'req:race':          { label: 'Req: Race' },
-  'req:item':          { label: 'Req: Item' },
-  'req:consumable':    { label: 'Req: Consumable' },
-  'work':              { label: 'Work' },
-  'work:skill':        { label: 'Work: Skill' },
-  'item':              { label: 'Item' },
-  'equip':             { label: 'Equipped' },
-  'equip:weapon':      { label: 'Weapon' },
-  'equip:armor':       { label: 'Armor' },
-  'equip:offhand':     { label: 'Off Hand' },
-  'equip:ring':        { label: 'Ring' },
-  'equip:head':        { label: 'Head' },
-  'equip:feet':        { label: 'Feet' },
-  'req:equip':         { label: 'Req: Equipped' },
-  'req:equip:weapon':  { label: 'Req: Weapon' },
-  'req:equip:armor':   { label: 'Req: Armor' },
+// Relational meta-prefixes. Modifiers are always the first segment and transform
+// how the remaining path participates in system logic.
+export const MODIFIER_REGISTRY = {
+  req:   { prefix: 'Req',   description: 'Counterpart must carry this' },
+  block: { prefix: 'Block', description: 'Counterpart must not carry this' },
 };
+
+// Namespace registry: known content paths with display labels.
+// Non-exhaustive — tags outside this registry are valid.
+// Each node: { label: string, children?: Record<string, node> }
+export const TAG_REGISTRY = {
+  task:  { label: 'Task' },
+  skill: { label: 'Skill' },
+  tool:  { label: 'Tool' },
+  trait: { label: 'Trait' },
+  class: { label: 'Class' },
+  race:  { label: 'Race' },
+  level: { label: 'Level' },
+  item:  { label: 'Item' },
+  work: {
+    label: 'Work',
+    children: {
+      skill: { label: 'Work: Skill' },
+    },
+  },
+  equip: {
+    label: 'Equipped',
+    children: {
+      weapon:  { label: 'Weapon' },
+      armor:   { label: 'Armor' },
+      offhand: { label: 'Off Hand' },
+      ring:    { label: 'Ring' },
+      head:    { label: 'Head' },
+      feet:    { label: 'Feet' },
+    },
+  },
+};
+
+// Walks the TAG_REGISTRY tree, returning the deepest matched node
+// and any remaining (unmatched) segments.
+function traverseRegistry(segments) {
+  let node = null;
+  let children = TAG_REGISTRY;
+  let i = 0;
+  for (; i < segments.length; i++) {
+    const child = children?.[segments[i].toLowerCase()];
+    if (!child) break;
+    node = child;
+    children = child.children;
+  }
+  return { node, remaining: segments.slice(i) };
+}
 
 // Parses a tag string into { segments: string[], value: string|null }.
 // Grammar: segment:segment:...:segment=value
@@ -69,11 +89,23 @@ export function mergeAttribute(attrs, tag) {
   ];
 }
 
-// Returns { label, params } for display. Joins segments with ' : ', appends ' =value' if present.
+// Returns { label, params } for display.
+// Strips any modifier prefix, traverses the registry tree for the content path,
+// then composes: "[modifier: ]<deepest-label>[: <last-unmatched-segment>][ =value]"
 export function formatTagLabel(parsed) {
-  const path = parsed.segments.join(':');
-  const entry = TAG_REGISTRY[path.toLowerCase()];
-  const label = entry ? entry.label.toUpperCase() : path.toUpperCase();
+  const [first, ...rest] = parsed.segments;
+  const mod = MODIFIER_REGISTRY[first?.toLowerCase()];
+  const pathSegs = mod ? rest : parsed.segments;
+
+  const { node, remaining } = traverseRegistry(pathSegs);
+  let pathLabel;
+  if (node) {
+    pathLabel = node.label + (remaining.length > 0 ? `: ${remaining[remaining.length - 1]}` : '');
+  } else {
+    pathLabel = pathSegs.join(':');
+  }
+
+  const label = mod ? `${mod.prefix}: ${pathLabel}` : pathLabel;
   const params = parsed.value !== null && parsed.value !== undefined ? ` =${parsed.value}` : '';
-  return { label, params };
+  return { label: label.toUpperCase(), params };
 }

@@ -37,6 +37,13 @@ export function validateAssignment(agent, task) {
       if (isNaN(attrVal) || attrVal < parseFloat(reqP.value)) return false;
     }
   }
+  for (const req of task.requirements) {
+    const reqP = parseTag(req);
+    if (reqP.segments[0] !== 'block') continue;
+    const attrPrefix = { segments: reqP.segments.slice(1) };
+    const allTags = [...agent.attributes, ...agent.activities];
+    if (allTags.some(t => tagMatches(parseTag(t), attrPrefix))) return false;
+  }
   for (const attr of agent.attributes) {
     const attrP = parseTag(attr);
     if (attrP.segments[0] !== 'req') continue;
