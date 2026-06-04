@@ -18,9 +18,8 @@ export function checkTaskComplete(task) {
   });
 }
 
-// Applies the task's structured results to the world: consumes req:consumable inputs,
-// adds results.items into inventory (merging by name), spawns results.agents, and
-// returns the gold delta to add to the bank.
+// Applies the task's structured results to the world: adds results.items into inventory
+// (merging by name), spawns results.agents, and returns the gold delta to add to the bank.
 // Returns { newInventory, newAgents, bankDelta }.
 export function applyResults(task, inventory, agents) {
   // 1. Consume req,consumable inputs.
@@ -44,7 +43,7 @@ export function applyResults(task, inventory, agents) {
     else newInventory.push({ id: uid(), name: reward.name, qty, icon: '', description: '', value: 0, attributes: [] });
   }
 
-  // 3. Spawn result agents from templates.
+  // 2. Spawn result agents from templates.
   let newAgents = agents;
   const spawned = [];
   for (const spawn of task.results?.agents || []) {
@@ -67,7 +66,7 @@ export function applyResults(task, inventory, agents) {
   }
   if (spawned.length) newAgents = [...agents, ...spawned];
 
-  // 4. Gold reward.
+  // 3. Gold reward.
   const bankDelta = Number(task.results?.gold) || 0;
 
   return { newInventory, newAgents, bankDelta };
@@ -88,12 +87,8 @@ export function applyTaskComplete(taskId, tasks, agents, inventory) {
   return { newTasks, newAgents, newInventory, bankDelta };
 }
 
-// Returns a Set of task IDs whose item/consumable requirements cannot be met.
-// Iterates in createdAt order so earlier tasks claim consumables first
-// and later tasks correctly see a depleted pool.
+// Returns a Set of task IDs whose item requirements cannot be met.
 export function computeBlockedTaskIds(activeTasks, inventory) {
-  const pool = {};
-  for (const item of inventory) pool[item.name.toLowerCase()] = item.qty;
   const blocked = new Set();
   for (const task of [...activeTasks].sort((a, b) => a.createdAt - b.createdAt)) {
     let pass = true;
@@ -116,7 +111,8 @@ export function computeBlockedTaskIds(activeTasks, inventory) {
       if (p.modifier !== 'req' || p.segments[0] !== 'consumable') continue;
       const name = p.segments[1];
       if (!name) continue;
-      pool[name.toLowerCase()] = (pool[name.toLowerCase()] ?? 0) - (parseFloat(p.value) || 1);
+      const inv = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
+      if (!inv || inv.qty < (parseFloat(p.value) || 1)) { blocked.add(task.id); break; }
     }
   }
   return blocked;

@@ -5,7 +5,6 @@ import { buildTag, MODIFIER_REGISTRY } from '../../logic/tags.js';
 const PRESETS = {
   attribute: [
     { label: 'Skill',  prefix: '',    path: 'skill',       hasValue: true  },
-    { label: 'Tool',   prefix: '',    path: 'tool',        hasValue: false },
     { label: 'Trait',  prefix: '',    path: 'trait',       hasValue: false },
     { label: 'Class',  prefix: '',    path: 'class',       hasValue: false },
     { label: 'Race',   prefix: '',    path: 'race',        hasValue: false },
