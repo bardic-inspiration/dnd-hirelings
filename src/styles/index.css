@@ -366,6 +366,63 @@ body {
 }
 .agent-icon:hover { border-color: var(--dim); }
 
+/* ============================================================
+   AGENT VITALS (HP bar, XP bar, AC/PB row)
+   ============================================================ */
+.agent-vitals {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vital-bar {
+  position: relative;
+  height: 16px;
+  background: var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.vital-bar-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  transition: width 0.3s ease;
+}
+
+.vital-bar-fill--hp  { background: #c0454a; }
+.vital-bar-fill--xp  { background: var(--highlight); opacity: var(--fill-opacity); }
+
+.vital-bar-label {
+  position: relative;
+  flex: 1;
+  text-align: center;
+  font-size: var(--fs-xs);
+  font-family: monospace;
+  z-index: 1;
+  cursor: text;
+}
+
+.vital-bar-max {
+  position: relative;
+  font-size: var(--fs-xs);
+  font-family: monospace;
+  padding-right: 4px;
+  z-index: 1;
+  white-space: nowrap;
+  color: var(--dim);
+}
+
+.vital-stats-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-xs);
+  font-family: monospace;
+  padding: 0 2px;
+  color: var(--dim);
+}
+
 .agent-rate {
   display: flex;
   gap: 4px;

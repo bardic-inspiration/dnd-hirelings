@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getEquippedItems } from '../../logic/agents.js';
+import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
 import { parseTag } from '../../logic/tags.js';
 import EditableSpan from '../EditableSpan.jsx';
 
@@ -62,6 +63,7 @@ export default function AgentCard({ agent }) {
   const personalItems   = getPersonalItems(agent.activities);
   const equippedItems   = getEquippedItems(agent.activities);
   const availableInventory = state.inventory.filter(i => i.qty > 0);
+  const dyn = computeDynamicAttributes(agent);
 
   const openGive = (e) => {
     e.stopPropagation();
@@ -130,6 +132,37 @@ export default function AgentCard({ agent }) {
         onClick={handleIconClick}
       >
         {!agent.icon && 'NO IMAGE'}
+      </div>
+
+      <div className="agent-vitals">
+        <div className="vital-bar">
+          <div className="vital-bar-fill vital-bar-fill--hp" style={{ width: `${Math.min(1, dyn.hp / dyn.hp_max) * 100}%` }} />
+          <EditableSpan
+            className="vital-bar-label"
+            value={String(dyn.hp)}
+            onCommit={v => {
+              const n = parseInt(v, 10);
+              dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { hp: isNaN(n) ? null : Math.max(0, n) } });
+            }}
+          />
+          <span className="vital-bar-max">/ {dyn.hp_max}</span>
+        </div>
+        <div className="vital-bar">
+          <div className="vital-bar-fill vital-bar-fill--xp" style={{ width: `${dyn.xpProgress * 100}%` }} />
+          <EditableSpan
+            className="vital-bar-label"
+            value={String(dyn.xp)}
+            onCommit={v => {
+              const n = parseInt(v, 10);
+              dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { xp: isNaN(n) ? 0 : Math.max(0, n) } });
+            }}
+          />
+          <span className="vital-bar-max">LVL {dyn.level}</span>
+        </div>
+        <div className="vital-stats-row">
+          <span>AC: {dyn.ac}</span>
+          <span>PB: +{dyn.proficiency}</span>
+        </div>
       </div>
 
       <div className="agent-rate">
