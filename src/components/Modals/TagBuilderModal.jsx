@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal.jsx';
-import { buildTag } from '../../logic/tags.js';
+import { buildTag, MODIFIER_REGISTRY } from '../../logic/tags.js';
 
 const PRESETS = {
   attribute: [
@@ -57,13 +57,14 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
     const prefix = prefixVal.trim();
     const path   = pathVal.trim();
     if (!path) return '—';
-    const segments = [
-      ...prefix.split(':').filter(Boolean),
+    const isModifier = !!MODIFIER_REGISTRY[prefix.toLowerCase()];
+    const pathSegs = [
+      ...(isModifier ? [] : prefix.split(':').filter(Boolean)),
       ...path.split(':').filter(Boolean),
     ];
     const name = nameVal.trim();
-    if (name) segments.push(name);
-    return buildTag(segments, valueVal.trim() || null);
+    if (name) pathSegs.push(name);
+    return buildTag(pathSegs, valueVal.trim() || null, isModifier ? prefix : null);
   })();
 
   function applyPreset(preset) {
@@ -87,13 +88,14 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
     const path = pathVal.trim();
     if (!path) { setPathError(true); return; }
     const prefix = prefixVal.trim();
-    const segments = [
-      ...prefix.split(':').filter(Boolean),
+    const isModifier = !!MODIFIER_REGISTRY[prefix.toLowerCase()];
+    const pathSegs = [
+      ...(isModifier ? [] : prefix.split(':').filter(Boolean)),
       ...path.split(':').filter(Boolean),
     ];
     const name = nameVal.trim();
-    if (name) segments.push(name);
-    onSave(buildTag(segments, valueVal.trim() || null));
+    if (name) pathSegs.push(name);
+    onSave(buildTag(pathSegs, valueVal.trim() || null, isModifier ? prefix : null));
     onClose();
   }
 

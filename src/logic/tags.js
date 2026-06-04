@@ -1,13 +1,13 @@
-// Relational meta-prefixes. Modifiers are always the first segment and transform
-// how the remaining path participates in system logic.
+// Relational meta-prefixes. Modifier is the segment before the ',' separator.
+// Kept flat — modifiers are always a single token.
 export const MODIFIER_REGISTRY = {
   req:   { prefix: 'Req',   description: 'Counterpart must carry this' },
   block: { prefix: 'Block', description: 'Counterpart must not carry this' },
 };
 
-// Namespace registry: known content paths with display labels.
-// Non-exhaustive — tags outside this registry are valid.
-// Each node: { label: string, children?: Record<string, node> }
+// Content path namespace. Each node is { label, ...childNodes }.
+// 'label' is display metadata; every other key is a child node — mirrors YAML indentation.
+// Non-exhaustive: tags outside this registry are valid, displayed with raw segment text.
 export const TAG_REGISTRY = {
   task:  { label: 'Task' },
   skill: { label: 'Skill' },
@@ -19,57 +19,52 @@ export const TAG_REGISTRY = {
   item:  { label: 'Item' },
   work: {
     label: 'Work',
-    children: {
-      skill: { label: 'Work: Skill' },
-    },
+    skill: { label: 'Work: Skill' },
   },
   equip: {
     label: 'Equipped',
-    children: {
-      weapon:  { label: 'Weapon' },
-      armor:   { label: 'Armor' },
-      offhand: { label: 'Off Hand' },
-      ring:    { label: 'Ring' },
-      head:    { label: 'Head' },
-      feet:    { label: 'Feet' },
-    },
+    weapon:  { label: 'Weapon' },
+    armor:   { label: 'Armor' },
+    offhand: { label: 'Off Hand' },
+    ring:    { label: 'Ring' },
+    head:    { label: 'Head' },
+    feet:    { label: 'Feet' },
   },
 };
 
-// Walks the TAG_REGISTRY tree, returning the deepest matched node
-// and any remaining (unmatched) segments.
-function traverseRegistry(segments) {
-  let node = null;
-  let children = TAG_REGISTRY;
-  let i = 0;
-  for (; i < segments.length; i++) {
-    const child = children?.[segments[i].toLowerCase()];
-    if (!child) break;
-    node = child;
-    children = child.children;
-  }
-  return { node, remaining: segments.slice(i) };
-}
-
-// Parses a tag string into { segments: string[], value: string|null }.
-// Grammar: segment:segment:...:segment=value
-// The = is terminal — value is the raw string after the last =.
+// Parses a tag string into { modifier, segments, value }.
+// Grammar:
+//   modifier,path:path:...:path=value  — modifier tag (',' separates modifier from content)
+//   path:path:...:path=value           — plain tag with value
+//   path:path:...:path                 — plain tag without value
+// modifier  — whatever precedes the first ',' (null if absent)
+// segments  — content path only, never includes modifier
+// value     — scalar after '=' in the content, or null
 export function parseTag(s) {
-  const parts = s.split(':');
+  const commaIdx = s.indexOf(',');
+  let modifier = null;
+  let raw = s;
+  if (commaIdx >= 0) {
+    modifier = s.slice(0, commaIdx);
+    raw = s.slice(commaIdx + 1);
+  }
+  const parts = raw.split(':');
   const last = parts[parts.length - 1];
   const eqIdx = last.indexOf('=');
   if (eqIdx >= 0) {
     parts[parts.length - 1] = last.slice(0, eqIdx);
     const value = last.slice(eqIdx + 1);
-    return { segments: parts.filter(Boolean), value: value !== '' ? value : null };
+    return { modifier, segments: parts.filter(Boolean), value: value !== '' ? value : null };
   }
-  return { segments: parts.filter(Boolean), value: null };
+  return { modifier, segments: parts.filter(Boolean), value: null };
 }
 
-// Builds a tag string from segments array and optional value.
-export function buildTag(segments, value) {
+// Builds a tag string from segments, optional value, and optional modifier.
+export function buildTag(segments, value, modifier = null) {
   const path = segments.join(':');
-  return value !== null && value !== undefined && String(value) !== '' ? `${path}=${value}` : path;
+  const valueStr = value !== null && value !== undefined && String(value) !== '' ? `=${value}` : '';
+  const content = path + valueStr;
+  return modifier ? `${modifier},${content}` : content;
 }
 
 // Returns true if tag's segments start with all of prefix's segments.
@@ -79,33 +74,49 @@ export function tagMatches(tag, prefix) {
 }
 
 // Appends tag to an attribute list, replacing any existing tag with the same
-// full segment path (deduplicates by path, ignoring value).
+// modifier + full segment path (deduplicates by identity, ignoring value).
 export function mergeAttribute(attrs, tag) {
   const incoming = parseTag(tag);
-  const inPath = incoming.segments.join(':').toLowerCase();
+  const inKey = (incoming.modifier ? `${incoming.modifier},` : '') + incoming.segments.join(':').toLowerCase();
   return [
-    ...attrs.filter(t => parseTag(t).segments.join(':').toLowerCase() !== inPath),
+    ...attrs.filter(t => {
+      const p = parseTag(t);
+      const key = (p.modifier ? `${p.modifier},` : '') + p.segments.join(':').toLowerCase();
+      return key !== inKey;
+    }),
     tag,
   ];
 }
 
-// Returns { label, params } for display.
-// Strips any modifier prefix, traverses the registry tree for the content path,
-// then composes: "[modifier: ]<deepest-label>[: <last-unmatched-segment>][ =value]"
-export function formatTagLabel(parsed) {
-  const [first, ...rest] = parsed.segments;
-  const mod = MODIFIER_REGISTRY[first?.toLowerCase()];
-  const pathSegs = mod ? rest : parsed.segments;
+// Walks TAG_REGISTRY depth-first. Returns the deepest matched node and any
+// remaining (unmatched) segments.
+function traverseRegistry(segments) {
+  let node = null;
+  let current = TAG_REGISTRY;
+  let i = 0;
+  for (; i < segments.length; i++) {
+    const child = current[segments[i].toLowerCase()];
+    if (!child || typeof child !== 'object') break;
+    node = child;
+    current = child;
+  }
+  return { node, remaining: segments.slice(i) };
+}
 
-  const { node, remaining } = traverseRegistry(pathSegs);
+// Returns { label, params } for display.
+// Strategy: deepest registered node label + last unregistered segment (if any).
+// Falls back to raw path string for fully unregistered tags.
+export function formatTagLabel(parsed) {
+  const { node, remaining } = traverseRegistry(parsed.segments);
   let pathLabel;
   if (node) {
     pathLabel = node.label + (remaining.length > 0 ? `: ${remaining[remaining.length - 1]}` : '');
   } else {
-    pathLabel = pathSegs.join(':');
+    pathLabel = parsed.segments.join(':');
   }
-
-  const label = mod ? `${mod.prefix}: ${pathLabel}` : pathLabel;
+  const modEntry = parsed.modifier ? MODIFIER_REGISTRY[parsed.modifier] : null;
+  const modPrefix = modEntry ? modEntry.prefix : parsed.modifier;
+  const label = parsed.modifier ? `${modPrefix}: ${pathLabel}` : pathLabel;
   const params = parsed.value !== null && parsed.value !== undefined ? ` =${parsed.value}` : '';
   return { label: label.toUpperCase(), params };
 }

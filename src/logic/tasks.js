@@ -23,12 +23,12 @@ export function checkTaskComplete(task) {
 // returns the gold delta to add to the bank.
 // Returns { newInventory, newAgents, bankDelta }.
 export function applyResults(task, inventory, agents) {
-  // 1. Consume req:consumable inputs.
+  // 1. Consume req,consumable inputs.
   let newInventory = inventory.map(i => ({ ...i }));
   for (const req of task.requirements || []) {
     const p = parseTag(req);
-    if (p.segments[0] !== 'req' || p.segments[1] !== 'consumable') continue;
-    const name = p.segments[2];
+    if (p.modifier !== 'req' || p.segments[0] !== 'consumable') continue;
+    const name = p.segments[1];
     if (!name) continue;
     const item = newInventory.find(i => i.name.toLowerCase() === name.toLowerCase());
     if (item) item.qty = Math.max(0, item.qty - (parseFloat(p.value) || 1));
@@ -99,9 +99,9 @@ export function computeBlockedTaskIds(activeTasks, inventory) {
     let pass = true;
     for (const req of task.requirements) {
       const p = parseTag(req);
-      if (p.segments[0] !== 'req') continue;
-      const kind = p.segments[1];
-      const name = p.segments[2];
+      if (p.modifier !== 'req') continue;
+      const kind = p.segments[0];
+      const name = p.segments[1];
       if (!name) continue;
       if (kind === 'item') {
         const inv = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
@@ -113,8 +113,8 @@ export function computeBlockedTaskIds(activeTasks, inventory) {
     if (!pass) { blocked.add(task.id); continue; }
     for (const req of task.requirements) {
       const p = parseTag(req);
-      if (p.segments[0] !== 'req' || p.segments[1] !== 'consumable') continue;
-      const name = p.segments[2];
+      if (p.modifier !== 'req' || p.segments[0] !== 'consumable') continue;
+      const name = p.segments[1];
       if (!name) continue;
       pool[name.toLowerCase()] = (pool[name.toLowerCase()] ?? 0) - (parseFloat(p.value) || 1);
     }

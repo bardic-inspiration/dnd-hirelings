@@ -1,3 +1,5 @@
+import { MODIFIER_REGISTRY } from '../logic/tags.js';
+
 export const STORAGE_KEY = 'dnd-hirelings-state-v3';
 export const PALETTE_KEY = 'dnd-hirelings-palette';
 
@@ -44,9 +46,16 @@ function normalizeResults(r) {
   };
 }
 
-// Strips the legacy '#' sigil from tag strings produced before the path-based format.
+// Migrates tag strings from older formats to the current grammar.
 function migrateTag(t) {
-  return typeof t === 'string' && t.startsWith('#') ? t.slice(1) : t;
+  if (typeof t !== 'string') return t;
+  // Strip legacy '#' sigil from pre-path-based format.
+  if (t.startsWith('#')) t = t.slice(1);
+  // Migrate modifier:path to modifier,path (comma separator introduced in v4 grammar).
+  for (const mod of Object.keys(MODIFIER_REGISTRY)) {
+    if (t.startsWith(`${mod}:`)) return `${mod},${t.slice(mod.length + 1)}`;
+  }
+  return t;
 }
 
 // Normalizes a raw state object (e.g. from localStorage) to ensure all required fields are present and have valid values
