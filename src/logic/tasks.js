@@ -22,8 +22,19 @@ export function checkTaskComplete(task) {
 // (merging by name), spawns results.agents, and returns the gold delta to add to the bank.
 // Returns { newInventory, newAgents, bankDelta }.
 export function applyResults(task, inventory, agents) {
-  // 1. Merge result items into inventory.
+  // 1. Consume req,consumable inputs.
   let newInventory = inventory.map(i => ({ ...i }));
+  for (const req of task.requirements || []) {
+    const p = parseTag(req);
+    if (p.modifier !== 'req' || p.segments[0] !== 'consumable') continue;
+    const name = p.segments[1];
+    if (!name) continue;
+    const item = newInventory.find(i => i.name.toLowerCase() === name.toLowerCase());
+    if (item) item.qty = Math.max(0, item.qty - (parseFloat(p.value) || 1));
+  }
+  // Depleted items remain in the inventory (shown grayed); they are not pruned.
+
+  // 2. Merge result items into inventory.
   for (const reward of task.results?.items || []) {
     const qty = Number(reward.qty) || 0;
     if (!reward.name || qty <= 0) continue;
@@ -79,11 +90,26 @@ export function applyTaskComplete(taskId, tasks, agents, inventory) {
 // Returns a Set of task IDs whose item requirements cannot be met.
 export function computeBlockedTaskIds(activeTasks, inventory) {
   const blocked = new Set();
-  for (const task of activeTasks) {
+  for (const task of [...activeTasks].sort((a, b) => a.createdAt - b.createdAt)) {
+    let pass = true;
     for (const req of task.requirements) {
       const p = parseTag(req);
-      if (p.segments[0] !== 'req' || p.segments[1] !== 'item') continue;
-      const name = p.segments[2];
+      if (p.modifier !== 'req') continue;
+      const kind = p.segments[0];
+      const name = p.segments[1];
+      if (!name) continue;
+      if (kind === 'item') {
+        const inv = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
+        if (!inv || inv.qty < (parseFloat(p.value) || 1)) { pass = false; break; }
+      } else if (kind === 'consumable') {
+        if ((pool[name.toLowerCase()] ?? 0) < (parseFloat(p.value) || 1)) { pass = false; break; }
+      }
+    }
+    if (!pass) { blocked.add(task.id); continue; }
+    for (const req of task.requirements) {
+      const p = parseTag(req);
+      if (p.modifier !== 'req' || p.segments[0] !== 'consumable') continue;
+      const name = p.segments[1];
       if (!name) continue;
       const inv = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
       if (!inv || inv.qty < (parseFloat(p.value) || 1)) { blocked.add(task.id); break; }

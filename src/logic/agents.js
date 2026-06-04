@@ -24,24 +24,30 @@ export function activeTaskCount(agent, tasks) {
 export function validateAssignment(agent, task) {
   for (const req of task.requirements) {
     const reqP = parseTag(req);
-    if (reqP.segments[0] !== 'req') continue;
-    // item requirements are inventory concerns, not agent concerns
-    if (reqP.segments[1] === 'item') continue;
-    // build the attribute-side prefix by dropping the leading 'req' segment
-    const attrPrefix = { segments: reqP.segments.slice(1) };
+    if (reqP.modifier !== 'req') continue;
+    // item/consumable requirements are inventory concerns, not agent-attribute concerns
+    if (reqP.segments[0] === 'item' || reqP.segments[0] === 'consumable') continue;
     const allTags = [...agent.attributes, ...agent.activities];
-    const match = allTags.find(t => tagMatches(parseTag(t), attrPrefix));
+    const match = allTags.find(t => tagMatches(parseTag(t), { segments: reqP.segments }));
     if (!match) return false;
     if (reqP.value !== null) {
       const attrVal = parseFloat(parseTag(match).value);
       if (isNaN(attrVal) || attrVal < parseFloat(reqP.value)) return false;
     }
   }
+  for (const req of task.requirements) {
+    const reqP = parseTag(req);
+    if (reqP.modifier !== 'block') continue;
+    const allTags = [...agent.attributes, ...agent.activities];
+    if (allTags.some(t => tagMatches(parseTag(t), { segments: reqP.segments }))) return false;
+  }
   for (const attr of agent.attributes) {
     const attrP = parseTag(attr);
-    if (attrP.segments[0] !== 'req') continue;
-    const attrPrefix = { segments: attrP.segments.slice(1) };
-    const match = task.requirements.find(t => tagMatches(parseTag(t), attrPrefix));
+    if (attrP.modifier !== 'req') continue;
+    const match = task.requirements.find(t => {
+      const tp = parseTag(t);
+      return tp.modifier === 'req' && tagMatches(tp, { segments: attrP.segments });
+    });
     if (!match) return false;
     if (attrP.value !== null) {
       const reqVal = parseFloat(parseTag(match).value);
@@ -80,10 +86,9 @@ export function isAttributeActive(attrTag, agent, tasks) {
     if (!task || task.isComplete) continue;
     for (const req of task.requirements) {
       const reqP = parseTag(req);
-      if (reqP.segments[0] !== 'req') continue;
-      if (reqP.segments[1] === 'item') continue;
-      const reqAttrPrefix = { segments: reqP.segments.slice(1) };
-      if (tagMatches(attrP, reqAttrPrefix)) return true;
+      if (reqP.modifier !== 'req') continue;
+      if (reqP.segments[0] === 'item' || reqP.segments[0] === 'consumable') continue;
+      if (tagMatches(attrP, { segments: reqP.segments })) return true;
     }
   }
   return false;

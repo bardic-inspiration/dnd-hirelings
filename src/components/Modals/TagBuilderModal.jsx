@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal.jsx';
-import { buildTag } from '../../logic/tags.js';
+import { buildTag, MODIFIER_REGISTRY } from '../../logic/tags.js';
 
 const PRESETS = {
   attribute: [
@@ -11,11 +11,17 @@ const PRESETS = {
     { label: 'Level',  prefix: '',    path: 'level',       hasValue: true  },
   ],
   requirement: [
-    { label: 'Skill',  prefix: 'req', path: 'skill',  hasValue: true  },
-    { label: 'Trait',  prefix: 'req', path: 'trait',  hasValue: false },
-    { label: 'Class',  prefix: 'req', path: 'class',  hasValue: false },
-    { label: 'Race',   prefix: 'req', path: 'race',   hasValue: false },
-    { label: 'Item',   prefix: 'req', path: 'item',   hasValue: true  },
+    { label: 'Skill',        prefix: 'req',   path: 'skill',  hasValue: true  },
+    { label: 'Tool',         prefix: 'req',   path: 'tool',   hasValue: false },
+    { label: 'Trait',        prefix: 'req',   path: 'trait',  hasValue: false },
+    { label: 'Class',        prefix: 'req',   path: 'class',  hasValue: false },
+    { label: 'Race',         prefix: 'req',   path: 'race',   hasValue: false },
+    { label: 'Item',         prefix: 'req',   path: 'item',   hasValue: true  },
+    { label: 'Consumable',   prefix: 'req',   path: 'consumable', hasValue: true },
+    { label: 'Block Trait',  prefix: 'block', path: 'trait',  hasValue: false },
+    { label: 'Block Class',  prefix: 'block', path: 'class',  hasValue: false },
+    { label: 'Block Race',   prefix: 'block', path: 'race',   hasValue: false },
+    { label: 'Block Skill',  prefix: 'block', path: 'skill',  hasValue: false },
   ],
   work: [
     { label: 'General', prefix: '',     path: 'work',  hasValue: true },
@@ -50,13 +56,14 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
     const prefix = prefixVal.trim();
     const path   = pathVal.trim();
     if (!path) return '—';
-    const segments = [
-      ...prefix.split(':').filter(Boolean),
+    const isModifier = !!MODIFIER_REGISTRY[prefix.toLowerCase()];
+    const pathSegs = [
+      ...(isModifier ? [] : prefix.split(':').filter(Boolean)),
       ...path.split(':').filter(Boolean),
     ];
     const name = nameVal.trim();
-    if (name) segments.push(name);
-    return buildTag(segments, valueVal.trim() || null);
+    if (name) pathSegs.push(name);
+    return buildTag(pathSegs, valueVal.trim() || null, isModifier ? prefix : null);
   })();
 
   function applyPreset(preset) {
@@ -80,13 +87,14 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
     const path = pathVal.trim();
     if (!path) { setPathError(true); return; }
     const prefix = prefixVal.trim();
-    const segments = [
-      ...prefix.split(':').filter(Boolean),
+    const isModifier = !!MODIFIER_REGISTRY[prefix.toLowerCase()];
+    const pathSegs = [
+      ...(isModifier ? [] : prefix.split(':').filter(Boolean)),
       ...path.split(':').filter(Boolean),
     ];
     const name = nameVal.trim();
-    if (name) segments.push(name);
-    onSave(buildTag(segments, valueVal.trim() || null));
+    if (name) pathSegs.push(name);
+    onSave(buildTag(pathSegs, valueVal.trim() || null, isModifier ? prefix : null));
     onClose();
   }
 
