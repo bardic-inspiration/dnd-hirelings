@@ -63,7 +63,7 @@ export default function AgentCard({ agent }) {
   const personalItems   = getPersonalItems(agent.activities);
   const equippedItems   = getEquippedItems(agent.activities);
   const availableInventory = state.inventory.filter(i => i.qty > 0);
-  const dyn = computeDynamicAttributes(agent);
+  const dyn = computeDynamicAttributes(agent, state.inventory);
 
   const openGive = (e) => {
     e.stopPropagation();

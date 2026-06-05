@@ -135,6 +135,47 @@ export function collectAllHeldItems(activities) {
   return totals;
 }
 
+// Returns agent.attributes merged with additive mod,* bonuses from all equipped items.
+// For each equipped item, any tag with modifier 'mod' is matched by segment path against
+// the agent's attribute tags; matching tags have their value increased by the mod amount.
+// Unmatched mod paths are injected as new tags so future dynamic consumers pick them up.
+export function getCurrentAttributes(agentAttributes, activities, inventory) {
+  const equipped = getEquippedItems(activities);
+  if (!equipped.length) return agentAttributes;
+
+  const modMap = {}; // { 'ability:str': 2, 'skill:arcana': 1, ... }
+  for (const { name } of equipped) {
+    const item = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
+    if (!item) continue;
+    for (const tag of (item.attributes ?? [])) {
+      const p = parseTag(tag);
+      if (p.modifier !== 'mod') continue;
+      const n = parseFloat(p.value);
+      if (isNaN(n)) continue;
+      const key = p.segments.join(':').toLowerCase();
+      modMap[key] = (modMap[key] ?? 0) + n;
+    }
+  }
+
+  if (!Object.keys(modMap).length) return agentAttributes;
+
+  const applied = new Set();
+  const result = agentAttributes.map(attr => {
+    const p = parseTag(attr);
+    if (p.modifier) return attr;
+    const key = p.segments.join(':').toLowerCase();
+    if (!(key in modMap)) return attr;
+    applied.add(key);
+    return buildTag(p.segments, (parseFloat(p.value) ?? 0) + modMap[key], null);
+  });
+
+  for (const [key, val] of Object.entries(modMap)) {
+    if (!applied.has(key)) result.push(buildTag(key.split(':'), val));
+  }
+
+  return result;
+}
+
 // Returns updated activities array after adjusting item:<name> qty by delta.
 // Removes the tag if qty reaches 0. Creates it if it doesn't exist.
 export function mergeItemQty(activities, name, delta) {

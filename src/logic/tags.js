@@ -3,6 +3,7 @@
 export const MODIFIER_REGISTRY = {
   req:   { prefix: 'Req',   description: 'Counterpart must carry this' },
   block: { prefix: 'Block', description: 'Counterpart must not carry this' },
+  mod:   { prefix: 'Mod',   description: 'Adds value to matching agent tag when equipped' },
 };
 
 // Content path namespace. Each node is { label, ...childNodes }.
