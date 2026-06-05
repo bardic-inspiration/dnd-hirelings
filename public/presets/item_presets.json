@@ -13,7 +13,7 @@
     "qty": 1,
     "value": 15,
     "description": "A serviceable blade of plain iron.",
-    "attributes": ["#tool:weapon", "mod,ability:str=1"]
+    "attributes": ["#tool:weapon", "bonus,ability:str=1"]
   },
   {
     "name": "CHAIN MAIL",
@@ -21,7 +21,7 @@
     "qty": 1,
     "value": 75,
     "description": "Interlocking iron rings providing solid protection.",
-    "attributes": ["#tool:armor", "mod,ability:con=2"]
+    "attributes": ["#tool:armor", "bonus,ability:con=2"]
   },
   {
     "name": "ROPE (50 FT)",
@@ -53,6 +53,6 @@
     "qty": 1,
     "value": 10,
     "description": "Reference texts and instruments for academic work.",
-    "attributes": ["#tool:gear", "mod,skill:arcana=2", "mod,skill:history=1"]
+    "attributes": ["#tool:gear", "bonus,skill:arcana=2", "bonus,skill:history=1"]
   }
 ]
