@@ -1,4 +1,5 @@
 import { parseTag } from './tags.js';
+import { getEffectiveAttributes } from './agents.js';
 
 // Returns the numeric value of an ability tag (e.g. 'ability:str=14' → 14).
 function getAbility(attributes, name) {
@@ -30,8 +31,9 @@ function xpForLevel(lvl) {
 // agent.attributes  — tag strings (ability:str=14, class:fighter, …)
 // agent.xp          — total accumulated XP (number, default 0)
 // agent.hp          — current HP override (number | null; null = full)
-export function computeDynamicAttributes(agent) {
-  const attrs = agent.attributes ?? [];
+// inventory         — full inventory array; used to resolve bonus,* tags on equipped items
+export function computeDynamicAttributes(agent, inventory = []) {
+  const attrs = getEffectiveAttributes(agent.attributes ?? [], agent.activities ?? [], inventory);
   const xp    = agent.xp ?? 0;
 
   const dex = getAbility(attrs, 'dex');

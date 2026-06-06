@@ -1,6 +1,6 @@
 import { parseTag } from './tags.js';
 import { formatClockParts } from './time.js';
-import { getCurrentTask } from './agents.js';
+import { getCurrentTask, getEffectiveAttributes } from './agents.js';
 import { getWorkRequirements, checkTaskComplete, computeBlockedTaskIds, applyTaskComplete } from './tasks.js';
 
 export function getStepMinutes(session) {
@@ -57,13 +57,14 @@ export function advanceTime(state) {
           if (!task) continue;
           let agentContributed = false;
 
+          const currentAttrs = getEffectiveAttributes(agent.attributes, agent.activities, inventory);
           for (const req of getWorkRequirements(task)) {
             const workType  = req.segments[1] ?? null;  // e.g. 'skill'
             const skillName = req.segments[2] ?? null;  // e.g. 'arcana', or null for any
             const key = workType || '';
             let rate;
             if (workType === 'skill') {
-              const skillTag = agent.attributes.find(attr => {
+              const skillTag = currentAttrs.find(attr => {
                 const ap = parseTag(attr);
                 if (ap.segments[0] !== 'skill') return false;
                 return !skillName || ap.segments[1]?.toLowerCase() === skillName.toLowerCase();
