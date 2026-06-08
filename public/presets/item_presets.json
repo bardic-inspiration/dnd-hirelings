@@ -13,7 +13,15 @@
     "qty": 1,
     "value": 15,
     "description": "A serviceable blade of plain iron.",
-    "attributes": ["#tool:weapon"]
+    "attributes": ["#tool:weapon", "bonus,ability:str=1"]
+  },
+  {
+    "name": "CHAIN MAIL",
+    "icon": "/assets/items/image2-011.jpg",
+    "qty": 1,
+    "value": 75,
+    "description": "Interlocking iron rings providing solid protection.",
+    "attributes": ["#tool:armor", "bonus,ability:con=2"]
   },
   {
     "name": "ROPE (50 FT)",
@@ -38,5 +46,13 @@
     "value": 1,
     "description": "Burns for about an hour.",
     "attributes": ["#consumable:light"]
+  },
+  {
+    "name": "SCHOLAR'S TOOLS",
+    "icon": "/assets/items/image2-050.jpg",
+    "qty": 1,
+    "value": 10,
+    "description": "Reference texts and instruments for academic work.",
+    "attributes": ["#tool:gear", "bonus,skill:arcana=2", "bonus,skill:history=1"]
   }
 ]

@@ -26,6 +26,8 @@ const DEFAULT_AGENT = {
   description: '',
   attributes: [],
   activities: [],
+  xp: 0,
+  hp: null,
 };
 
 const DEFAULT_ITEM_NAME = 'NEW ITEM';
