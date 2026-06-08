@@ -1362,6 +1362,78 @@ select.tag-builder-field {
 .library-preview-card .task-body,
 .library-preview-card .item-body { display: flex; }
 
+/* ============================================================
+   TAG MANAGER
+   ============================================================ */
+.taglib-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.taglib-top-actions { display: flex; gap: 8px; }
+
+/* Tree pane mirrors the library list's inset/scroll and the standard 60vh height. */
+.taglib-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--dimmer);
+  overflow-y: auto;
+  height: min(60vh, 600px);
+}
+
+.taglib-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.1s;
+}
+.taglib-node:hover { background: var(--highlight-bg); }
+
+.taglib-caret {
+  width: 12px;
+  flex-shrink: 0;
+  color: var(--dim);
+  cursor: pointer;
+  font-size: var(--fs-xs);
+  text-align: center;
+  user-select: none;
+}
+.taglib-caret.empty { cursor: default; }
+
+.taglib-key {
+  flex: 1;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.taglib-node .x {
+  color: var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0;
+  transition: color 0.1s, opacity 0.1s;
+}
+.taglib-node:hover .x { opacity: 1; }
+.taglib-node .x:hover { color: var(--warn); }
+
+.taglib-builder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Tasks have no icon: a filled square placeholder stands in for a future map. */
 .task-preview-frame {
   width: 100%;

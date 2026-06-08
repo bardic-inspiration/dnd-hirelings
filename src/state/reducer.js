@@ -2,7 +2,19 @@ import { uid, now } from '../utils.js';
 import { normalizeState, DEFAULT_STATE, DEFAULT_RESULTS } from './storage.js';
 import { applyTaskComplete } from '../logic/tasks.js';
 import { mergeAttribute, buildTag, parseTag } from '../logic/tags.js';
+import { addTagToLibrary, addPath, deleteNode, renameNode } from '../logic/tagLibrary.js';
 import { collectAllHeldItems, mergeItemQty } from '../logic/agents.js';
+
+// Registers any newly authored tag structures into the live tag library. Returns
+// the same state reference when every path already exists, so it never forces an
+// extra render. Removing a tag in game never prunes the library (only the Tag
+// Manager does); dynamic item-instance tags (equip/give) are intentionally not
+// registered to avoid polluting the skeleton with per-item names.
+const registerTags = (state, ...tags) => {
+  let lib = state.tagLibrary;
+  for (const t of tags) lib = addTagToLibrary(lib, t);
+  return lib === state.tagLibrary ? state : { ...state, tagLibrary: lib };
+};
 
 const TASK_TAG_FIELDS = new Set(['requirements', 'work', 'attributes']);
 
@@ -111,13 +123,13 @@ export function reducer(state, action) {
     }
 
     case 'AGENT_ADD_ATTRIBUTE':
-      return {
+      return registerTags({
         ...state,
         agents: state.agents.map(a => a.id !== action.id ? a : {
           ...a,
           attributes: mergeAttribute(a.attributes, action.tag),
         }),
-      };
+      }, action.tag);
 
     case 'AGENT_REMOVE_ATTRIBUTE':
       return {
@@ -129,6 +141,8 @@ export function reducer(state, action) {
       };
 
     case 'AGENT_ADD_ACTIVITY':
+      // Activities are task assignments (`task:<id>`) — dynamic instance refs, not
+      // authored structure, so they are not registered into the library.
       return {
         ...state,
         agents: state.agents.map(a => a.id !== action.id ? a : {
@@ -258,10 +272,10 @@ export function reducer(state, action) {
     case 'TASK_ADD_TAG': {
       const { field } = action;
       if (!TASK_TAG_FIELDS.has(field)) return state;
-      return {
+      return registerTags({
         ...state,
         tasks: state.tasks.map(t => t.id !== action.id ? t : { ...t, [field]: [...(t[field] || []), action.tag] }),
-      };
+      }, action.tag);
     }
 
     case 'TASK_REMOVE_TAG': {
@@ -303,13 +317,13 @@ export function reducer(state, action) {
       return { ...state, inventory: state.inventory.filter(item => item.id !== action.id) };
 
     case 'INVENTORY_ADD_ATTRIBUTE':
-      return {
+      return registerTags({
         ...state,
         inventory: state.inventory.map(item => item.id !== action.id ? item : {
           ...item,
           attributes: mergeAttribute(item.attributes, action.tag),
         }),
-      };
+      }, action.tag);
 
     case 'INVENTORY_REMOVE_ATTRIBUTE':
       return {
@@ -319,6 +333,19 @@ export function reducer(state, action) {
           attributes: item.attributes.filter((_, i) => i !== action.index),
         }),
       };
+
+    /* ---------- Tag Library ---------- */
+    case 'TAGLIB_ADD_PATH':
+      return { ...state, tagLibrary: addPath(state.tagLibrary, action.segments) };
+
+    case 'TAGLIB_DELETE_NODE':
+      return { ...state, tagLibrary: deleteNode(state.tagLibrary, action.segments) };
+
+    case 'TAGLIB_RENAME_NODE':
+      return { ...state, tagLibrary: renameNode(state.tagLibrary, action.segments, action.name) };
+
+    case 'TAGLIB_REPLACE':
+      return { ...state, tagLibrary: action.library };
 
     /* ---------- Bulk ---------- */
     case 'APPLY_TICK':

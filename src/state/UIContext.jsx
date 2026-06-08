@@ -12,6 +12,7 @@ export function UIProvider({ children }) {
   const [portraitsProps, setPortraitsProps] = useState(null);
   const [itemIconsProps, setItemIconsProps] = useState(null);
   const [libraryProps, setLibraryProps]     = useState(null);
+  const [tagManagerProps, setTagManagerProps] = useState(null);
 
   const toggleExpanded = useCallback((id) => {
     setExpandedTasks(prev => {
@@ -33,6 +34,9 @@ export function UIProvider({ children }) {
   const openLibrary  = useCallback((type) => setLibraryProps({ type }), []);
   const closeLibrary = useCallback(() => setLibraryProps(null), []);
 
+  const openTagManager  = useCallback(() => setTagManagerProps({}), []);
+  const closeTagManager = useCallback(() => setTagManagerProps(null), []);
+
   return (
     <UIContext.Provider value={{
       selectedTaskId, setSelectedTaskId,
@@ -44,6 +48,7 @@ export function UIProvider({ children }) {
       portraitsProps, openPortraits, closePortraits,
       itemIconsProps, openItemIcons, closeItemIcons,
       libraryProps, openLibrary, closeLibrary,
+      tagManagerProps, openTagManager, closeTagManager,
     }}>
       {children}
     </UIContext.Provider>
