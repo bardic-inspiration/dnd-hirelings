@@ -69,6 +69,8 @@ export function normalizeState(raw) {
     icon:         a.icon         ?? '',
     createdAt:    a.createdAt    ?? Date.now(),
     lastAssigned: a.lastAssigned ?? null,
+    xp:           a.xp           ?? 0,
+    hp:           a.hp           ?? null,
   }));
   state.inventory = (raw.inventory || []).map(item => ({
     id:          item.id   ?? Math.random().toString(36).slice(2, 9),
