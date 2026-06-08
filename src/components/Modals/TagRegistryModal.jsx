@@ -3,11 +3,12 @@ import Modal from './Modal.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
 import { parseTag } from '../../logic/tags.js';
-import { tagLibSave, tagLibLoad } from '../../logic/tagLibrary.js';
+import { tagRegistrySave, tagRegistryLoad } from '../../logic/tagRegistry.js';
 
 // Recursive tree rows. Keys are sorted for stable display (mirrors the YAML dump).
 // A branch (non-empty children) gets a caret; every node has a delete ×, since the
-// library is only ever pruned here — never by removing a tag in game.
+// registry is only ever pruned here — never by removing a tag in game. The caret
+// column is fixed-width so leaf and branch rows at the same tier align their keys.
 function TagTreeNodes({ node, path, expanded, toggle, onDelete }) {
   return Object.keys(node).sort().map(key => {
     const childPath = [...path, key];
@@ -17,13 +18,13 @@ function TagTreeNodes({ node, path, expanded, toggle, onDelete }) {
     const isOpen = expanded.has(pathStr);
     return (
       <div key={pathStr}>
-        <div className="taglib-node" style={{ paddingLeft: `${path.length * 16 + 6}px` }}>
+        <div className="tagreg-node" style={{ paddingLeft: `${path.length * 16 + 6}px` }}>
           <span
-            className={`taglib-caret${hasChildren ? '' : ' empty'}`}
+            className={`tagreg-caret${hasChildren ? '' : ' empty'}`}
             onClick={() => hasChildren && toggle(pathStr)}
           >{hasChildren ? (isOpen ? '▾' : '▸') : ''}</span>
-          <span className="taglib-key">{key}</span>
-          <span className="x" title="Delete from library" onClick={() => onDelete(childPath)}>×</span>
+          <span className="tagreg-key">{key}</span>
+          <span className="x" title="Delete from registry" onClick={() => onDelete(childPath)}>×</span>
         </div>
         {hasChildren && isOpen && (
           <TagTreeNodes node={children} path={childPath} expanded={expanded} toggle={toggle} onDelete={onDelete} />
@@ -33,10 +34,10 @@ function TagTreeNodes({ node, path, expanded, toggle, onDelete }) {
   });
 }
 
-export default function TagManagerModal() {
-  const { closeTagManager } = useUI();
+export default function TagRegistryModal() {
+  const { closeTagRegistry } = useUI();
   const { state, dispatch } = useGame();
-  const library = state.tagLibrary;
+  const registry = state.tagRegistry;
 
   const [expanded, setExpanded] = useState(new Set());
   const [draft, setDraft] = useState('');
@@ -48,12 +49,12 @@ export default function TagManagerModal() {
     return next;
   });
 
-  const handleDelete = (segments) => dispatch({ type: 'TAGLIB_DELETE_NODE', segments });
+  const handleDelete = (segments) => dispatch({ type: 'TAGREG_DELETE_NODE', segments });
 
   const handleAdd = () => {
     const segments = parseTag(draft.trim()).segments; // modifier + value dropped
     if (!segments.length) return;
-    dispatch({ type: 'TAGLIB_ADD_PATH', segments });
+    dispatch({ type: 'TAGREG_ADD_PATH', segments });
     // Reveal the new path by expanding its ancestors.
     setExpanded(prev => {
       const next = new Set(prev);
@@ -65,25 +66,25 @@ export default function TagManagerModal() {
     setDraft('');
   };
 
-  const handleSave = () => tagLibSave(library, state.session.id);
+  const handleSave = () => tagRegistrySave(registry, state.session.id);
 
   const handleLoad = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    tagLibLoad(file)
-      .then(lib => dispatch({ type: 'TAGLIB_REPLACE', library: lib }))
-      .catch(err => alert(err.message)); // invalid file: tagLibCheck failed — leave library untouched
+    tagRegistryLoad(file)
+      .then(reg => dispatch({ type: 'TAGREG_REPLACE', registry: reg }))
+      .catch(err => alert(err.message)); // invalid file: check failed — leave registry untouched
     e.target.value = '';
   };
 
   const onKeyDown = (e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } };
 
   return (
-    <Modal onClose={closeTagManager} overlayClass="config-overlay">
+    <Modal onClose={closeTagRegistry} overlayClass="config-overlay">
       <div className="library-panel" onClick={e => e.stopPropagation()}>
-        <div className="taglib-top">
-          <span className="library-heading">TAG MANAGER</span>
-          <div className="taglib-top-actions">
+        <div className="tagreg-top">
+          <span className="library-heading">TAG REGISTRY</span>
+          <div className="tagreg-top-actions">
             <button className="ctrl" onClick={handleSave}>SAVE</button>
             <button className="ctrl" onClick={() => fileInputRef.current?.click()}>LOAD</button>
             <input
@@ -96,13 +97,13 @@ export default function TagManagerModal() {
           </div>
         </div>
 
-        <div className="taglib-tree">
-          {Object.keys(library).length === 0
-            ? <div className="empty">LIBRARY EMPTY</div>
-            : <TagTreeNodes node={library} path={[]} expanded={expanded} toggle={toggle} onDelete={handleDelete} />}
+        <div className="tagreg-tree">
+          {Object.keys(registry).length === 0
+            ? <div className="empty">REGISTRY EMPTY</div>
+            : <TagTreeNodes node={registry} path={[]} expanded={expanded} toggle={toggle} onDelete={handleDelete} />}
         </div>
 
-        <div className="taglib-builder">
+        <div className="tagreg-builder">
           <input
             className="portraits-search-input"
             type="text"

@@ -1,5 +1,5 @@
 import { MODIFIER_REGISTRY } from '../logic/tags.js';
-import { registryToLibrary } from '../logic/tagLibrary.js';
+import { seedTagRegistry } from '../logic/tagRegistry.js';
 
 export const STORAGE_KEY = 'dnd-hirelings-state-v3';
 export const PALETTE_KEY = 'dnd-hirelings-palette';
@@ -21,12 +21,12 @@ export const DEFAULT_STATE = {
   agents: [],
   tasks: [],
   inventory: [],
-  tagLibrary: registryToLibrary(),
+  tagRegistry: seedTagRegistry(),
 };
 
-// Guards a raw tagLibrary from storage/import: keeps only a pure object-of-objects
+// Guards a raw tagRegistry from storage/import: keeps only a pure object-of-objects
 // tree so corrupt data can't poison the live structure. Returns null on mismatch.
-function sanitizeLibrary(raw) {
+function sanitizeRegistry(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const clean = (node) => {
     const out = {};
@@ -108,7 +108,9 @@ export function normalizeState(raw) {
     workProgress: t.workProgress ?? {},
     results:      normalizeResults(t.results),
   }));
-  state.tagLibrary = sanitizeLibrary(raw.tagLibrary) ?? registryToLibrary();
+  // `tagLibrary` is the pre-rename field name; read it as a fallback so sessions
+  // saved before the rename keep their registry.
+  state.tagRegistry = sanitizeRegistry(raw.tagRegistry ?? raw.tagLibrary) ?? seedTagRegistry();
   const s = raw.session || {};
   const tsNum = parseFloat(s.timeStep ?? '0');
   state.session = {

@@ -1420,17 +1420,17 @@ select.tag-builder-field {
 .library-preview-card .item-body { display: flex; }
 
 /* ============================================================
-   TAG MANAGER
+   TAG REGISTRY
    ============================================================ */
-.taglib-top {
+.tagreg-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.taglib-top-actions { display: flex; gap: 8px; }
+.tagreg-top-actions { display: flex; gap: 8px; }
 
 /* Tree pane mirrors the library list's inset/scroll and the standard 60vh height. */
-.taglib-tree {
+.tagreg-tree {
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -1442,7 +1442,7 @@ select.tag-builder-field {
   height: min(60vh, 600px);
 }
 
-.taglib-node {
+.tagreg-node {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1450,20 +1450,23 @@ select.tag-builder-field {
   border-radius: var(--radius-sm);
   transition: background 0.1s;
 }
-.taglib-node:hover { background: var(--highlight-bg); }
+.tagreg-node:hover { background: var(--highlight-bg); }
 
-.taglib-caret {
-  width: 12px;
-  flex-shrink: 0;
+/* Fixed-width toggle column so leaf and branch rows at the same tier align their
+   keys identically — the column is reserved whether or not a caret glyph is shown. */
+.tagreg-caret {
+  flex: 0 0 16px;
+  display: inline-block;
+  text-align: center;
   color: var(--dim);
   cursor: pointer;
   font-size: var(--fs-xs);
-  text-align: center;
+  line-height: 1;
   user-select: none;
 }
-.taglib-caret.empty { cursor: default; }
+.tagreg-caret.empty { cursor: default; }
 
-.taglib-key {
+.tagreg-key {
   flex: 1;
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -1472,7 +1475,7 @@ select.tag-builder-field {
   text-overflow: ellipsis;
 }
 
-.taglib-node .x {
+.tagreg-node .x {
   color: var(--border);
   cursor: pointer;
   flex-shrink: 0;
@@ -1482,10 +1485,10 @@ select.tag-builder-field {
   opacity: 0;
   transition: color 0.1s, opacity 0.1s;
 }
-.taglib-node:hover .x { opacity: 1; }
-.taglib-node .x:hover { color: var(--warn); }
+.tagreg-node:hover .x { opacity: 1; }
+.tagreg-node .x:hover { color: var(--warn); }
 
-.taglib-builder {
+.tagreg-builder {
   display: flex;
   align-items: center;
   gap: 8px;

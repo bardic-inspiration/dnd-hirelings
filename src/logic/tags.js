@@ -7,7 +7,7 @@ export const MODIFIER_REGISTRY = {
 };
 
 // Content path namespace — the keys-only skeleton seeded into a fresh tag library
-// (see logic/tagLibrary.js). Every key is a child node; a leaf is {}. Mirrors YAML
+// (see logic/tagRegistry.js). Every key is a child node; a leaf is {}. Mirrors YAML
 // indentation. Non-exhaustive: tags outside it are valid; display derives labels
 // from the segments themselves, so the live library is the sole structure source.
 export const TAG_REGISTRY = {
