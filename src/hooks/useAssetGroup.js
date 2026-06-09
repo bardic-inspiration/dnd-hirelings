@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react';
 
-// Tracks load state for a group of asset URLs locally.
-// Designed for modal-scoped gates: starts loading on mount, resolves independently
-// of the global app gate (does not block app rendering).
+/**
+ * Tracks load state for a local group of asset URLs.
+ * Intended for modal-scoped lazy loading — does not register URLs with the global
+ * `AssetProvider` gate and will not block app rendering.
+ * Loading starts on mount and runs once.
+ *
+ * @param {string[]} urls - Image URLs to preload
+ * @returns {{ isReady: boolean }} True once all URLs have loaded or errored
+ */
 export function useAssetGroup(urls) {
   const [loaded, setLoaded] = useState(0);
   const total = urls?.length ?? 0;

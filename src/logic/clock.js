@@ -3,18 +3,47 @@ import { formatClockParts } from './time.js';
 import { getCurrentTask, getEffectiveAttributes } from './agents.js';
 import { getWorkRequirements, checkTaskComplete, computeBlockedTaskIds, applyTaskComplete } from './tasks.js';
 
+/**
+ * Returns the number of in-game minutes that one tick advances the clock.
+ * Reads `session.timeStep` as days, converts to minutes (× 1440).
+ * Defaults to 1 day (1440 min) if the value is missing or non-numeric.
+ *
+ * @param {Session} session
+ * @returns {number} Minutes per tick
+ */
 export function getStepMinutes(session) {
   const m = String(session.timeStep).match(/\d+(\.\d+)?/);
   return m ? parseFloat(m[0]) * 1440 : 1440;
 }
 
+/**
+ * Returns the wall-clock milliseconds between game ticks.
+ * Scales by `rateMultiplier` so higher rates shorten the interval.
+ * Minimum interval is 16ms (~60fps cap).
+ *
+ * @param {Session} session
+ * @returns {number} Milliseconds between ticks
+ */
 export function getPlayIntervalMs(session) {
   const rate     = session.rateMultiplier || 1;
   const stepDays = getStepMinutes(session) / 1440;
   return Math.max(16, (stepDays / rate) * 1000);
 }
 
-// Pure tick: returns { newState, flashAgentIds, taskWorkPerTick }
+/**
+ * Pure simulation tick. Advances the clock by one step and computes all side effects.
+ *
+ * For each eligible working agent:
+ * - Deducts their daily rate from the bank (proportional to stepDays).
+ * - Applies work progress to their current task based on skill match.
+ * - Queues flash animations for agents that couldn't contribute (no bank, blocked task, skill mismatch).
+ * - Completes any tasks that now meet all work requirements.
+ *
+ * Returns the accumulated per-task work rates for the RAF interpolation loop.
+ *
+ * @param {GameState} state
+ * @returns {{ newState: GameState, flashAgentIds: string[], taskWorkPerTick: object }}
+ */
 export function advanceTime(state) {
   const { agents, session } = state;
   const flashAgentIds = [];
@@ -113,8 +142,18 @@ export function advanceTime(state) {
   };
 }
 
-// Called from RAF loop — interpolates clock + per-task progress bars between
-// game ticks so visuals advance smoothly even when state hasn't changed.
+/**
+ * Interpolates the clock display and task progress bars between discrete game ticks.
+ * Called every animation frame from `usePlayClock`'s RAF loop. Writes directly to the
+ * DOM — does not go through React state.
+ *
+ * Interpolation fraction is `elapsed / tickIntervalMs`, clamped to [0, 1].
+ * Progress is capped per-bucket at the bucket's own target to prevent one overachieving
+ * skill from visually inflating the total bar past 100%.
+ *
+ * @param {GameState} state - Current (last committed) game state
+ * @param {{ lastTickWallTime: number, tickIntervalMs: number, taskWorkPerTick: object }} tickInfo
+ */
 export function updateClockDisplayDOM(state, tickInfo) {
   const elapsed  = Date.now() - tickInfo.lastTickWallTime;
   const frac     = Math.min(1, elapsed / tickInfo.tickIntervalMs);

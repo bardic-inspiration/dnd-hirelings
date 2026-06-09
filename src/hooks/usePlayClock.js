@@ -12,6 +12,20 @@ function flashAgentCard(agentId) {
   card.addEventListener('animationend', () => card.classList.remove('flash-error'), { once: true });
 }
 
+/**
+ * Manages the game loop: a `setInterval` for discrete ticks and a `requestAnimationFrame`
+ * loop for smooth clock/progress interpolation between ticks.
+ *
+ * Automatically pauses the interval while any `[contenteditable]` or `.req-field`
+ * element has focus, and resumes 100ms after blur.
+ *
+ * Side effects:
+ * - Dispatches `APPLY_TICK` on every tick
+ * - Adds/removes `flash-error` CSS class on agent cards
+ * - Directly mutates clock and progress-bar DOM nodes every frame
+ *
+ * @returns {{ start: () => void, stop: () => void, advance: () => void }}
+ */
 export function usePlayClock() {
   const { state, dispatch } = useGame();
   const { playing, setPlaying } = useUI();

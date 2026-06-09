@@ -33,6 +33,17 @@ export const TAG_REGISTRY = {
 // modifier  — whatever precedes the first ',' (null if absent)
 // segments  — content path only, never includes modifier
 // value     — scalar after '=' in the content, or null
+/**
+ * Parses a tag string into its constituent parts.
+ *
+ * Grammar: `[modifier,]segment[:segment...][=value]`
+ * - `modifier` — token before the first comma, or null if absent
+ * - `segments` — the content path only (modifier excluded)
+ * - `value` — scalar after `=` in the last segment, or null
+ *
+ * @param {string} s - Raw tag string
+ * @returns {{ modifier: string|null, segments: string[], value: string|null }}
+ */
 export function parseTag(s) {
   const commaIdx = s.indexOf(',');
   let modifier = null;
@@ -52,7 +63,14 @@ export function parseTag(s) {
   return { modifier, segments: parts.filter(Boolean), value: null };
 }
 
-// Builds a tag string from segments, optional value, and optional modifier.
+/**
+ * Serializes a parsed tag back into a tag string.
+ *
+ * @param {string[]} segments - Content path segments
+ * @param {string|number|null} [value] - Optional scalar value
+ * @param {string|null} [modifier] - Optional modifier prefix (e.g. 'req', 'bonus')
+ * @returns {string}
+ */
 export function buildTag(segments, value, modifier = null) {
   const path = segments.join(':');
   const valueStr = value !== null && value !== undefined && String(value) !== '' ? `=${value}` : '';
@@ -60,14 +78,26 @@ export function buildTag(segments, value, modifier = null) {
   return modifier ? `${modifier},${content}` : content;
 }
 
-// Returns true if tag's segments start with all of prefix's segments.
+/**
+ * Returns true if `tag`'s segments begin with all of `prefix`'s segments (case-insensitive).
+ *
+ * @param {{ segments: string[] }} tag
+ * @param {{ segments: string[] }} prefix
+ * @returns {boolean}
+ */
 export function tagMatches(tag, prefix) {
   if (prefix.segments.length > tag.segments.length) return false;
   return prefix.segments.every((seg, i) => seg.toLowerCase() === tag.segments[i].toLowerCase());
 }
 
-// Appends tag to an attribute list, replacing any existing tag with the same
-// modifier + full segment path (deduplicates by identity, ignoring value).
+/**
+ * Appends `tag` to an attribute list, replacing any existing entry with the same
+ * modifier + full segment path. Deduplicates by identity key; the incoming value wins.
+ *
+ * @param {string[]} attrs - Existing attribute tag strings
+ * @param {string} tag - Tag string to merge in
+ * @returns {string[]} New array with the tag added or replaced
+ */
 export function mergeAttribute(attrs, tag) {
   const incoming = parseTag(tag);
   const inKey = (incoming.modifier ? `${incoming.modifier},` : '') + incoming.segments.join(':').toLowerCase();
@@ -81,9 +111,16 @@ export function mergeAttribute(attrs, tag) {
   ];
 }
 
-// Returns { label, params } for display, deriving the label from the tag's own
-// segments (no registry lookup). Single segment → that segment; deeper paths →
-// "first: last". Underscores/hyphens render as spaces; modifiers prefix the label.
+/**
+ * Derives a human-readable display label from a parsed tag without consulting the registry.
+ *
+ * Single-segment path → the segment itself. Deeper paths → "FIRST: LAST".
+ * Modifier is prepended as its registry prefix (e.g. `req` → "REQ: ").
+ * Underscores and hyphens render as spaces.
+ *
+ * @param {{ modifier: string|null, segments: string[], value: string|null }} parsed
+ * @returns {{ label: string, params: string }} `label` is uppercase; `params` is `" =value"` or `""`
+ */
 export function formatTagLabel(parsed) {
   const pretty = (seg) => seg.replace(/[_-]/g, ' ');
   const segs = parsed.segments;

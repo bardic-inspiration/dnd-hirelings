@@ -1,7 +1,15 @@
 import { parseTag, buildTag } from './tags.js';
 import { uid, now } from '../utils.js';
 
-// Returns an array of work definitions for the task, or a default of 1 generic work if none specified.
+/**
+ * Returns the parsed work requirement tags for a task.
+ * Filters to `work:*` tags with a positive numeric value.
+ * Falls back to a single generic work entry `[{ segments: ['work'], value: null }]`
+ * when the task has no valid work tags — so every task always has at least one bucket.
+ *
+ * @param {Task} task
+ * @returns {{ segments: string[], value: string|null }[]} Parsed work tags
+ */
 export function getWorkRequirements(task) {
   const all = (task.work || [])
     .map(r => parseTag(r))
@@ -9,8 +17,14 @@ export function getWorkRequirements(task) {
   return all.length > 0 ? all : [{ segments: ['work'], value: null }];
 }
 
-// Task is complete only when every work requirement is independently satisfied —
-// overshooting one skill must not mask a deficit in another.
+/**
+ * Returns true when every work bucket has reached its individual target.
+ * Each requirement is checked independently — overshooting one bucket cannot
+ * satisfy a deficit in another.
+ *
+ * @param {Task} task
+ * @returns {boolean}
+ */
 export function checkTaskComplete(task) {
   return getWorkRequirements(task).every(req => {
     const key = req.segments[1] ?? '';
@@ -18,9 +32,22 @@ export function checkTaskComplete(task) {
   });
 }
 
-// Applies the task's structured results to the world: adds results.items into inventory
-// (merging by name), spawns results.agents, and returns the gold delta to add to the bank.
-// Returns { newInventory, newAgents, bankDelta }.
+/**
+ * Applies a task's reward payload to the world state.
+ *
+ * Steps:
+ * 1. Consumes `req,consumable` inputs from inventory (qty decremented; depletions stay in list).
+ * 2. Merges `results.items` into inventory (adds to existing stack or creates new row).
+ * 3. Spawns `results.agents` from their templates.
+ * 4. Computes gold delta from `results.gold`.
+ *
+ * Does NOT mark the task complete or unassign agents — that is `applyTaskComplete`'s job.
+ *
+ * @param {Task} task
+ * @param {InventoryItem[]} inventory
+ * @param {Agent[]} agents
+ * @returns {{ newInventory: InventoryItem[], newAgents: Agent[], bankDelta: number }}
+ */
 export function applyResults(task, inventory, agents) {
   // 1. Consume req,consumable inputs.
   let newInventory = inventory.map(i => ({ ...i }));
@@ -72,8 +99,16 @@ export function applyResults(task, inventory, agents) {
   return { newInventory, newAgents, bankDelta };
 }
 
-// Applies task completion: marks done, prunes assignments, and applies results.
-// Returns { newTasks, newAgents, newInventory, bankDelta }
+/**
+ * Orchestrates task completion: marks the task done, removes all agent assignments
+ * to it, then calls `applyResults` to distribute rewards.
+ *
+ * @param {string} taskId
+ * @param {Task[]} tasks
+ * @param {Agent[]} agents
+ * @param {InventoryItem[]} inventory
+ * @returns {{ newTasks: Task[], newAgents: Agent[], newInventory: InventoryItem[], bankDelta: number }}
+ */
 export function applyTaskComplete(taskId, tasks, agents, inventory) {
   const taskTag = buildTag(['task', taskId]);
   const task = tasks.find(t => t.id === taskId);
@@ -87,7 +122,19 @@ export function applyTaskComplete(taskId, tasks, agents, inventory) {
   return { newTasks, newAgents, newInventory, bankDelta };
 }
 
-// Returns a Set of task IDs whose item requirements cannot be met.
+/**
+ * Returns a Set of task IDs whose `req,item` or `req,consumable` requirements
+ * cannot be satisfied by the current inventory. Tasks are evaluated in creation
+ * order so earlier tasks have priority over shared consumable pools.
+ *
+ * ⚠️ Known bug: the first-pass `consumable` branch references an undefined `pool`
+ * variable and will throw a ReferenceError if a task has a `req,consumable` tag
+ * without an `item` requirement preceding it.
+ *
+ * @param {Task[]} activeTasks - Incomplete tasks only
+ * @param {InventoryItem[]} inventory
+ * @returns {Set<string>} IDs of blocked tasks
+ */
 export function computeBlockedTaskIds(activeTasks, inventory) {
   const blocked = new Set();
   for (const task of [...activeTasks].sort((a, b) => a.createdAt - b.createdAt)) {

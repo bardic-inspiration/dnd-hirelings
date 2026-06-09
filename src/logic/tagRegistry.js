@@ -16,6 +16,13 @@ const isLeaf = (node) =>
 
 // Deep-clones the TAG_REGISTRY seed into a keys-only structure, dropping any
 // 'label' metadata. Leaves are {}. Used to seed a fresh registry.
+/**
+ * Deep-clones the TAG_REGISTRY seed into a pure keys-only object (all leaves `{}`).
+ * Used to initialize a fresh `state.tagRegistry`.
+ *
+ * @param {object} [seed] - Source tree; defaults to the built-in TAG_REGISTRY constant
+ * @returns {TagRegistry}
+ */
 export function seedTagRegistry(seed = TAG_REGISTRY) {
   const out = {};
   for (const [key, node] of Object.entries(seed)) {
@@ -37,11 +44,26 @@ function normalizeNode(node) {
 
 // Serializes the registry to YAML. js-yaml renders empty-object leaves as "key: {}";
 // we strip the "{}" so leaves read as bare "key:" (the spec's nested-list format).
+/**
+ * Serializes the registry tree to a YAML string.
+ * Empty-object leaves are rendered as bare `key:` lines rather than `key: {}`,
+ * matching YAML indented-list conventions.
+ *
+ * @param {TagRegistry} registry
+ * @returns {string} YAML string (empty string for an empty registry)
+ */
 export function serializeRegistry(registry) {
   const dumped = yaml.dump(registry ?? {}, { sortKeys: true, indent: 2, lineWidth: -1 });
   return dumped === '{}\n' ? '' : dumped.replace(/: \{\}$/gm, ':');
 }
 
+/**
+ * Parses a YAML string into a normalized registry tree.
+ * All leaves are coerced to `{}` regardless of their YAML value.
+ *
+ * @param {string} ymlString
+ * @returns {TagRegistry}
+ */
 export function parseRegistry(ymlString) {
   return normalizeNode(yaml.load(ymlString));
 }
@@ -69,6 +91,14 @@ function checkNode(node, path) {
 // Loops through a YAML string and confirms it is a nested list matching the tag
 // format rules and that every line is valid. js-yaml throws on malformed YAML and
 // on duplicate sibling keys, which we surface as validation errors.
+/**
+ * Validates that a YAML string represents a pure nested key map with no values or lists,
+ * and that every key matches the segment character set (`[a-z0-9_-]`).
+ * js-yaml throws on malformed YAML and duplicate sibling keys; both are surfaced as errors.
+ *
+ * @param {string} ymlString
+ * @returns {{ valid: boolean, error: string|null }}
+ */
 export function tagRegistryCheck(ymlString) {
   let parsed;
   try {
@@ -89,6 +119,16 @@ const normSegs = (segments) => segments.map(s => String(s).toLowerCase().trim())
 
 // Adds a tag path into the registry, creating intermediate nodes. Returns the SAME
 // reference when the full path already exists, so reducers can no-op cheaply.
+/**
+ * Inserts the content path of a tag string into the registry, creating intermediate nodes.
+ * Returns the same registry reference (no-op) if the full path already exists,
+ * so reducers can cheaply skip a re-render.
+ * Modifier and value are stripped; only the segment path is registered.
+ *
+ * @param {TagRegistry} registry
+ * @param {string} tagString
+ * @returns {TagRegistry}
+ */
 export function addTagToRegistry(registry, tagString) {
   const segments = parseTag(tagString).segments; // drops modifier + value
   const segs = normSegs(segments);
@@ -103,6 +143,14 @@ export function addTagToRegistry(registry, tagString) {
   return exists ? registry : addPath(registry, segs);
 }
 
+/**
+ * Adds a path of segment strings to the registry, creating all intermediate nodes.
+ * Always returns a new root object.
+ *
+ * @param {TagRegistry} registry
+ * @param {string[]} segments
+ * @returns {TagRegistry}
+ */
 export function addPath(registry, segments) {
   const segs = normSegs(segments);
   if (!segs.length) return registry;
@@ -117,6 +165,14 @@ export function addPath(registry, segments) {
   return root;
 }
 
+/**
+ * Removes the node at `segments` and its entire subtree.
+ * Returns the original registry reference if the path does not exist.
+ *
+ * @param {TagRegistry} registry
+ * @param {string[]} segments
+ * @returns {TagRegistry}
+ */
 export function deleteNode(registry, segments) {
   const segs = normSegs(segments);
   if (!segs.length) return registry;
@@ -133,6 +189,16 @@ export function deleteNode(registry, segments) {
   return root;
 }
 
+/**
+ * Renames the terminal node of `segments` to `newKey`, preserving its children.
+ * No-ops if the path is absent or `newKey === oldKey`. Returns the same reference
+ * in those cases.
+ *
+ * @param {TagRegistry} registry
+ * @param {string[]} segments
+ * @param {string} newKey
+ * @returns {TagRegistry}
+ */
 export function renameNode(registry, segments, newKey) {
   const segs = normSegs(segments);
   const key = String(newKey).toLowerCase().trim();
@@ -161,6 +227,17 @@ export function renameNode(registry, segments, newKey) {
 // subtrees (Notepad++ folding behavior). `expanded` is a Set of colon-joined paths.
 // Each row carries `ancestorIsLast` (one flag per ancestor level) to drive the
 // nested vertical guide lines, and `isLast` for the last-child elbow.
+/**
+ * Flattens the registry into a sorted list of visible rows for the tree editor.
+ *
+ * DFS over alphabetically-sorted keys. A global line counter increments on every
+ * node (including collapsed ones), so line numbers match a full-document view and
+ * skip collapsed subtrees in the visible output — matching Notepad++ folding behavior.
+ *
+ * @param {TagRegistry} registry
+ * @param {Set<string>} expanded - Colon-joined paths of currently expanded nodes
+ * @returns {{ key: string, segments: string[], pathStr: string, depth: number, hasChildren: boolean, isOpen: boolean, isLast: boolean, lineNo: number, ancestorIsLast: boolean[] }[]}
+ */
 export function flattenRegistry(registry, expanded) {
   const rows = [];
   let counter = 0;
@@ -191,7 +268,14 @@ export function flattenRegistry(registry, expanded) {
 
 const SAVE_TYPES = [{ description: 'Tag registry config', accept: { 'application/x-yaml': ['.yml', '.yaml'] } }];
 
-// tagRegistrySave: writes the current registry as YAML; default name "[sessionID]-config.yml".
+/**
+ * Serializes the registry to YAML and writes it to disk via Save As dialog (with
+ * `<a>.download` fallback). Suggested filename is `<sessionId>-config.yml`.
+ *
+ * @param {TagRegistry} registry
+ * @param {string} sessionId
+ * @returns {Promise<void>}
+ */
 export async function tagRegistrySave(registry, sessionId) {
   const yml = serializeRegistry(registry);
   const suggestedName = `${sessionId || 'session'}-config.yml`;
@@ -219,8 +303,13 @@ export async function tagRegistrySave(registry, sessionId) {
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
 }
 
-// tagRegistryLoad: reads a YAML file, loads it only if tagRegistryCheck passes; else
-// rejects (the caller leaves the registry untouched — "pass").
+/**
+ * Reads a YAML file and returns a parsed registry. Rejects if validation fails
+ * (`tagRegistryCheck`), leaving the caller's existing registry untouched.
+ *
+ * @param {File} file
+ * @returns {Promise<TagRegistry>}
+ */
 export function tagRegistryLoad(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader();

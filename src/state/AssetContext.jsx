@@ -2,8 +2,13 @@ import { createContext, useCallback, useContext, useRef, useState } from 'react'
 
 const AssetContext = createContext(null);
 
-// Tracks a registry of asset URLs and their load state.
-// Children render only after all registered assets have resolved (load or error).
+/**
+ * Tracks a registry of asset URLs and their load state.
+ * Children render only after every registered URL has settled (loaded or errored).
+ * Shows a full-screen "LOADING" placeholder while any URL is still pending.
+ *
+ * @param {{ children: React.ReactNode }} props
+ */
 export function AssetProvider({ children }) {
   // Map<url, 'pending' | 'loaded' | 'error'>
   const [registry, setRegistry] = useState(() => new Map());
@@ -43,6 +48,11 @@ export function AssetProvider({ children }) {
   );
 }
 
+/**
+ * Returns `{ registerAssets, isReady }` from the nearest `AssetProvider`.
+ *
+ * @returns {{ registerAssets: (urls: string[]) => void, isReady: boolean }}
+ */
 export function useAssets() {
   return useContext(AssetContext);
 }

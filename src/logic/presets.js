@@ -37,20 +37,37 @@ async function writeJson(data, suggestedName) {
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
 }
 
-// Save a single preset as a one-entry .json file.
+/**
+ * Exports a single preset to a `.json` file. Strips `id` and `source` before writing.
+ *
+ * @param {object} preset
+ * @param {string} [type] - Used in the suggested filename (e.g. `'agent'`)
+ * @returns {Promise<void>}
+ */
 export function savePresetToFile(preset, type = 'preset') {
   const name = (preset?.name || type).toLowerCase().replace(/[^a-z0-9]+/g, '-');
   return writeJson(exportable(preset), `${type}-${name}.json`);
 }
 
-// Save the currently filtered list of presets as a .json array.
+/**
+ * Exports an array of presets to a `.json` file. Each entry has `id` and `source` stripped.
+ *
+ * @param {object[]} presets
+ * @param {string} [type] - Used in the suggested filename
+ * @returns {Promise<void>}
+ */
 export function savePresetListToFile(presets, type = 'preset') {
   return writeJson(presets.map(exportable), `${type}-presets.json`);
 }
 
-// Read presets from a user-selected file. Always resolves to an array (possibly
-// empty); never rejects on bad content. A lone object is wrapped as a single
-// entry; anything unparseable yields [].
+/**
+ * Reads presets from a user-selected JSON file. Always resolves (never rejects).
+ * Accepts an array or a single object (wrapped as a one-entry array).
+ * Returns `[]` on any parse error.
+ *
+ * @param {File} file
+ * @returns {Promise<object[]>}
+ */
 export function loadPresetsFromFile(file) {
   return new Promise((resolve) => {
     const r = new FileReader();

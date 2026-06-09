@@ -1,5 +1,14 @@
 import { parseTag, buildTag, tagMatches, mergeAttribute } from './tags.js';
 
+/**
+ * Returns the first in-progress task the agent is assigned to, or null.
+ * Skips completed tasks — an agent remains assigned to a task's ID after completion
+ * until the reducer unlinks them, so the completion check is essential.
+ *
+ * @param {Agent} agent
+ * @param {Task[]} tasks
+ * @returns {Task|null}
+ */
 export function getCurrentTask(agent, tasks) {
   for (const tag of agent.activities) {
     const p = parseTag(tag);
@@ -10,6 +19,13 @@ export function getCurrentTask(agent, tasks) {
   return null;
 }
 
+/**
+ * Returns the number of incomplete tasks the agent is currently assigned to.
+ *
+ * @param {Agent} agent
+ * @param {Task[]} tasks
+ * @returns {number}
+ */
 export function activeTaskCount(agent, tasks) {
   return agent.activities.filter(a => {
     const p = parseTag(a);
@@ -19,8 +35,20 @@ export function activeTaskCount(agent, tasks) {
   }).length;
 }
 
-// Bidirectional check: agent's attributes must satisfy the task's requirements,
-// AND the agent's own required-attributes must be offered by the task.
+/**
+ * Bidirectional assignment validator.
+ *
+ * Forward check: every `req,*` tag on the task must be satisfied by the agent's
+ * attributes + activities (value comparisons are ≥). Block tags must not match.
+ * Item and consumable requirements are inventory concerns and are skipped here.
+ *
+ * Reverse check: every `req,*` tag on the agent must be matched by a corresponding
+ * requirement on the task (the agent "requires" that context).
+ *
+ * @param {Agent} agent
+ * @param {Task} task
+ * @returns {boolean} True if the assignment is valid
+ */
 export function validateAssignment(agent, task) {
   for (const req of task.requirements) {
     const reqP = parseTag(req);
@@ -57,7 +85,14 @@ export function validateAssignment(agent, task) {
   return true;
 }
 
-// Returns 'assigned' | 'already-assigned' | 'invalid' | 'no-task'
+/**
+ * Attempts to assign an agent to a task and returns the outcome.
+ *
+ * @param {Agent} agent
+ * @param {string|null} selectedTaskId
+ * @param {Task[]} tasks
+ * @returns {'assigned'|'already-assigned'|'invalid'|'no-task'}
+ */
 export function tryAssignTask(agent, selectedTaskId, tasks) {
   if (!selectedTaskId) return 'no-task';
   const task = tasks.find(t => t.id === selectedTaskId);
@@ -67,6 +102,15 @@ export function tryAssignTask(agent, selectedTaskId, tasks) {
   return 'assigned';
 }
 
+/**
+ * Returns true if the activity tag represents something currently in-progress.
+ * For `task:<id>` activities, checks that the task exists and is not complete.
+ * Non-task activities (items, equipment) are always considered active.
+ *
+ * @param {string} activityTag
+ * @param {Task[]} tasks
+ * @returns {boolean}
+ */
 export function isActivityActive(activityTag, tasks) {
   const p = parseTag(activityTag);
   if (p.segments[0] === 'task') {
@@ -76,7 +120,15 @@ export function isActivityActive(activityTag, tasks) {
   return true;
 }
 
-// True if this attribute is currently being exercised by any of the agent's in-progress tasks.
+/**
+ * Returns true if this attribute tag is actively required by at least one of the
+ * agent's in-progress task assignments. Used to highlight "active" attributes in the UI.
+ *
+ * @param {string} attrTag
+ * @param {Agent} agent
+ * @param {Task[]} tasks
+ * @returns {boolean}
+ */
 export function isAttributeActive(attrTag, agent, tasks) {
   const attrP = parseTag(attrTag);
   for (const act of agent.activities) {
@@ -94,12 +146,25 @@ export function isAttributeActive(attrTag, agent, tasks) {
   return false;
 }
 
+/**
+ * Returns all agents that have a `task:<taskId>` activity tag.
+ *
+ * @param {string} taskId
+ * @param {Agent[]} agents
+ * @returns {Agent[]}
+ */
 export function agentsAssignedTo(taskId, agents) {
   const taskTag = buildTag(['task', taskId]);
   return agents.filter(a => a.activities.includes(taskTag));
 }
 
-// Returns [{name, qty, tag}] for item:* activities (excludes equip: prefixed items).
+/**
+ * Returns items carried in the agent's bag (excludes equipped items).
+ * Reads `item:<name>=<qty>` activity tags only; `equip:*` tags are excluded.
+ *
+ * @param {string[]} activities
+ * @returns {{ name: string, qty: number, tag: string }[]}
+ */
 export function getPersonalItems(activities) {
   return activities
     .filter(t => parseTag(t).segments[0] === 'item')
@@ -109,7 +174,12 @@ export function getPersonalItems(activities) {
     });
 }
 
-// Returns [{slot, name, tag}] for equip:<slot>:item:<name> activities.
+/**
+ * Returns items the agent has equipped, parsed from `equip:<slot>:item:<name>` activity tags.
+ *
+ * @param {string[]} activities
+ * @returns {{ slot: string, name: string, tag: string }[]}
+ */
 export function getEquippedItems(activities) {
   return activities
     .filter(t => {
@@ -122,8 +192,14 @@ export function getEquippedItems(activities) {
     });
 }
 
-// Returns a {name → qty} map covering all items an agent holds (bag + equipped).
-// Equipped items count as qty 1 each.
+/**
+ * Returns a `{ name → totalQty }` map for everything the agent holds (bag + equipped slots).
+ * Equipped items each count as 1 unit regardless of any qty value.
+ * Used by `AGENT_DELETE` to return items to inventory.
+ *
+ * @param {string[]} activities
+ * @returns {{ [name: string]: number }}
+ */
 export function collectAllHeldItems(activities) {
   const totals = {};
   for (const { name, qty } of getPersonalItems(activities)) {
@@ -135,10 +211,20 @@ export function collectAllHeldItems(activities) {
   return totals;
 }
 
-// Returns agent.attributes merged with additive bonus,* values from all equipped items.
-// For each equipped item, any tag with modifier 'bonus' is matched by segment path against
-// the agent's attribute tags; matching tags have their value increased by the bonus amount.
-// Unmatched bonus paths are injected as new tags so future dynamic consumers pick them up.
+/**
+ * Returns the agent's effective attribute list, applying additive `bonus,*` values
+ * from all currently equipped items.
+ *
+ * For each equipped item in inventory, `bonus,<path>=<n>` tags are summed by path key
+ * and added to the matching agent attribute value. If no agent attribute exists for a
+ * bonus path, the bonus is injected as a new tag so downstream consumers (e.g. work
+ * computation) can find it.
+ *
+ * @param {string[]} agentAttributes - Agent's `attributes` array
+ * @param {string[]} activities - Agent's `activities` array (used to find equipped items)
+ * @param {InventoryItem[]} inventory - Full inventory (used to read item `attributes`)
+ * @returns {string[]} New attribute array with bonuses applied
+ */
 export function getEffectiveAttributes(agentAttributes, activities, inventory) {
   const equipped = getEquippedItems(activities);
   if (!equipped.length) return agentAttributes;
@@ -176,8 +262,16 @@ export function getEffectiveAttributes(agentAttributes, activities, inventory) {
   return result;
 }
 
-// Returns updated activities array after adjusting item:<name> qty by delta.
-// Removes the tag if qty reaches 0. Creates it if it doesn't exist.
+/**
+ * Adjusts the quantity of an `item:<name>=<qty>` activity tag by `delta`.
+ * Removes the tag entirely if the resulting qty reaches 0 or below.
+ * Creates the tag if it does not exist (delta must be positive in that case).
+ *
+ * @param {string[]} activities
+ * @param {string} name - Item name (case-insensitive)
+ * @param {number} delta - Quantity change (positive to add, negative to remove)
+ * @returns {string[]} Updated activities array
+ */
 export function mergeItemQty(activities, name, delta) {
   const key = `item:${name.toLowerCase()}`;
   const existing = activities.find(t => parseTag(t).segments.join(':').toLowerCase() === key);

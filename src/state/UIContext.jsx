@@ -2,6 +2,12 @@ import { createContext, useContext, useState, useCallback } from 'react';
 
 const UIContext = createContext(null);
 
+/**
+ * Provides ephemeral UI state to the component tree: modal open/close state,
+ * selection state, and playing flag. Nothing here is persisted.
+ *
+ * @param {{ children: React.ReactNode }} props
+ */
 export function UIProvider({ children }) {
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [expandedTasks, setExpandedTasks]   = useState(new Set());
@@ -55,6 +61,11 @@ export function UIProvider({ children }) {
   );
 }
 
+/**
+ * Returns the full UI context value from the nearest `UIProvider`.
+ *
+ * @returns {UIContextValue}
+ */
 export function useUI() {
   return useContext(UIContext);
 }

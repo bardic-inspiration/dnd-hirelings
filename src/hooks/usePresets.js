@@ -52,8 +52,27 @@ function persistUserPresets(config, presets) {
   localStorage.setItem(config.storageKey, JSON.stringify(userOnly));
 }
 
-// Manages the preset library for one object type. Returns the merged
-// [...standard, ...user] list plus mutators that only ever touch user presets.
+/**
+ * Manages the preset library for one object type (agent, task, or item).
+ *
+ * Merges bundled (standard) presets fetched from `config.bundledUrl` with
+ * user presets persisted in localStorage at `config.storageKey`. Standard presets
+ * are read-only — editing one forks it into the user pool.
+ *
+ * Bundled presets are cached in a module-level Map after the first fetch, so
+ * reopening the library modal doesn't re-fetch.
+ *
+ * @param {LibraryConfig} config - Shape defined in `src/constants/libraries.jsx`
+ * @returns {{
+ *   presets: Preset[],
+ *   ready: boolean,
+ *   addBlank: () => Preset,
+ *   addPreset: (preset: object) => Preset,
+ *   updatePreset: (id: string, changes: object) => void,
+ *   deletePreset: (id: string) => void,
+ *   importPresets: (raw: object[]) => Preset[]
+ * }}
+ */
 export function usePresets(config) {
   const [standard, setStandard] = useState([]);
   const [user, setUser]         = useState(() => loadUserPresets(config));
