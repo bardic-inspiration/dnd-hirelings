@@ -5,6 +5,18 @@ import { useGame } from '../../state/GameContext.jsx';
 import { parseTag } from '../../logic/tags.js';
 import { tagRegistrySave, tagRegistryLoad, flattenRegistry } from '../../logic/tagRegistry.js';
 
+// Splits a draft tag into lowercased path parts (modifier + value stripped). Keeps
+// a trailing '' when the draft ends on a ':' delimiter, so the last element is
+// always the in-progress segment (what the user is currently typing).
+function draftParts(draft) {
+  let s = draft;
+  const comma = s.indexOf(',');
+  if (comma >= 0) s = s.slice(comma + 1);      // drop modifier prefix
+  const eq = s.indexOf('=');
+  if (eq >= 0) s = s.slice(0, eq);             // drop value
+  return s.split(':').map(p => p.trim().toLowerCase());
+}
+
 export default function TagRegistryModal() {
   const { closeTagRegistry } = useUI();
   const { state, dispatch } = useGame();
@@ -17,6 +29,36 @@ export default function TagRegistryModal() {
   // Flatten to ordered visible rows; line numbers reflect full-document position
   // (they skip over collapsed subtrees), matching a code editor's folding gutter.
   const rows = useMemo(() => flattenRegistry(registry, expanded), [registry, expanded]);
+
+  // Ghost suggestion: an existing key from the CURRENT tier (the node at the path
+  // before the last delimiter) that starts with the in-progress segment. Returns
+  // only the remaining suffix to render after the typed text.
+  const suggestion = useMemo(() => {
+    if (draft.includes('=')) return '';
+    const parts = draftParts(draft);
+    const inProgress = parts[parts.length - 1];
+    if (!inProgress) return '';
+    let node = registry;
+    for (const seg of parts.slice(0, -1)) {
+      node = node && typeof node === 'object' ? node[seg] : undefined;
+      if (!node) return '';
+    }
+    const match = Object.keys(node).sort().find(k => k.startsWith(inProgress) && k !== inProgress);
+    return match ? match.slice(inProgress.length) : '';
+  }, [draft, registry]);
+
+  // Predicate: does a tree key match the current input? Complete segments match
+  // exactly; the in-progress (last) segment matches as a prefix.
+  const isMatch = useMemo(() => {
+    const parts = draftParts(draft);
+    const inProgress = parts[parts.length - 1];
+    const complete = new Set(parts.slice(0, -1).filter(Boolean));
+    if (!complete.size && !inProgress) return () => false;
+    return (key) => {
+      const k = key.toLowerCase();
+      return complete.has(k) || (!!inProgress && k.startsWith(inProgress));
+    };
+  }, [draft]);
 
   const toggle = (pathStr) => setExpanded(prev => {
     const next = new Set(prev);
@@ -52,7 +94,12 @@ export default function TagRegistryModal() {
     e.target.value = '';
   };
 
-  const onKeyDown = (e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } };
+  const onKeyDown = (e) => {
+    // Tab (or Right arrow at the line end) accepts the ghost suggestion.
+    const accept = e.key === 'Tab' || (e.key === 'ArrowRight' && e.target.selectionStart === draft.length);
+    if (accept && suggestion) { e.preventDefault(); setDraft(draft + suggestion); return; }
+    if (e.key === 'Enter') { e.preventDefault(); handleAdd(); }
+  };
 
   return (
     <Modal onClose={closeTagRegistry} overlayClass="config-overlay">
@@ -92,24 +139,28 @@ export default function TagRegistryModal() {
                 ) : (
                   <span className={`tagreg-tick${row.isLast ? ' last' : ''}`} />
                 )}
-                <span className="tagreg-key">{row.key}<span className="tagreg-colon">:</span></span>
+                <span className={`tagreg-key${isMatch(row.key) ? ' match' : ''}`}>{row.key}<span className="tagreg-colon">:</span></span>
                 <span className="tagreg-x" title="Delete from registry" onClick={() => handleDelete(row.segments)}>×</span>
               </div>
             ))}
         </div>
 
         <div className="tagreg-builder">
-          <input
-            className="portraits-search-input"
-            type="text"
-            placeholder="BUILD A TAG   e.g.   item:weapon:martial"
-            value={draft}
-            spellCheck={false}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-            autoFocus
-          />
-          <button className="ctrl" onClick={handleAdd}>ADD</button>
+          <div className="tagreg-input-wrap">
+            {suggestion && (
+              <div className="tagreg-ghost" aria-hidden="true"><span className="tagreg-ghost-typed">{draft}</span>{suggestion}</div>
+            )}
+            <input
+              className="tagreg-input"
+              type="text"
+              placeholder="BUILD A TAG   e.g.   item:weapon:martial"
+              value={draft}
+              spellCheck={false}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={onKeyDown}
+              autoFocus
+            />
+          </div>
         </div>
       </div>
     </Modal>
