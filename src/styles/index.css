@@ -31,7 +31,8 @@
   --radius-sm: 5px;
   --radius-xs: 100px;
 
-  --font:    system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font:      system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "Courier New", monospace;
   --fs-xs:   9px;
   --fs-sm:   11px;
   --fs-base: 13px;
@@ -1430,63 +1431,141 @@ select.tag-builder-field {
 .tagreg-top-actions { display: flex; gap: 8px; }
 
 /* Tree pane mirrors the library list's inset/scroll and the standard 60vh height. */
+/* Code-editor-style tree: line-number gutter, fold margin with nested guide lines,
+   and monospace key rows. Local tokens keep every indent cell one fixed width, so
+   leaf and branch keys align to the pixel regardless of depth. */
 .tagreg-tree {
+  --tagreg-cell: 14px;   /* indent step = guide column width */
+  --tagreg-ln-w: 34px;   /* line-number gutter width */
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 8px;
+  padding: 6px 0;
   border: var(--line) solid var(--border);
   border-radius: var(--radius);
   background: var(--dimmer);
-  overflow-y: auto;
+  overflow: auto;        /* x too: deep paths scroll, gutter/× stay pinned */
   height: min(60vh, 600px);
+  font-family: var(--font-mono);
 }
 
-.tagreg-node {
+.tagreg-row {
+  display: flex;
+  align-items: stretch;
+  min-width: max-content;
+  min-height: 18px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.tagreg-row:hover { background: var(--highlight-bg); }
+
+/* Line-number gutter: fixed, right-aligned, dim; pinned during horizontal scroll. */
+.tagreg-ln {
+  flex: 0 0 var(--tagreg-ln-w);
+  text-align: right;
+  padding-right: 6px;
+  color: var(--dim);
+  font-size: var(--fs-xs);
+  border-right: var(--line) solid var(--border);
+  user-select: none;
+  position: sticky;
+  left: 0;
+  background: var(--dimmer);
+  z-index: 2;
+}
+
+/* One guide column per ancestor level; vertical line only where the branch continues. */
+.tagreg-guide {
+  flex: 0 0 var(--tagreg-cell);
+  position: relative;
+}
+.tagreg-guide.line::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--tagreg-cell) / 2);
+  top: 0; bottom: 0;
+  border-left: var(--line) solid var(--border);
+}
+
+/* Connector at the node's own column — fold box for branches, tick for leaves.
+   ::before draws the vertical (stops at center when last child → └ elbow);
+   ::after draws the horizontal stub into the key (├ / └). */
+.tagreg-fold,
+.tagreg-tick {
+  flex: 0 0 var(--tagreg-cell);
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  transition: background 0.1s;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
 }
-.tagreg-node:hover { background: var(--highlight-bg); }
+.tagreg-fold { cursor: pointer; font-family: var(--font-mono); }
+.tagreg-fold::before,
+.tagreg-tick::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--tagreg-cell) / 2);
+  top: 0; bottom: 0;
+  border-left: var(--line) solid var(--border);
+}
+.tagreg-fold.last::before,
+.tagreg-tick.last::before { bottom: 50%; }
+.tagreg-fold::after,
+.tagreg-tick::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--tagreg-cell) / 2);
+  right: 0;
+  top: 50%;
+  border-top: var(--line) solid var(--border);
+}
 
-/* Fixed-width toggle column so leaf and branch rows at the same tier align their
-   keys identically — the column is reserved whether or not a caret glyph is shown. */
-.tagreg-caret {
-  flex: 0 0 16px;
-  display: inline-block;
-  text-align: center;
+/* The boxed +/− toggle; opaque bg masks the guide line so it "enters" the box. */
+.tagreg-fold-box {
+  position: relative;
+  z-index: 1;
+  width: 11px;
+  height: 11px;
+  display: grid;
+  place-items: center;
+  border: var(--line) solid var(--dim);
+  border-radius: 2px;
+  background: var(--dimmer);
   color: var(--dim);
-  cursor: pointer;
   font-size: var(--fs-xs);
   line-height: 1;
-  user-select: none;
 }
-.tagreg-caret.empty { cursor: default; }
+.tagreg-fold:hover .tagreg-fold-box {
+  border-color: var(--highlight);
+  color: var(--highlight);
+}
 
 .tagreg-key {
-  flex: 1;
+  flex: 0 0 auto;
+  padding-left: 4px;
   font-size: var(--fs-sm);
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--fg);
 }
+.tagreg-colon { color: var(--dim); }
 
-.tagreg-node .x {
+.tagreg-x {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0 8px;
   color: var(--border);
   cursor: pointer;
-  flex-shrink: 0;
   font-size: var(--fs-sm);
-  line-height: 1;
-  padding: 0 2px;
   opacity: 0;
   transition: color 0.1s, opacity 0.1s;
+  position: sticky;
+  right: 0;
+  background: var(--dimmer);
+  z-index: 2;
 }
-.tagreg-node:hover .x { opacity: 1; }
-.tagreg-node .x:hover { color: var(--warn); }
+.tagreg-row:hover .tagreg-x { opacity: 1; }
+.tagreg-x:hover { color: var(--warn); }
 
 .tagreg-builder {
   display: flex;
