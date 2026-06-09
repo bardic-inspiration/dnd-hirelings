@@ -187,6 +187,51 @@ export function flattenRegistry(registry, expanded) {
   return rows;
 }
 
+// --- Usage counts ---
+
+// Collects every tag string currently applied across the game state: authored
+// attribute tags AND dynamic activity tags (task assignments, carried & equipped
+// items), so usage counts reflect all live tags. Order is irrelevant — the caller
+// only counts occurrences.
+export function tagsInUse(state) {
+  const tags = [];
+  for (const a of state.agents || []) tags.push(...(a.attributes || []), ...(a.activities || []));
+  for (const t of state.tasks || []) tags.push(...(t.requirements || []), ...(t.work || []), ...(t.attributes || []));
+  for (const it of state.inventory || []) tags.push(...(it.attributes || []));
+  return tags;
+}
+
+// Builds a count tree mirroring the registry: each node is { count, total, children }.
+// `count` = in-use tags whose deepest matching segment lands on this node; a tag
+// running deeper than the registry clamps to its nearest registered ancestor
+// (`item:gold` → `item`, `task:<id>` → `task`). `total` rolls up `count` plus every
+// descendant total, so the returned root's `total` is the grand total of all tags.
+export function countTagsInUse(registry, tags) {
+  const build = (node) => {
+    const children = {};
+    for (const [key, child] of Object.entries(node)) children[key] = build(child);
+    return { count: 0, total: 0, children };
+  };
+  const root = build(registry || {});
+
+  for (const tag of tags || []) {
+    let cur = root;
+    for (const seg of normSegs(parseTag(tag).segments)) {
+      if (Object.prototype.hasOwnProperty.call(cur.children, seg)) cur = cur.children[seg];
+      else break; // clamp at the deepest existing node
+    }
+    cur.count += 1;
+  }
+
+  const rollup = (node) => {
+    node.total = node.count;
+    for (const child of Object.values(node.children)) node.total += rollup(child);
+    return node.total;
+  };
+  rollup(root);
+  return root;
+}
+
 // --- File I/O (mirrors src/logic/session.js) ---
 
 const SAVE_TYPES = [{ description: 'Tag registry config', accept: { 'application/x-yaml': ['.yml', '.yaml'] } }];

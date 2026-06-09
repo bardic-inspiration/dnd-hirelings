@@ -3,7 +3,18 @@ import Modal from './Modal.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
 import { parseTag } from '../../logic/tags.js';
-import { tagRegistrySave, tagRegistryLoad, flattenRegistry } from '../../logic/tagRegistry.js';
+import { tagRegistrySave, tagRegistryLoad, flattenRegistry, tagsInUse, countTagsInUse } from '../../logic/tagRegistry.js';
+
+// Walks a count tree (from countTagsInUse) down a segment path to its node, or
+// undefined if the path isn't present.
+function nodeAt(counts, segments) {
+  let cur = counts;
+  for (const seg of segments) {
+    cur = cur.children?.[seg];
+    if (!cur) return undefined;
+  }
+  return cur;
+}
 
 // Splits a draft tag into lowercased path parts (modifier + value stripped). Keeps
 // a trailing '' when the draft ends on a ':' delimiter, so the last element is
@@ -29,6 +40,12 @@ export default function TagRegistryModal() {
   // Flatten to ordered visible rows; line numbers reflect full-document position
   // (they skip over collapsed subtrees), matching a code editor's folding gutter.
   const rows = useMemo(() => flattenRegistry(registry, expanded), [registry, expanded]);
+
+  // Live usage counts mirroring the registry; recomputes on any tag-bearing change.
+  const counts = useMemo(
+    () => countTagsInUse(registry, tagsInUse(state)),
+    [registry, state.agents, state.tasks, state.inventory]
+  );
 
   // Ghost suggestion: an existing key from the CURRENT tier (the node at the path
   // before the last delimiter) that starts with the in-progress segment. Returns
@@ -108,7 +125,10 @@ export default function TagRegistryModal() {
     <Modal onClose={closeTagRegistry} overlayClass="config-overlay">
       <div className="library-panel" onClick={e => e.stopPropagation()}>
         <div className="tagreg-top">
-          <span className="library-heading">TAG REGISTRY</span>
+          <span className="tagreg-head">
+            <span className="library-heading">TAG REGISTRY</span>
+            {counts.total > 0 && <span className="tagreg-total">{counts.total}</span>}
+          </span>
           <div className="tagreg-top-actions">
             <button className="ctrl" onClick={handleSave}>SAVE</button>
             <button className="ctrl" onClick={() => fileInputRef.current?.click()}>LOAD</button>
@@ -127,6 +147,8 @@ export default function TagRegistryModal() {
             ? <div className="empty">REGISTRY EMPTY</div>
             : rows.map(row => {
               const n = matchLen(row.key);
+              const cnode = nodeAt(counts, row.segments);
+              const count = cnode ? (row.hasChildren && !row.isOpen ? cnode.total : cnode.count) : 0;
               return (
               <div className="tagreg-row" key={row.pathStr}>
                 <span className="tagreg-ln">{row.lineNo}</span>
@@ -149,6 +171,7 @@ export default function TagRegistryModal() {
                   {row.key.slice(n)}
                   <span className="tagreg-colon">:</span>
                 </span>
+                {count > 0 && <span className="tagreg-count">{count}</span>}
                 <span className="tagreg-x" title="Delete from registry" onClick={() => handleDelete(row.segments)}>×</span>
               </div>
               );

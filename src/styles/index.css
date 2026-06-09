@@ -22,6 +22,7 @@
   --highlight:    #7eb5f5;
   --highlight-bg: rgba(126,181,245,0.09);
   --warn:         #e84040;
+  --accent:       #d2a24e;
   --bg-image:     none;
 
   --line:      1px;
@@ -1429,6 +1430,9 @@ select.tag-builder-field {
   justify-content: space-between;
 }
 .tagreg-top-actions { display: flex; gap: 8px; }
+.tagreg-head { display: flex; align-items: baseline; gap: 8px; }
+/* Grand total of all in-use tags, beside the heading. */
+.tagreg-total { font-size: var(--fs-sm); font-weight: 700; color: var(--accent); }
 
 /* Tree pane mirrors the library list's inset/scroll and the standard 60vh height. */
 /* Code-editor-style tree: line-number gutter, fold margin with nested guide lines,
@@ -1550,6 +1554,15 @@ select.tag-builder-field {
 }
 .tagreg-colon { color: var(--dim); }
 .tagreg-match { color: var(--highlight); }
+
+/* Usage counts: accent-colored, distinct from the blue highlight and red delete. */
+.tagreg-count {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--accent);
+}
 
 .tagreg-x {
   flex: 0 0 auto;
