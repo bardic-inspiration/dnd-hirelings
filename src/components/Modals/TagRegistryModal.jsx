@@ -3,7 +3,30 @@ import Modal from './Modal.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
 import { parseTag } from '../../logic/tags.js';
-import { tagRegistrySave, tagRegistryLoad, flattenRegistry } from '../../logic/tagRegistry.js';
+import { tagRegistrySave, tagRegistryLoad, flattenRegistry, tagsInUse, countTagsInUse } from '../../logic/tagRegistry.js';
+
+// Walks a count tree (from countTagsInUse) down a segment path to its node, or
+// undefined if the path isn't present.
+function nodeAt(counts, segments) {
+  let cur = counts;
+  for (const seg of segments) {
+    cur = cur.children?.[seg];
+    if (!cur) return undefined;
+  }
+  return cur;
+}
+
+// Splits a draft tag into lowercased path parts (modifier + value stripped). Keeps
+// a trailing '' when the draft ends on a ':' delimiter, so the last element is
+// always the in-progress segment (what the user is currently typing).
+function draftParts(draft) {
+  let s = draft;
+  const comma = s.indexOf(',');
+  if (comma >= 0) s = s.slice(comma + 1);      // drop modifier prefix
+  const eq = s.indexOf('=');
+  if (eq >= 0) s = s.slice(0, eq);             // drop value
+  return s.split(':').map(p => p.trim().toLowerCase());
+}
 
 export default function TagRegistryModal() {
   const { closeTagRegistry } = useUI();
@@ -17,6 +40,45 @@ export default function TagRegistryModal() {
   // Flatten to ordered visible rows; line numbers reflect full-document position
   // (they skip over collapsed subtrees), matching a code editor's folding gutter.
   const rows = useMemo(() => flattenRegistry(registry, expanded), [registry, expanded]);
+
+  // Live usage counts mirroring the registry; recomputes on any tag-bearing change.
+  const counts = useMemo(
+    () => countTagsInUse(registry, tagsInUse(state)),
+    [registry, state.agents, state.tasks, state.inventory]
+  );
+
+  // Ghost suggestion: an existing key from the CURRENT tier (the node at the path
+  // before the last delimiter) that starts with the in-progress segment. Returns
+  // only the remaining suffix to render after the typed text.
+  const suggestion = useMemo(() => {
+    if (draft.includes('=')) return '';
+    const parts = draftParts(draft);
+    const inProgress = parts[parts.length - 1];
+    if (!inProgress) return '';
+    let node = registry;
+    for (const seg of parts.slice(0, -1)) {
+      node = node && typeof node === 'object' ? node[seg] : undefined;
+      if (!node) return '';
+    }
+    const match = Object.keys(node).sort().find(k => k.startsWith(inProgress) && k !== inProgress);
+    return match ? match.slice(inProgress.length) : '';
+  }, [draft, registry]);
+
+  // Length of the leading substring of a tree key that matches the current input:
+  // a complete segment matches the whole key, the in-progress segment matches as a
+  // prefix. 0 = no match. Only this portion is highlighted in the tree.
+  const matchLen = useMemo(() => {
+    const parts = draftParts(draft);
+    const inProgress = parts[parts.length - 1];
+    const complete = new Set(parts.slice(0, -1).filter(Boolean));
+    if (!complete.size && !inProgress) return () => 0;
+    return (key) => {
+      const k = key.toLowerCase();
+      if (complete.has(k)) return key.length;
+      if (inProgress && k.startsWith(inProgress)) return inProgress.length;
+      return 0;
+    };
+  }, [draft]);
 
   const toggle = (pathStr) => setExpanded(prev => {
     const next = new Set(prev);
@@ -52,13 +114,21 @@ export default function TagRegistryModal() {
     e.target.value = '';
   };
 
-  const onKeyDown = (e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } };
+  const onKeyDown = (e) => {
+    // Tab (or Right arrow at the line end) accepts the ghost suggestion.
+    const accept = e.key === 'Tab' || (e.key === 'ArrowRight' && e.target.selectionStart === draft.length);
+    if (accept && suggestion) { e.preventDefault(); setDraft(draft + suggestion); return; }
+    if (e.key === 'Enter') { e.preventDefault(); handleAdd(); }
+  };
 
   return (
     <Modal onClose={closeTagRegistry} overlayClass="config-overlay">
       <div className="library-panel" onClick={e => e.stopPropagation()}>
         <div className="tagreg-top">
-          <span className="library-heading">TAG REGISTRY</span>
+          <span className="tagreg-head">
+            <span className="library-heading">TAG REGISTRY</span>
+            {counts.total > 0 && <span className="tagreg-total">{counts.total}</span>}
+          </span>
           <div className="tagreg-top-actions">
             <button className="ctrl" onClick={handleSave}>SAVE</button>
             <button className="ctrl" onClick={() => fileInputRef.current?.click()}>LOAD</button>
@@ -75,7 +145,11 @@ export default function TagRegistryModal() {
         <div className="tagreg-tree">
           {rows.length === 0
             ? <div className="empty">REGISTRY EMPTY</div>
-            : rows.map(row => (
+            : rows.map(row => {
+              const n = matchLen(row.key);
+              const cnode = nodeAt(counts, row.segments);
+              const count = cnode ? (row.hasChildren && !row.isOpen ? cnode.total : cnode.count) : 0;
+              return (
               <div className="tagreg-row" key={row.pathStr}>
                 <span className="tagreg-ln">{row.lineNo}</span>
                 {row.ancestorIsLast.map((isLast, k) => (
@@ -92,24 +166,34 @@ export default function TagRegistryModal() {
                 ) : (
                   <span className={`tagreg-tick${row.isLast ? ' last' : ''}`} />
                 )}
-                <span className="tagreg-key">{row.key}<span className="tagreg-colon">:</span></span>
+                <span className="tagreg-key">
+                  {n > 0 && <span className="tagreg-match">{row.key.slice(0, n)}</span>}
+                  {row.key.slice(n)}
+                  <span className="tagreg-colon">:</span>
+                </span>
+                {count > 0 && <span className="tagreg-count">{count}</span>}
                 <span className="tagreg-x" title="Delete from registry" onClick={() => handleDelete(row.segments)}>×</span>
               </div>
-            ))}
+              );
+            })}
         </div>
 
         <div className="tagreg-builder">
-          <input
-            className="portraits-search-input"
-            type="text"
-            placeholder="BUILD A TAG   e.g.   item:weapon:martial"
-            value={draft}
-            spellCheck={false}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-            autoFocus
-          />
-          <button className="ctrl" onClick={handleAdd}>ADD</button>
+          <div className="tagreg-input-wrap">
+            {suggestion && (
+              <div className="tagreg-ghost" aria-hidden="true"><span className="tagreg-ghost-typed">{draft}</span>{suggestion}</div>
+            )}
+            <input
+              className="tagreg-input"
+              type="text"
+              placeholder="BUILD A TAG   e.g.   item:weapon:martial"
+              value={draft}
+              spellCheck={false}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={onKeyDown}
+              autoFocus
+            />
+          </div>
         </div>
       </div>
     </Modal>

@@ -22,6 +22,7 @@ export function applyPalette(name) {
   root.style.setProperty('--highlight',    p.highlight);
   root.style.setProperty('--highlight-bg', p.highlightBg);
   root.style.setProperty('--warn',         p.warn || '#e84040');
+  root.style.setProperty('--accent',       p.accent || '#d2a24e');
 
   root.style.setProperty('--bg-image', p.backgroundImage ? `url('${p.backgroundImage}')` : 'none');
   localStorage.setItem(PALETTE_KEY, name);

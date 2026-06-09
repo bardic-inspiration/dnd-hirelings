@@ -22,6 +22,7 @@
   --highlight:    #7eb5f5;
   --highlight-bg: rgba(126,181,245,0.09);
   --warn:         #e84040;
+  --accent:       #d2a24e;
   --bg-image:     none;
 
   --line:      1px;
@@ -1429,6 +1430,9 @@ select.tag-builder-field {
   justify-content: space-between;
 }
 .tagreg-top-actions { display: flex; gap: 8px; }
+.tagreg-head { display: flex; align-items: baseline; gap: 8px; }
+/* Grand total of all in-use tags, beside the heading. */
+.tagreg-total { font-size: var(--fs-sm); font-weight: 700; color: var(--accent); }
 
 /* Tree pane mirrors the library list's inset/scroll and the standard 60vh height. */
 /* Code-editor-style tree: line-number gutter, fold margin with nested guide lines,
@@ -1549,6 +1553,16 @@ select.tag-builder-field {
   color: var(--fg);
 }
 .tagreg-colon { color: var(--dim); }
+.tagreg-match { color: var(--highlight); }
+
+/* Usage counts: accent-colored, distinct from the blue highlight and red delete. */
+.tagreg-count {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--accent);
+}
 
 .tagreg-x {
   flex: 0 0 auto;
@@ -1567,11 +1581,52 @@ select.tag-builder-field {
 .tagreg-row:hover .tagreg-x { opacity: 1; }
 .tagreg-x:hover { color: var(--warn); }
 
-.tagreg-builder {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.tagreg-builder { display: flex; }
+
+.tagreg-input-wrap {
+  position: relative;
+  flex: 1;
+  background: var(--dimmer);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.1s;
 }
+.tagreg-input-wrap:focus-within { border-color: var(--highlight); }
+
+/* Input and ghost overlay share identical metrics so the suggestion suffix lines
+   up exactly after the typed text; monospace keeps per-character width stable. */
+.tagreg-input,
+.tagreg-ghost {
+  width: 100%;
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+.tagreg-input {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--fg);
+}
+.tagreg-input::placeholder { color: var(--dim); letter-spacing: 0.08em; }
+
+/* Ghost suggestion sits behind the transparent input: the typed portion is
+   invisible (reserves width) and the suffix shows in the dim/gray color. */
+.tagreg-ghost {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--dim);
+}
+.tagreg-ghost-typed { color: transparent; }
 
 /* Tasks have no icon: a filled square placeholder stands in for a future map. */
 .task-preview-frame {
