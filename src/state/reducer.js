@@ -2,7 +2,19 @@ import { uid, now } from '../utils.js';
 import { normalizeState, DEFAULT_STATE, DEFAULT_RESULTS } from './storage.js';
 import { applyTaskComplete } from '../logic/tasks.js';
 import { mergeAttribute, buildTag, parseTag } from '../logic/tags.js';
+import { addTagToRegistry, addPath, deleteNode, renameNode } from '../logic/tagRegistry.js';
 import { collectAllHeldItems, mergeItemQty } from '../logic/agents.js';
+
+// Registers any newly authored tag structures into the live tag registry. Returns
+// the same state reference when every path already exists, so it never forces an
+// extra render. Removing a tag in game never prunes the registry (only the Tag
+// Registry manager does); dynamic item-instance tags (equip/give) are intentionally
+// not registered to avoid polluting the skeleton with per-item names.
+const registerTags = (state, ...tags) => {
+  let reg = state.tagRegistry;
+  for (const t of tags) reg = addTagToRegistry(reg, t);
+  return reg === state.tagRegistry ? state : { ...state, tagRegistry: reg };
+};
 
 const TASK_TAG_FIELDS = new Set(['requirements', 'work', 'attributes']);
 
@@ -113,13 +125,13 @@ export function reducer(state, action) {
     }
 
     case 'AGENT_ADD_ATTRIBUTE':
-      return {
+      return registerTags({
         ...state,
         agents: state.agents.map(a => a.id !== action.id ? a : {
           ...a,
           attributes: mergeAttribute(a.attributes, action.tag),
         }),
-      };
+      }, action.tag);
 
     case 'AGENT_REMOVE_ATTRIBUTE':
       return {
@@ -131,6 +143,8 @@ export function reducer(state, action) {
       };
 
     case 'AGENT_ADD_ACTIVITY':
+      // Activities are task assignments (`task:<id>`) — dynamic instance refs, not
+      // authored structure, so they are not registered into the library.
       return {
         ...state,
         agents: state.agents.map(a => a.id !== action.id ? a : {
@@ -260,10 +274,10 @@ export function reducer(state, action) {
     case 'TASK_ADD_TAG': {
       const { field } = action;
       if (!TASK_TAG_FIELDS.has(field)) return state;
-      return {
+      return registerTags({
         ...state,
         tasks: state.tasks.map(t => t.id !== action.id ? t : { ...t, [field]: [...(t[field] || []), action.tag] }),
-      };
+      }, action.tag);
     }
 
     case 'TASK_REMOVE_TAG': {
@@ -305,13 +319,13 @@ export function reducer(state, action) {
       return { ...state, inventory: state.inventory.filter(item => item.id !== action.id) };
 
     case 'INVENTORY_ADD_ATTRIBUTE':
-      return {
+      return registerTags({
         ...state,
         inventory: state.inventory.map(item => item.id !== action.id ? item : {
           ...item,
           attributes: mergeAttribute(item.attributes, action.tag),
         }),
-      };
+      }, action.tag);
 
     case 'INVENTORY_REMOVE_ATTRIBUTE':
       return {
@@ -321,6 +335,19 @@ export function reducer(state, action) {
           attributes: item.attributes.filter((_, i) => i !== action.index),
         }),
       };
+
+    /* ---------- Tag Registry ---------- */
+    case 'TAGREG_ADD_PATH':
+      return { ...state, tagRegistry: addPath(state.tagRegistry, action.segments) };
+
+    case 'TAGREG_DELETE_NODE':
+      return { ...state, tagRegistry: deleteNode(state.tagRegistry, action.segments) };
+
+    case 'TAGREG_RENAME_NODE':
+      return { ...state, tagRegistry: renameNode(state.tagRegistry, action.segments, action.name) };
+
+    case 'TAGREG_REPLACE':
+      return { ...state, tagRegistry: action.registry };
 
     /* ---------- Bulk ---------- */
     case 'APPLY_TICK':

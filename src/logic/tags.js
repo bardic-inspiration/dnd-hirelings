@@ -6,60 +6,23 @@ export const MODIFIER_REGISTRY = {
   bonus: { prefix: 'Bonus', description: 'Adds value to matching agent tag when equipped' },
 };
 
-// Content path namespace. Each node is { label, ...childNodes }.
-// 'label' is display metadata; every other key is a child node — mirrors YAML indentation.
-// Non-exhaustive: tags outside this registry are valid, displayed with raw segment text.
+// Content path namespace — the keys-only skeleton seeded into a fresh tag library
+// (see logic/tagRegistry.js). Every key is a child node; a leaf is {}. Mirrors YAML
+// indentation. Non-exhaustive: tags outside it are valid; display derives labels
+// from the segments themselves, so the live library is the sole structure source.
 export const TAG_REGISTRY = {
-  task:  { label: 'Task' },
-  ability: {
-    label: 'Ability',
-    str: { label: 'STR' },
-    dex: { label: 'DEX' },
-    con: { label: 'CON' },
-    int: { label: 'INT' },
-    wis: { label: 'WIS' },
-    cha: { label: 'CHA' },
-  },
+  task: {},
+  ability: { str: {}, dex: {}, con: {}, int: {}, wis: {}, cha: {} },
   skill: {
-    label: 'Skill',
-    acrobatics:     { label: 'Acrobatics' },
-    animalhandling: { label: 'Animal Handling' },
-    arcana:         { label: 'Arcana' },
-    athletics:      { label: 'Athletics' },
-    deception:      { label: 'Deception' },
-    history:        { label: 'History' },
-    insight:        { label: 'Insight' },
-    intimidation:   { label: 'Intimidation' },
-    investigation:  { label: 'Investigation' },
-    medicine:       { label: 'Medicine' },
-    nature:         { label: 'Nature' },
-    perception:     { label: 'Perception' },
-    performance:    { label: 'Performance' },
-    persuasion:     { label: 'Persuasion' },
-    religion:       { label: 'Religion' },
-    sleightofhand:  { label: 'Sleight of Hand' },
-    stealth:        { label: 'Stealth' },
-    survival:       { label: 'Survival' },
+    acrobatics: {}, animalhandling: {}, arcana: {}, athletics: {},
+    deception: {}, history: {}, insight: {}, intimidation: {},
+    investigation: {}, medicine: {}, nature: {}, perception: {},
+    performance: {}, persuasion: {}, religion: {}, sleightofhand: {},
+    stealth: {}, survival: {},
   },
-  tool:  { label: 'Tool' },
-  trait: { label: 'Trait' },
-  class: { label: 'Class' },
-  race:  { label: 'Race' },
-  level: { label: 'Level' },
-  item:  { label: 'Item' },
-  work: {
-    label: 'Work',
-    skill: { label: 'Work: Skill' },
-  },
-  equip: {
-    label: 'Equipped',
-    weapon:  { label: 'Weapon' },
-    armor:   { label: 'Armor' },
-    offhand: { label: 'Off Hand' },
-    ring:    { label: 'Ring' },
-    head:    { label: 'Head' },
-    feet:    { label: 'Feet' },
-  },
+  tool: {}, trait: {}, class: {}, race: {}, level: {}, item: {},
+  work: { skill: {} },
+  equip: { weapon: {}, armor: {}, offhand: {}, ring: {}, head: {}, feet: {} },
 };
 
 // Parses a tag string into { modifier, segments, value }.
@@ -118,32 +81,15 @@ export function mergeAttribute(attrs, tag) {
   ];
 }
 
-// Walks TAG_REGISTRY depth-first. Returns the deepest matched node and any
-// remaining (unmatched) segments.
-function traverseRegistry(segments) {
-  let node = null;
-  let current = TAG_REGISTRY;
-  let i = 0;
-  for (; i < segments.length; i++) {
-    const child = current[segments[i].toLowerCase()];
-    if (!child || typeof child !== 'object') break;
-    node = child;
-    current = child;
-  }
-  return { node, remaining: segments.slice(i) };
-}
-
-// Returns { label, params } for display.
-// Strategy: deepest registered node label + last unregistered segment (if any).
-// Falls back to raw path string for fully unregistered tags.
+// Returns { label, params } for display, deriving the label from the tag's own
+// segments (no registry lookup). Single segment → that segment; deeper paths →
+// "first: last". Underscores/hyphens render as spaces; modifiers prefix the label.
 export function formatTagLabel(parsed) {
-  const { node, remaining } = traverseRegistry(parsed.segments);
-  let pathLabel;
-  if (node) {
-    pathLabel = node.label + (remaining.length > 0 ? `: ${remaining[remaining.length - 1]}` : '');
-  } else {
-    pathLabel = parsed.segments.join(':');
-  }
+  const pretty = (seg) => seg.replace(/[_-]/g, ' ');
+  const segs = parsed.segments;
+  const pathLabel = segs.length === 0 ? ''
+    : segs.length === 1 ? pretty(segs[0])
+    : `${pretty(segs[0])}: ${pretty(segs[segs.length - 1])}`;
   const modEntry = parsed.modifier ? MODIFIER_REGISTRY[parsed.modifier] : null;
   const modPrefix = modEntry ? modEntry.prefix : parsed.modifier;
   const label = parsed.modifier ? `${modPrefix}: ${pathLabel}` : pathLabel;
