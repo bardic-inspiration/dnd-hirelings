@@ -47,6 +47,8 @@ Ephemeral UI state. Not persisted. All fields below are part of the returned obj
 | `openTagRegistry` | `() => void` | Open tag registry modal |
 | `closeTagRegistry` | `() => void` | Close tag registry modal |
 
+> ⚠️ **Naming:** `UIContext` modal state uses two different open/close idioms. `showConfig` is a plain boolean; `tagBuilderProps`, `portraitsProps`, `itemIconsProps`, `libraryProps`, and `tagRegistryProps` are nullable objects (non-null = open). The boolean/nullable-object split requires callers to know which pattern each modal uses. Standardize: either all nullable-object (props travel with the open signal, null = closed) or all boolean `show*` with separate `*Props` state.
+
 ### `useAssets()` → `{ registerAssets, isReady }`
 
 Global asset load gate. Used by `useRegisterAssets`.
@@ -84,6 +86,8 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 | `AGENT_RETURN_ITEM` | `{ id, itemName: string }` | Move all qty of item from agent's bag back to inventory |
 | `EQUIP_ITEM` | `{ id, itemName: string, slot: string }` | Move item from bag to equipped slot |
 | `UNEQUIP_ITEM` | `{ id, slot: string, itemName: string }` | Move item from equipped slot back to bag |
+
+> ⚠️ **Naming:** `EQUIP_ITEM` and `UNEQUIP_ITEM` operate on agents (they mutate `agent.activities`) but are missing the `AGENT_` prefix that every other agent action carries. They should be `AGENT_EQUIP_ITEM` / `AGENT_UNEQUIP_ITEM` to make their scope clear from the action type alone.
 
 ### Tasks
 
@@ -139,6 +143,8 @@ mergeAttribute(attrs: string[], tag: string): string[]
 formatTagLabel(parsed: ParsedTag): { label: string, params: string }
 ```
 
+> ⚠️ **Naming:** The `parseTag` parameter is named `s` — a single letter with no type signal. `tagString` or `rawTag` would be self-documenting, especially since this function is the codebase's primary entry point for tag handling. Similarly, internal loop variables throughout `tags.js` use `s` for raw string and `p` for the parsed result; both should be more descriptive.
+
 ### `src/logic/agents.js`
 
 ```js
@@ -183,6 +189,8 @@ computeDynamicAttributes(agent: Agent, inventory?: InventoryItem[]): {
   proficiency: number, ac: number, hp: number, hp_max: number
 }
 ```
+
+> ⚠️ **Naming:** The return object mixes conventions: `xpProgress`, `proficiency`, and `ac` are camelCase, but `hp_max` is snake_case. Should be `hpMax` to match the rest of the object and the surrounding codebase style.
 
 ### `src/logic/time.js`
 
@@ -335,3 +343,7 @@ interface InventoryItem {
 
 type TagRegistry = { [key: string]: TagRegistry }; // recursive keys-only tree
 ```
+
+> ⚠️ **Naming:** `qty` is an abbreviation that appears on `InventoryItem`, `Task.results.items`, and `Agent` activity tags. It is used consistently, but `quantity` is the ecosystem standard for inventory fields and would remove the need for a mental mapping. Since it's encoded in localStorage, renaming requires a migration in `normalizeState`.
+
+> ⚠️ **Naming:** `session.timeStep` is typed as `string` even though it holds a numeric value (days per tick). The string type exists to preserve user input before parsing, but it leaks into the state schema and all consumers must call `parseFloat` on it. Either store it as `number` and handle the input formatting in the component, or rename it `timeStepInput` to signal that it's a raw input buffer rather than a computed value.

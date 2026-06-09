@@ -27,6 +27,15 @@ All persistent state is stored in `localStorage` under the keys below.
 
 > ⚠️ **Needs clarification:** The preset storage keys (`-v1`) and the game state key (`-v3`) use different versioning schemes. If either format changes in the future, migration logic will need to be added to `storage.js` (game state) or `usePresets.js` (presets).
 
+> ⚠️ **Naming:** The two constants `STORAGE_KEY` and `PALETTE_KEY` are defined in `storage.js`, but the three preset keys are constructed dynamically inside `src/constants/libraries.jsx` as `storageKey` fields on each library config object. There is no single place to audit all localStorage keys the app uses. Consider consolidating into a `STORAGE_KEYS` object in `storage.js`:
+> ```js
+> export const STORAGE_KEYS = {
+>   STATE:   'dnd-hirelings-state-v3',
+>   PALETTE: 'dnd-hirelings-palette',
+>   PRESETS: (type) => `dnd-hirelings-presets-${type}-v1`,
+> };
+> ``` If either format changes in the future, migration logic will need to be added to `storage.js` (game state) or `usePresets.js` (presets).
+
 ## Scripts
 
 ```bash

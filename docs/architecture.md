@@ -91,6 +91,18 @@ The library modal merges two preset pools:
 
 Editing a standard preset implicitly forks it into the user pool. `usePresets` in `src/hooks/usePresets.js` manages this; mutation functions guard that only `source === 'user'` entries are ever written back.
 
+### CSS Class Naming
+
+Classes follow a loose kebab-case convention but mix two structural patterns without a declared rule:
+
+**Flat compound names** (most common): `.agent-card`, `.task-card`, `.item-row`, `.tag-list` — parent and child share a prefix but no separator signals the relationship.
+
+**Implicit BEM-like hierarchy**: `.vital-bar-fill--hp`, `.vital-bar-fill--xp`, `.work-item-bar-fill` — double hyphens appear for some modifiers but not others; double underscores for sub-elements are absent.
+
+**Bare modifier classes**: `.active`, `.expanded`, `.selected`, `.depleted`, `.empty-state` — applied alongside block classes but not namespaced to a block, so their meaning depends on context.
+
+> ⚠️ **Naming:** The stylesheet should declare one pattern and follow it. Flat compound names (`.agent-card-name`, `.task-card-header`) are simpler and already dominant — formalizing that choice would mean removing the isolated `--modifier` suffixes and replacing bare state classes with namespaced ones (`.agent-card--active`, `.task-card--expanded`).
+
 ### Virtual Asset Manifests
 
 Vite's build step runs two custom plugins (`imageManifestPlugin` in `vite.config.js`) that scan `public/assets/portraits/` and `public/assets/items/` at build time and expose the file lists as virtual modules (`virtual:portrait-manifest`, `virtual:item-manifest`). In dev, file-system watches trigger hot-reload when images are added or removed. This means the portrait and item pickers require no manual manifest maintenance.
