@@ -47,16 +47,19 @@ export default function TagRegistryModal() {
     return match ? match.slice(inProgress.length) : '';
   }, [draft, registry]);
 
-  // Predicate: does a tree key match the current input? Complete segments match
-  // exactly; the in-progress (last) segment matches as a prefix.
-  const isMatch = useMemo(() => {
+  // Length of the leading substring of a tree key that matches the current input:
+  // a complete segment matches the whole key, the in-progress segment matches as a
+  // prefix. 0 = no match. Only this portion is highlighted in the tree.
+  const matchLen = useMemo(() => {
     const parts = draftParts(draft);
     const inProgress = parts[parts.length - 1];
     const complete = new Set(parts.slice(0, -1).filter(Boolean));
-    if (!complete.size && !inProgress) return () => false;
+    if (!complete.size && !inProgress) return () => 0;
     return (key) => {
       const k = key.toLowerCase();
-      return complete.has(k) || (!!inProgress && k.startsWith(inProgress));
+      if (complete.has(k)) return key.length;
+      if (inProgress && k.startsWith(inProgress)) return inProgress.length;
+      return 0;
     };
   }, [draft]);
 
@@ -122,7 +125,9 @@ export default function TagRegistryModal() {
         <div className="tagreg-tree">
           {rows.length === 0
             ? <div className="empty">REGISTRY EMPTY</div>
-            : rows.map(row => (
+            : rows.map(row => {
+              const n = matchLen(row.key);
+              return (
               <div className="tagreg-row" key={row.pathStr}>
                 <span className="tagreg-ln">{row.lineNo}</span>
                 {row.ancestorIsLast.map((isLast, k) => (
@@ -139,10 +144,15 @@ export default function TagRegistryModal() {
                 ) : (
                   <span className={`tagreg-tick${row.isLast ? ' last' : ''}`} />
                 )}
-                <span className={`tagreg-key${isMatch(row.key) ? ' match' : ''}`}>{row.key}<span className="tagreg-colon">:</span></span>
+                <span className="tagreg-key">
+                  {n > 0 && <span className="tagreg-match">{row.key.slice(0, n)}</span>}
+                  {row.key.slice(n)}
+                  <span className="tagreg-colon">:</span>
+                </span>
                 <span className="tagreg-x" title="Delete from registry" onClick={() => handleDelete(row.segments)}>×</span>
               </div>
-            ))}
+              );
+            })}
         </div>
 
         <div className="tagreg-builder">

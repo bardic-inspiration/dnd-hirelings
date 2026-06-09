@@ -1549,7 +1549,7 @@ select.tag-builder-field {
   color: var(--fg);
 }
 .tagreg-colon { color: var(--dim); }
-.tagreg-key.match { color: var(--highlight); }
+.tagreg-match { color: var(--highlight); }
 
 .tagreg-x {
   flex: 0 0 auto;
