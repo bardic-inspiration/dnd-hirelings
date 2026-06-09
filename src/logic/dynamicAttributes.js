@@ -27,11 +27,24 @@ function xpForLevel(lvl) {
   return 125 * ((2 * lvl - 1) ** 2 - 1);
 }
 
-// Pure computation of all dynamic attributes from an agent object.
-// agent.attributes  — tag strings (ability:str=14, class:fighter, …)
-// agent.xp          — total accumulated XP (number, default 0)
-// agent.hp          — current HP override (number | null; null = full)
-// inventory         — full inventory array; used to resolve bonus,* tags on equipped items
+/**
+ * Derives all computed stats for an agent from their raw data.
+ *
+ * Applies equipment bonuses via `getEffectiveAttributes` before computing stats,
+ * so equipped items that grant ability bonuses are reflected in AC, HP, etc.
+ *
+ * Formulas:
+ * - Level: `floor(0.5 * (1 + sqrt(1 + xp / 125)))`, min 1
+ * - XP per level N: `125 * ((2N - 1)² - 1)`
+ * - AC: `10 + floor((DEX - 10) / 2)`
+ * - HP max: `10 + (5 + classBonus + CON_mod) * level` (min 1)
+ *   - classBonus: −1 sorcerer/wizard, +1 fighter/paladin/ranger, +2 barbarian, 0 otherwise
+ * - Proficiency: `2 + floor((level - 1) / 4)`
+ *
+ * @param {Agent} agent - `agent.hp === null` means "at full health"
+ * @param {InventoryItem[]} [inventory] - Used to resolve `bonus,*` tags on equipped items
+ * @returns {{ xp: number, level: number, xpProgress: number, proficiency: number, ac: number, hp: number, hp_max: number }}
+ */
 export function computeDynamicAttributes(agent, inventory = []) {
   const attrs = getEffectiveAttributes(agent.attributes ?? [], agent.activities ?? [], inventory);
   const xp    = agent.xp ?? 0;

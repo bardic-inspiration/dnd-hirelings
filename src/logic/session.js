@@ -3,6 +3,15 @@
 
 const SAVE_TYPES = [{ description: 'Hireling session', accept: { 'application/json': ['.json'] } }];
 
+/**
+ * Serializes the full game state to a JSON file via the native Save As dialog
+ * (File System Access API). Falls back to a programmatic `<a>.download` on
+ * browsers that don't support `showSaveFilePicker`. Silently no-ops if the user
+ * cancels the dialog (AbortError).
+ *
+ * @param {GameState} state
+ * @returns {Promise<void>}
+ */
 export async function saveStateToFile(state) {
   const json = JSON.stringify(state, null, 2);
   const suggestedName = `hirelings-${state.session?.id || 'export'}.json`;
@@ -30,6 +39,14 @@ export async function saveStateToFile(state) {
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
 }
 
+/**
+ * Reads and validates a JSON session file. Rejects if the JSON is malformed or
+ * if the root object lacks `session`, `agents`, or `tasks` fields.
+ * The caller must pass the result through `normalizeState` before dispatching.
+ *
+ * @param {File} file
+ * @returns {Promise<object>} Raw (un-normalized) game state object
+ */
 export function loadStateFromFile(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader();

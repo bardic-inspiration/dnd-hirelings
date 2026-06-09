@@ -4,9 +4,18 @@ const HOLD_MS = 200;
 const DRAG_THRESHOLD_PX = 4;
 const PX_PER_UNIT = 12;
 
-// Distinguishes a quick click from a press-and-hold drag.
-// Quick click (released < HOLD_MS, no movement): fires onClick.
-// Hold past HOLD_MS, then drag vertically: fires onAdjust(delta) per PX_PER_UNIT pixels.
+/**
+ * Distinguishes a quick click from a sustained press-and-drag gesture on the same element.
+ *
+ * - **Click**: pointer up before `HOLD_MS` (200ms) and no movement > `DRAG_THRESHOLD_PX` (4px) → fires `onClick()`
+ * - **Drag**: hold past `HOLD_MS`, then drag vertically → fires `onAdjust(delta)` per `PX_PER_UNIT` (12px) dragged
+ *
+ * Drag delta is relative (change since last event), so callers accumulate it themselves.
+ * Upward drag yields positive delta; downward is negative.
+ *
+ * @param {{ onClick?: () => void, onAdjust?: (delta: number) => void }} options
+ * @returns {{ holding: boolean, onPointerDown: PointerEventHandler }}
+ */
 export function usePressHoldDrag({ onClick, onAdjust }) {
   const [holding, setHolding] = useState(false);
   const cbRef     = useRef({ onClick, onAdjust });

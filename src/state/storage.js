@@ -74,7 +74,19 @@ function migrateTag(t) {
   return t;
 }
 
-// Normalizes a raw state object (e.g. from localStorage) to ensure all required fields are present and have valid values
+/**
+ * Normalizes a raw state object to the current schema.
+ *
+ * Handles:
+ * - Missing fields (filled from `DEFAULT_STATE`)
+ * - Legacy tag formats (`#tag` → `tag`, `modifier:path` → `modifier,path`)
+ * - `tagLibrary` → `tagRegistry` field rename
+ * - Corrupt or missing `tagRegistry` (falls back to `seedTagRegistry()`)
+ * - Out-of-range `timeStep` values (clamped)
+ *
+ * @param {object} raw - Potentially stale or partial state from localStorage or a file
+ * @returns {GameState}
+ */
 export function normalizeState(raw) {
   const state = { ...DEFAULT_STATE, ...raw };
   state.agents = (raw.agents || []).map(a => ({
@@ -126,7 +138,12 @@ export function normalizeState(raw) {
   return state;
 }
 
-// Loads state from localStorage, or returns default state if not found or on error
+/**
+ * Loads and normalizes state from localStorage.
+ * Returns `DEFAULT_STATE` on first run or if the stored value is corrupt.
+ *
+ * @returns {GameState}
+ */
 export function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -137,7 +154,12 @@ export function loadState() {
   }
 }
 
-// Saves the given state to localStorage as a JSON string
+/**
+ * Persists the full game state to localStorage. Called after every state change
+ * via a `useEffect` in `GameProvider`.
+ *
+ * @param {GameState} state
+ */
 export function saveState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }

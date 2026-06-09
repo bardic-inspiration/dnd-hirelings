@@ -1,8 +1,12 @@
-// Shared text-rendering helpers for search lists.
-
-// Wraps the substring of `name` matching `query` (case-insensitive) in a
-// highlight span. Returns `name` unchanged when there's no query or no match.
-// Used by the icon pickers and the library list rows.
+/**
+ * Wraps the first occurrence of `query` within `name` in a highlight-colored span.
+ * Matching is case-insensitive. Returns `name` as-is when `query` is empty or not found.
+ * Used by icon pickers and library list rows to highlight search matches.
+ *
+ * @param {string} name - Display string to search within
+ * @param {string} query - Search term
+ * @returns {string | JSX.Element}
+ */
 export function highlight(name, query) {
   if (!query) return name;
   const idx = name.toLowerCase().indexOf(query.toLowerCase());
