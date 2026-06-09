@@ -153,6 +153,40 @@ export function renameNode(registry, segments, newKey) {
   return root;
 }
 
+// --- Tree view flattening ---
+
+// Flattens the registry into an ordered list of VISIBLE rows for the editor-style
+// tree view. DFS over sorted keys. A shared counter ticks on every node — collapsed
+// or not — so line numbers reflect full-document position and skip over collapsed
+// subtrees (Notepad++ folding behavior). `expanded` is a Set of colon-joined paths.
+// Each row carries `ancestorIsLast` (one flag per ancestor level) to drive the
+// nested vertical guide lines, and `isLast` for the last-child elbow.
+export function flattenRegistry(registry, expanded) {
+  const rows = [];
+  let counter = 0;
+  const walk = (node, segments, ancestorIsLast, visible) => {
+    const keys = Object.keys(node).sort();
+    keys.forEach((key, i) => {
+      counter += 1;
+      const lineNo = counter;
+      const childPath = [...segments, key];
+      const pathStr = childPath.join(':');
+      const children = node[key];
+      const hasChildren = Object.keys(children).length > 0;
+      const isLast = i === keys.length - 1;
+      const isOpen = hasChildren && expanded.has(pathStr);
+      if (visible) {
+        rows.push({ key, segments: childPath, pathStr, depth: segments.length, hasChildren, isOpen, isLast, lineNo, ancestorIsLast });
+      }
+      // Always recurse so descendant line numbers advance the counter, even when
+      // collapsed; gate child visibility on this node being open.
+      walk(children, childPath, [...ancestorIsLast, isLast], visible && isOpen);
+    });
+  };
+  walk(registry, [], [], true);
+  return rows;
+}
+
 // --- File I/O (mirrors src/logic/session.js) ---
 
 const SAVE_TYPES = [{ description: 'Tag registry config', accept: { 'application/x-yaml': ['.yml', '.yaml'] } }];

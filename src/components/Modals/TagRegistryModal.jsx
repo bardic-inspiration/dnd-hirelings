@@ -1,38 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import Modal from './Modal.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
 import { parseTag } from '../../logic/tags.js';
-import { tagRegistrySave, tagRegistryLoad } from '../../logic/tagRegistry.js';
-
-// Recursive tree rows. Keys are sorted for stable display (mirrors the YAML dump).
-// A branch (non-empty children) gets a caret; every node has a delete ×, since the
-// registry is only ever pruned here — never by removing a tag in game. The caret
-// column is fixed-width so leaf and branch rows at the same tier align their keys.
-function TagTreeNodes({ node, path, expanded, toggle, onDelete }) {
-  return Object.keys(node).sort().map(key => {
-    const childPath = [...path, key];
-    const pathStr = childPath.join(':');
-    const children = node[key];
-    const hasChildren = Object.keys(children).length > 0;
-    const isOpen = expanded.has(pathStr);
-    return (
-      <div key={pathStr}>
-        <div className="tagreg-node" style={{ paddingLeft: `${path.length * 16 + 6}px` }}>
-          <span
-            className={`tagreg-caret${hasChildren ? '' : ' empty'}`}
-            onClick={() => hasChildren && toggle(pathStr)}
-          >{hasChildren ? (isOpen ? '▾' : '▸') : ''}</span>
-          <span className="tagreg-key">{key}</span>
-          <span className="x" title="Delete from registry" onClick={() => onDelete(childPath)}>×</span>
-        </div>
-        {hasChildren && isOpen && (
-          <TagTreeNodes node={children} path={childPath} expanded={expanded} toggle={toggle} onDelete={onDelete} />
-        )}
-      </div>
-    );
-  });
-}
+import { tagRegistrySave, tagRegistryLoad, flattenRegistry } from '../../logic/tagRegistry.js';
 
 export default function TagRegistryModal() {
   const { closeTagRegistry } = useUI();
@@ -42,6 +13,10 @@ export default function TagRegistryModal() {
   const [expanded, setExpanded] = useState(new Set());
   const [draft, setDraft] = useState('');
   const fileInputRef = useRef(null);
+
+  // Flatten to ordered visible rows; line numbers reflect full-document position
+  // (they skip over collapsed subtrees), matching a code editor's folding gutter.
+  const rows = useMemo(() => flattenRegistry(registry, expanded), [registry, expanded]);
 
   const toggle = (pathStr) => setExpanded(prev => {
     const next = new Set(prev);
@@ -98,9 +73,29 @@ export default function TagRegistryModal() {
         </div>
 
         <div className="tagreg-tree">
-          {Object.keys(registry).length === 0
+          {rows.length === 0
             ? <div className="empty">REGISTRY EMPTY</div>
-            : <TagTreeNodes node={registry} path={[]} expanded={expanded} toggle={toggle} onDelete={handleDelete} />}
+            : rows.map(row => (
+              <div className="tagreg-row" key={row.pathStr}>
+                <span className="tagreg-ln">{row.lineNo}</span>
+                {row.ancestorIsLast.map((isLast, k) => (
+                  <span key={k} className={`tagreg-guide${isLast ? '' : ' line'}`} />
+                ))}
+                {row.hasChildren ? (
+                  <button
+                    className={`tagreg-fold${row.isLast ? ' last' : ''}`}
+                    onClick={() => toggle(row.pathStr)}
+                    aria-label={row.isOpen ? 'Collapse' : 'Expand'}
+                  >
+                    <span className="tagreg-fold-box">{row.isOpen ? '−' : '+'}</span>
+                  </button>
+                ) : (
+                  <span className={`tagreg-tick${row.isLast ? ' last' : ''}`} />
+                )}
+                <span className="tagreg-key">{row.key}<span className="tagreg-colon">:</span></span>
+                <span className="tagreg-x" title="Delete from registry" onClick={() => handleDelete(row.segments)}>×</span>
+              </div>
+            ))}
         </div>
 
         <div className="tagreg-builder">
