@@ -36,10 +36,9 @@ export function checkTaskComplete(task) {
  * Applies a task's reward payload to the world state.
  *
  * Steps:
- * 1. Consumes `req,consumable` inputs from inventory (qty decremented; depletions stay in list).
- * 2. Merges `results.items` into inventory (adds to existing stack or creates new row).
- * 3. Spawns `results.agents` from their templates.
- * 4. Computes gold delta from `results.gold`.
+ * 1. Merges `results.items` into inventory (adds to existing stack or creates new row).
+ * 2. Spawns `results.agents` from their templates.
+ * 3. Computes gold delta from `results.gold`.
  *
  * Does NOT mark the task complete or unassign agents — that is `applyTaskComplete`'s job.
  *
@@ -49,19 +48,9 @@ export function checkTaskComplete(task) {
  * @returns {{ newInventory: InventoryItem[], newAgents: Agent[], bankDelta: number }}
  */
 export function applyResults(task, inventory, agents) {
-  // 1. Consume req,consumable inputs.
   let newInventory = inventory.map(i => ({ ...i }));
-  for (const req of task.requirements || []) {
-    const p = parseTag(req);
-    if (p.modifier !== 'req' || p.segments[0] !== 'consumable') continue;
-    const name = p.segments[1];
-    if (!name) continue;
-    const item = newInventory.find(i => i.name.toLowerCase() === name.toLowerCase());
-    if (item) item.qty = Math.max(0, item.qty - (parseFloat(p.value) || 1));
-  }
-  // Depleted items remain in the inventory (shown grayed); they are not pruned.
 
-  // 2. Merge result items into inventory.
+  // 1. Merge result items into inventory.
   for (const reward of task.results?.items || []) {
     const qty = Number(reward.qty) || 0;
     if (!reward.name || qty <= 0) continue;
@@ -123,13 +112,8 @@ export function applyTaskComplete(taskId, tasks, agents, inventory) {
 }
 
 /**
- * Returns a Set of task IDs whose `req,item` or `req,consumable` requirements
- * cannot be satisfied by the current inventory. Tasks are evaluated in creation
- * order so earlier tasks have priority over shared consumable pools.
- *
- * ⚠️ Known bug: the first-pass `consumable` branch references an undefined `pool`
- * variable and will throw a ReferenceError if a task has a `req,consumable` tag
- * without an `item` requirement preceding it.
+ * Returns a Set of task IDs whose `req,item` requirements cannot be satisfied
+ * by the current inventory. Tasks are evaluated in creation order.
  *
  * @param {Task[]} activeTasks - Incomplete tasks only
  * @param {InventoryItem[]} inventory
@@ -138,24 +122,9 @@ export function applyTaskComplete(taskId, tasks, agents, inventory) {
 export function computeBlockedTaskIds(activeTasks, inventory) {
   const blocked = new Set();
   for (const task of [...activeTasks].sort((a, b) => a.createdAt - b.createdAt)) {
-    let pass = true;
     for (const req of task.requirements) {
       const p = parseTag(req);
-      if (p.modifier !== 'req') continue;
-      const kind = p.segments[0];
-      const name = p.segments[1];
-      if (!name) continue;
-      if (kind === 'item') {
-        const inv = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
-        if (!inv || inv.qty < (parseFloat(p.value) || 1)) { pass = false; break; }
-      } else if (kind === 'consumable') {
-        if ((pool[name.toLowerCase()] ?? 0) < (parseFloat(p.value) || 1)) { pass = false; break; }
-      }
-    }
-    if (!pass) { blocked.add(task.id); continue; }
-    for (const req of task.requirements) {
-      const p = parseTag(req);
-      if (p.modifier !== 'req' || p.segments[0] !== 'consumable') continue;
+      if (p.modifier !== 'req' || p.segments[0] !== 'item') continue;
       const name = p.segments[1];
       if (!name) continue;
       const inv = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
