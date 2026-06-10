@@ -40,7 +40,7 @@ export function activeTaskCount(agent, tasks) {
  *
  * Forward check: every `req,*` tag on the task must be satisfied by the agent's
  * attributes + activities (value comparisons are ≥). Block tags must not match.
- * Item and consumable requirements are inventory concerns and are skipped here.
+ * Item requirements are inventory concerns and are skipped here.
  *
  * Reverse check: every `req,*` tag on the agent must be matched by a corresponding
  * requirement on the task (the agent "requires" that context).
@@ -53,8 +53,8 @@ export function validateAssignment(agent, task) {
   for (const req of task.requirements) {
     const reqP = parseTag(req);
     if (reqP.modifier !== 'req') continue;
-    // item/consumable requirements are inventory concerns, not agent-attribute concerns
-    if (reqP.segments[0] === 'item' || reqP.segments[0] === 'consumable') continue;
+    // item requirements are inventory concerns, not agent-attribute concerns
+    if (reqP.segments[0] === 'item') continue;
     const allTags = [...agent.attributes, ...agent.activities];
     const match = allTags.find(t => tagMatches(parseTag(t), { segments: reqP.segments }));
     if (!match) return false;
@@ -139,7 +139,7 @@ export function isAttributeActive(attrTag, agent, tasks) {
     for (const req of task.requirements) {
       const reqP = parseTag(req);
       if (reqP.modifier !== 'req') continue;
-      if (reqP.segments[0] === 'item' || reqP.segments[0] === 'consumable') continue;
+      if (reqP.segments[0] === 'item') continue;
       if (tagMatches(attrP, { segments: reqP.segments })) return true;
     }
   }

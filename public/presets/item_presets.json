@@ -5,7 +5,7 @@
     "qty": 1,
     "value": 25,
     "description": "Restores a measure of health when consumed.",
-    "attributes": ["#consumable:potion"]
+    "attributes": []
   },
   {
     "name": "IRON SWORD",
@@ -37,7 +37,7 @@
     "qty": 5,
     "value": 1,
     "description": "Dried trail food for a day.",
-    "attributes": ["#consumable:food"]
+    "attributes": []
   },
   {
     "name": "TORCH",
@@ -45,7 +45,7 @@
     "qty": 10,
     "value": 1,
     "description": "Burns for about an hour.",
-    "attributes": ["#consumable:light"]
+    "attributes": []
   },
   {
     "name": "SCHOLAR'S TOOLS",

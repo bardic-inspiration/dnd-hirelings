@@ -17,7 +17,6 @@ const PRESETS = {
     { label: 'Class',        prefix: 'req',   path: 'class',  hasValue: false },
     { label: 'Race',         prefix: 'req',   path: 'race',   hasValue: false },
     { label: 'Item',         prefix: 'req',   path: 'item',   hasValue: true  },
-    { label: 'Consumable',   prefix: 'req',   path: 'consumable', hasValue: true },
     { label: 'Block Trait',  prefix: 'block', path: 'trait',  hasValue: false },
     { label: 'Block Class',  prefix: 'block', path: 'class',  hasValue: false },
     { label: 'Block Race',   prefix: 'block', path: 'race',   hasValue: false },

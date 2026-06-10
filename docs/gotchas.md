@@ -94,22 +94,6 @@ Task work progress is stored in `task.workProgress` as `{ [key]: number }` where
 
 ---
 
-## `computeBlockedTaskIds` References Undefined `pool`
-
-In `src/logic/tasks.js`, the `computeBlockedTaskIds` function has a reference to a `pool` variable that is never declared. The `consumable` case in the second pass (`kind === 'consumable'`) reads `pool[name.toLowerCase()]`, which will throw a `ReferenceError` at runtime if any task has a `req,consumable` requirement.
-
-```js
-} else if (kind === 'consumable') {
-  if ((pool[name.toLowerCase()] ?? 0) < (parseFloat(p.value) || 1)) { pass = false; break; }
-}
-```
-
-The `consumable` handling in the second pass (lines 110–116) does work correctly because it re-queries the inventory directly. The first-pass `pool` lookup is the broken path.
-
-> ⚠️ **Needs clarification:** The `consumable` resource type appears half-implemented. Items tagged as consumables are deducted on task completion (`applyResults`) but the blocked-task detection in the first pass will crash if triggered.
-
----
-
 ## Item Quantity Merge on Rename
 
 When an inventory item is renamed via `INVENTORY_UPDATE_ITEM`, the reducer calls `mergeInventoryByName` to pool quantities if another item with the same (case-insensitive) name already exists. This is intentional but can surprise users — renaming "SWORD" to "DAGGER" when a "DAGGER" already exists will silently combine the two stacks.
