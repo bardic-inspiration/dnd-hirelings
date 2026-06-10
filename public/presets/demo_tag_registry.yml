@@ -1,0 +1,114 @@
+ability:
+  cha:
+  con:
+  dex:
+  int:
+  str:
+  wis:
+class:
+  artificer:
+  barbarian:
+  bard:
+  cleric:
+  druid:
+  fighter:
+  monk:
+  paladin:
+  ranger:
+  rogue:
+  sorcerer:
+  warlock:
+  wizard:
+equip:
+  armor:
+  feet:
+  head:
+  offhand:
+  ring:
+  weapon:
+item:
+  ammunition:
+  armor:
+  consumable:
+  potion:
+  reagent:
+  ring:
+  rod:
+  scroll:
+  staff:
+  trade-good:
+  treasure:
+  wand:
+  weapon:
+  wondrous:
+level:
+race:
+  dragonborn:
+  dwarf:
+  elf:
+  gnome:
+  half-elf:
+  half-orc:
+  halfling:
+  human:
+  tiefling:
+rarity:
+  common:
+  legendary:
+  rare:
+  uncommon:
+  very-rare:
+skill:
+  acrobatics:
+  alchemy:
+  animalhandling:
+  appraisal:
+  arcana:
+  athletics:
+  bow:
+  cooking:
+  deception:
+  history:
+  insight:
+  intimidation:
+  investigation:
+  lockpicking:
+  medicine:
+  nature:
+  navigation:
+  perception:
+  performance:
+  persuasion:
+  religion:
+  shield:
+  sleightofhand:
+  smithing:
+  stealth:
+  survival:
+  sword:
+task:
+tool:
+  alchemists-supplies:
+  armor:
+  gear:
+  healers-kit:
+  holy-symbol:
+  musical-instrument:
+  smiths-tools:
+  spellbook:
+  thieves-tools:
+  weapon:
+trait:
+  combat:
+  craft:
+  diplomacy:
+  dungeon:
+  foraging:
+  ritual:
+  stealth:
+  study:
+  travel:
+  urban:
+  wilderness:
+work:
+  skill:
