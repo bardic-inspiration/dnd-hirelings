@@ -52,12 +52,31 @@ function persistUserPresets(config, presets) {
   localStorage.setItem(config.storageKey, JSON.stringify(userOnly));
 }
 
+// Standard presets carry no stable id (a fresh uid is minted on every fetch), so
+// deletions are tombstoned by preset name — the same key the library searches and
+// dedupes on. A name in this set hides the matching bundled default on load.
+const tombstoneKey = (config) => `${config.storageKey}-deleted`;
+
+function loadTombstones(config) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(tombstoneKey(config)) || '[]');
+    return new Set(Array.isArray(raw) ? raw.filter(n => typeof n === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistTombstones(config, names) {
+  localStorage.setItem(tombstoneKey(config), JSON.stringify([...names]));
+}
+
 /**
  * Manages the preset library for one object type (agent, task, or item).
  *
  * Merges bundled (standard) presets fetched from `config.bundledUrl` with
  * user presets persisted in localStorage at `config.storageKey`. Standard presets
- * are read-only — editing one forks it into the user pool.
+ * are read-only — editing one forks it into the user pool. Deleting one tombstones
+ * it by name (persisted at `${storageKey}-deleted`) so it stays hidden on reload.
  *
  * Bundled presets are cached in a module-level Map after the first fetch, so
  * reopening the library modal doesn't re-fetch.
@@ -74,11 +93,16 @@ function persistUserPresets(config, presets) {
  * }}
  */
 export function usePresets(config) {
-  const [standard, setStandard] = useState([]);
-  const [user, setUser]         = useState(() => loadUserPresets(config));
-  const [ready, setReady]       = useState(false);
+  const [standard, setStandard]   = useState([]);
+  const [user, setUser]           = useState(() => loadUserPresets(config));
+  const [deleted, setDeleted]     = useState(() => loadTombstones(config));
+  const [ready, setReady]         = useState(false);
   const configRef = useRef(config);
   configRef.current = config;
+  // Ref to the live standard list so deletePreset can resolve a standard preset's
+  // name (for tombstoning) without taking `standard` as a callback dependency.
+  const standardRef = useRef(standard);
+  standardRef.current = standard;
 
   useEffect(() => {
     let live = true;
@@ -89,8 +113,14 @@ export function usePresets(config) {
       setReady(true);
     });
     setUser(loadUserPresets(config));
+    setDeleted(loadTombstones(config));
     return () => { live = false; };
   }, [config]);
+
+  // Persist tombstones whenever a standard preset is deleted (or restored).
+  useEffect(() => {
+    persistTombstones(configRef.current, deleted);
+  }, [deleted]);
 
   // Persist user presets whenever they change.
   useEffect(() => {
@@ -114,7 +144,15 @@ export function usePresets(config) {
     setUser(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
   }, []);
 
+  // Deletes a preset from either pool. User presets are dropped outright; standard
+  // (bundled default) presets have no persistent store, so they are tombstoned by
+  // name and stay hidden across reloads.
   const deletePreset = useCallback((id) => {
+    const std = standardRef.current.find(p => p.id === id);
+    if (std) {
+      setDeleted(prev => prev.has(std.name) ? prev : new Set(prev).add(std.name));
+      return;
+    }
     setUser(prev => prev.filter(p => p.id !== id));
   }, []);
 
@@ -126,7 +164,8 @@ export function usePresets(config) {
   }, []);
 
   return {
-    presets: [...standard, ...user],
+    // Hide tombstoned bundled defaults; user presets are always shown.
+    presets: [...standard.filter(p => !deleted.has(p.name)), ...user],
     ready,
     addBlank,
     addPreset,

@@ -2,29 +2,230 @@
   {
     "name": "CLEAR THE CELLAR",
     "description": "Drive the vermin from the guild cellar.",
-    "requirements": ["#req:skill:sword=1"],
-    "work": ["#work=10"],
-    "attributes": ["#trait:dungeon"]
+    "requirements": [
+      "#req:skill:sword=1"
+    ],
+    "work": [
+      "#work=10"
+    ],
+    "attributes": [
+      "#trait:dungeon",
+      "#trait:combat"
+    ]
   },
   {
     "name": "ESCORT CARAVAN",
     "description": "Guard a merchant caravan to the next town.",
-    "requirements": ["#req:skill:survival=1"],
-    "work": ["#work=20"],
-    "attributes": ["#trait:travel"]
+    "requirements": [
+      "#req:skill:survival=1"
+    ],
+    "work": [
+      "#work=20"
+    ],
+    "attributes": [
+      "#trait:travel"
+    ]
   },
   {
     "name": "GATHER HERBS",
     "description": "Collect medicinal herbs from the nearby woods.",
-    "requirements": ["#req:tool:healers-kit"],
-    "work": ["#work:skill:survival=15"],
-    "attributes": ["#trait:foraging"]
+    "requirements": [
+      "#req:tool:healers-kit"
+    ],
+    "work": [
+      "#work:skill:survival=15"
+    ],
+    "attributes": [
+      "#trait:foraging",
+      "#trait:wilderness"
+    ]
   },
   {
     "name": "RESEARCH RITUAL",
     "description": "Decipher a recovered ritual from the archives.",
-    "requirements": ["#req:skill:arcana=2"],
-    "work": ["#work:skill:arcana=30"],
-    "attributes": ["#trait:study"]
+    "requirements": [
+      "#req:skill:arcana=2"
+    ],
+    "work": [
+      "#work:skill:arcana=30"
+    ],
+    "attributes": [
+      "#trait:study",
+      "#trait:ritual"
+    ]
+  },
+  {
+    "name": "CLEAR THE CRYPT",
+    "description": "Cleanse an old crypt of its restless dead.",
+    "requirements": [
+      "#req:skill:sword=2",
+      "#req:tool:holy-symbol"
+    ],
+    "work": [
+      "#work=35"
+    ],
+    "attributes": [
+      "#trait:dungeon",
+      "#trait:combat"
+    ]
+  },
+  {
+    "name": "PICK THE VAULT",
+    "description": "Open the sealed vault beneath the counting-house.",
+    "requirements": [
+      "#req:tool:thieves-tools",
+      "#req:skill:lockpicking=2"
+    ],
+    "work": [
+      "#work:skill:lockpicking=25"
+    ],
+    "attributes": [
+      "#trait:stealth",
+      "#trait:urban"
+    ]
+  },
+  {
+    "name": "FORGE A BLADE",
+    "description": "Craft a fine sword to a patron's exacting specs.",
+    "requirements": [
+      "#req:tool:smiths-tools",
+      "#req:skill:smithing=2"
+    ],
+    "work": [
+      "#work:skill:smithing=40"
+    ],
+    "attributes": [
+      "#trait:craft"
+    ]
+  },
+  {
+    "name": "BREW POTIONS",
+    "description": "Distill a batch of healing draughts for the guild.",
+    "requirements": [
+      "#req:tool:alchemists-supplies",
+      "#req:skill:alchemy=2"
+    ],
+    "work": [
+      "#work:skill:alchemy=30"
+    ],
+    "attributes": [
+      "#trait:craft"
+    ]
+  },
+  {
+    "name": "NEGOTIATE TREATY",
+    "description": "Broker peace between two feuding houses.",
+    "requirements": [
+      "#req:skill:persuasion=2"
+    ],
+    "work": [
+      "#work:skill:persuasion=25"
+    ],
+    "attributes": [
+      "#trait:diplomacy",
+      "#trait:urban"
+    ]
+  },
+  {
+    "name": "SCOUT THE PASS",
+    "description": "Map the mountain pass and report on its dangers.",
+    "requirements": [
+      "#req:skill:stealth=1",
+      "#req:skill:survival=1"
+    ],
+    "work": [
+      "#work:skill:survival=20"
+    ],
+    "attributes": [
+      "#trait:wilderness",
+      "#trait:travel"
+    ]
+  },
+  {
+    "name": "HUNT THE BEAST",
+    "description": "Track and slay the monster preying on the village.",
+    "requirements": [
+      "#req:skill:bow=2",
+      "#req:skill:survival=2"
+    ],
+    "work": [
+      "#work=45"
+    ],
+    "attributes": [
+      "#trait:wilderness",
+      "#trait:combat"
+    ]
+  },
+  {
+    "name": "INFILTRATE THE MANOR",
+    "description": "Slip into the noble's manor and lift a sealed letter.",
+    "requirements": [
+      "#req:skill:stealth=2",
+      "#req:skill:deception=1"
+    ],
+    "work": [
+      "#work:skill:stealth=30"
+    ],
+    "attributes": [
+      "#trait:stealth",
+      "#trait:urban"
+    ]
+  },
+  {
+    "name": "TRANSCRIBE TOMES",
+    "description": "Copy a crumbling library of arcane lore before it rots.",
+    "requirements": [
+      "#req:skill:history=2"
+    ],
+    "work": [
+      "#work:skill:history=35"
+    ],
+    "attributes": [
+      "#trait:study"
+    ]
+  },
+  {
+    "name": "GUARD THE GATE",
+    "description": "Hold the city gate through the long watch.",
+    "requirements": [
+      "#req:skill:shield=1"
+    ],
+    "work": [
+      "#work=15"
+    ],
+    "attributes": [
+      "#trait:urban",
+      "#trait:combat"
+    ]
+  },
+  {
+    "name": "DELVE THE DUNGEON",
+    "description": "Plumb the lost dungeon for its hidden treasures.",
+    "requirements": [
+      "#req:skill:sword=2",
+      "#req:tool:gear"
+    ],
+    "work": [
+      "#work=60"
+    ],
+    "attributes": [
+      "#trait:dungeon",
+      "#trait:combat"
+    ]
+  },
+  {
+    "name": "PERFORM AT COURT",
+    "description": "Entertain the court and curry favor for the guild.",
+    "requirements": [
+      "#req:tool:musical-instrument",
+      "#req:skill:performance=2"
+    ],
+    "work": [
+      "#work:skill:performance=20"
+    ],
+    "attributes": [
+      "#trait:diplomacy",
+      "#trait:urban"
+    ]
   }
 ]
