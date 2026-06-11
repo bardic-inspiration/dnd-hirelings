@@ -6,7 +6,7 @@ function WorkRow({ label, taskId, workKey, target, progress, onRemove }) {
   const done = progress >= target;
   const pct  = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
   return (
-    <div className={`work-item${done ? ' done' : ''}`}>
+    <div className={`work-item${done ? ' work-item--done' : ''}`}>
       <span className="work-item-skill">{label}</span>
       <div className="work-item-bottom">
         <div className="work-item-bar">

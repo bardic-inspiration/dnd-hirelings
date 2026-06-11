@@ -6,10 +6,10 @@ import { advanceTime, getPlayIntervalMs, updateClockDisplayDOM } from '../logic/
 function flashAgentCard(agentId) {
   const card = document.querySelector(`.agent-card[data-id="${agentId}"]`);
   if (!card) return;
-  card.classList.remove('flash-error');
+  card.classList.remove('agent-card--flash-error');
   void card.offsetWidth;
-  card.classList.add('flash-error');
-  card.addEventListener('animationend', () => card.classList.remove('flash-error'), { once: true });
+  card.classList.add('agent-card--flash-error');
+  card.addEventListener('animationend', () => card.classList.remove('agent-card--flash-error'), { once: true });
 }
 
 /**
@@ -21,7 +21,7 @@ function flashAgentCard(agentId) {
  *
  * Side effects:
  * - Dispatches `APPLY_TICK` on every tick
- * - Adds/removes `flash-error` CSS class on agent cards
+ * - Adds/removes `agent-card--flash-error` CSS class on agent cards
  * - Directly mutates clock and progress-bar DOM nodes every frame
  *
  * @returns {{ start: () => void, stop: () => void, advance: () => void }}

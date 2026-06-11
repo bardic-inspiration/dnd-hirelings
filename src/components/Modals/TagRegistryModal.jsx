@@ -152,19 +152,19 @@ export default function TagRegistryModal() {
               return (
               <div className="tagreg-row" key={row.pathStr}>
                 <span className="tagreg-ln">{row.lineNo}</span>
-                {row.ancestorIsLast.map((isLast, k) => (
-                  <span key={k} className={`tagreg-guide${isLast ? '' : ' line'}`} />
+                {row.ancestorIsLast.map((isLast, index) => (
+                  <span key={index} className={`tagreg-guide${isLast ? '' : ' tagreg-guide--line'}`} />
                 ))}
                 {row.hasChildren ? (
                   <button
-                    className={`tagreg-fold${row.isLast ? ' last' : ''}`}
+                    className={`tagreg-fold${row.isLast ? ' tagreg-fold--last' : ''}`}
                     onClick={() => toggle(row.pathStr)}
                     aria-label={row.isOpen ? 'Collapse' : 'Expand'}
                   >
                     <span className="tagreg-fold-box">{row.isOpen ? '−' : '+'}</span>
                   </button>
                 ) : (
-                  <span className={`tagreg-tick${row.isLast ? ' last' : ''}`} />
+                  <span className={`tagreg-tick${row.isLast ? ' tagreg-tick--last' : ''}`} />
                 )}
                 <span className="tagreg-key">
                   {n > 0 && <span className="tagreg-match">{row.key.slice(0, n)}</span>}

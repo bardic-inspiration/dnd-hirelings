@@ -24,7 +24,7 @@ export default function BankPanel() {
     dispatch({ type: 'INVENTORY_UPDATE_ITEM', id: selectedItem.id, changes: { quantity: selectedItem.quantity - 1 } });
   };
 
-  const { holding, onPointerDown } = usePressHoldDrag({
+  const { onPointerDown } = usePressHoldDrag({
     onClick: () => { if (canSell) sellSelected(); },
     onAdjust: adjust,
   });
@@ -35,9 +35,9 @@ export default function BankPanel() {
   useEffect(() => {
     const amountEl = amountRef.current;
     if (!amountEl || bank === prevRef.current) { prevRef.current = bank; return; }
-    const cls = bank > prevRef.current ? 'flash-increase' : 'flash-decrease';
+    const cls = bank > prevRef.current ? 'bank-amount--flash-increase' : 'bank-amount--flash-decrease';
     prevRef.current = bank;
-    amountEl.classList.remove('flash-increase', 'flash-decrease');
+    amountEl.classList.remove('bank-amount--flash-increase', 'bank-amount--flash-decrease');
     void amountEl.offsetWidth;
     amountEl.classList.add(cls);
     amountEl.addEventListener('animationend', () => amountEl.classList.remove(cls), { once: true });
@@ -45,7 +45,7 @@ export default function BankPanel() {
 
   return (
     <div
-      className={`bank-panel${canSell ? ' sellable' : ''}${holding ? ' holding' : ''}`}
+      className={`bank-panel${canSell ? ' bank-panel--sellable' : ''}`}
       title={canSell
         ? `Click to sell 1 ${selectedItem.name} for ${selectedItem.value || 0} GP`
         : 'Hold and drag up/down to adjust gold'}

@@ -127,7 +127,7 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
           <div className="tag-builder-row">
             <label className="tag-builder-label">PATH</label>
             <input
-              className={`tag-builder-field${pathError ? ' error' : ''}`}
+              className={`tag-builder-field${pathError ? ' tag-builder-field--error' : ''}`}
               placeholder="e.g. skill"
               spellCheck={false}
               value={pathVal}

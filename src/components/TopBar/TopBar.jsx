@@ -77,7 +77,7 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
       {/* Clock controls */}
       <div className="clock-controls">
         <HoldButton
-          className={`ctrl combo${playing ? ' active-ctrl' : ''}`}
+          className={`ctrl ctrl--combo${playing ? ' ctrl--active' : ''}`}
           onClick={onPlay}
           onAdjust={adjustRate}
           title="Click to play. Hold and drag up/down to adjust rate."
@@ -86,12 +86,12 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
           <span className="combo-value mono">{session.rateMultiplier}</span>
         </HoldButton>
         <button
-          className={`ctrl${!playing ? ' active-ctrl' : ''}`}
+          className={`ctrl${!playing ? ' ctrl--active' : ''}`}
           onClick={onStop}
           title="Pause"
         >⏸</button>
         <HoldButton
-          className="ctrl combo"
+          className="ctrl ctrl--combo"
           onClick={onAdvance}
           onAdjust={adjustStep}
           title="Click to step forward. Hold and drag up/down to adjust step."
@@ -106,7 +106,7 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
         {Object.entries(PALETTES).map(([name, p]) => (
           <button
             key={name}
-            className={`palette-btn${palette === name ? ' active' : ''}`}
+            className={`palette-btn${palette === name ? ' palette-btn--active' : ''}`}
             title={p.label}
             onClick={e => { e.stopPropagation(); handleApplyPalette(name); }}
           >

@@ -41,7 +41,7 @@ export default function ItemRow({ item }) {
 
   return (
     <div
-      className={`item-row${selected ? ' selected' : ''}${expanded ? ' expanded' : ''}${item.quantity <= 0 ? ' depleted' : ''}`}
+      className={`item-row${selected ? ' item-row--selected' : ''}${expanded ? ' item-row--expanded' : ''}${item.quantity <= 0 ? ' item-row--depleted' : ''}`}
       data-id={item.id}
       onClick={handleRowClick}
     >

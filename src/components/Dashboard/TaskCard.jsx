@@ -41,12 +41,12 @@ function AttributesSection({ task }) {
       <div className="tag-label">ATTRIBUTES</div>
       <div className="task-tag-list">
         {!attrs.length && <div className="empty-state">—</div>}
-        {attrs.map((tag, i) => {
+        {attrs.map((tag, index) => {
           const { label, params } = formatTagLabel(parseTag(tag));
           return (
-            <div key={i} className="tag-list-item">
+            <div key={index} className="tag-list-item">
               <span className="tag-content"><strong>{label}</strong>{params}</span>
-              <span className="x" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'attributes', index: i }); }}>×</span>
+              <span className="x" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'attributes', index }); }}>×</span>
             </div>
           );
         })}
@@ -84,7 +84,7 @@ export default function TaskCard({ task }) {
 
   return (
     <div
-      className={`task-card${selected ? ' selected' : ''}${task.isComplete ? ' complete' : ''}${expanded ? ' expanded' : ''}`}
+      className={`task-card${selected ? ' task-card--selected' : ''}${task.isComplete ? ' task-card--complete' : ''}${expanded ? ' task-card--expanded' : ''}`}
       data-id={task.id}
       onClick={handleCardClick}
     >
@@ -115,8 +115,8 @@ export default function TaskCard({ task }) {
 
         {assigned.length > 0 && (
           <div className="assigned-list">
-            ASSIGNED: {assigned.map((a, i) => (
-              <span key={a.id}>{i > 0 ? ' ' : ''}<strong>{a.name}</strong></span>
+            ASSIGNED: {assigned.map((agent, index) => (
+              <span key={agent.id}>{index > 0 ? ' ' : ''}<strong>{agent.name}</strong></span>
             ))}
           </div>
         )}

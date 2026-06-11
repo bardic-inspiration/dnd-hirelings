@@ -9,10 +9,10 @@ import EditableSpan from '../EditableSpan.jsx';
 function flashAgentCard(agentId) {
   const card = document.querySelector(`.agent-card[data-id="${agentId}"]`);
   if (!card) return;
-  card.classList.remove('flash-error');
+  card.classList.remove('agent-card--flash-error');
   void card.offsetWidth;
-  card.classList.add('flash-error');
-  card.addEventListener('animationend', () => card.classList.remove('flash-error'), { once: true });
+  card.classList.add('agent-card--flash-error');
+  card.addEventListener('animationend', () => card.classList.remove('agent-card--flash-error'), { once: true });
 }
 
 function TagChip({ tagStr, active, onRemove }) {
@@ -26,7 +26,7 @@ function TagChip({ tagStr, active, onRemove }) {
     label = parsed.segments.join(':');
   }
   return (
-    <span className={`tag${active ? ' active' : ''}`}>
+    <span className={`tag${active ? ' tag--active' : ''}`}>
       {label}
       {parsed.value !== null && parsed.segments[0] !== 'task' && <span className="tag-value">={parsed.value}</span>}
       <span className="x" title="Remove" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
@@ -57,7 +57,7 @@ export default function AgentCard({ agent }) {
 
   const selectedTask = selectedTaskId ? state.tasks.find(task => task.id === selectedTaskId) : null;
   const assignClass = selectedTask
-    ? (validateAssignment(agent, selectedTask) ? ' assignable' : ' not-assignable')
+    ? (validateAssignment(agent, selectedTask) ? ' agent-card--assignable' : ' agent-card--not-assignable')
     : '';
 
   const personalItems   = getPersonalItems(agent.activities);
@@ -250,7 +250,7 @@ export default function AgentCard({ agent }) {
           <div className="tag-label">EQUIPPED</div>
           <div className="tag-list">
             {equippedItems.map(({ slot, name, tag }) => (
-              <span key={tag} className="tag active">
+              <span key={tag} className="tag tag--active">
                 <span className="tag-value">[{slot}]</span>&nbsp;{name}
                 <span className="x" title="Unequip" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_UNEQUIP_ITEM', id: agent.id, slot, itemName: name }); }}>↩</span>
               </span>
