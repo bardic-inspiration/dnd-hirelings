@@ -4,61 +4,6 @@ Non-obvious behaviors, known edge cases, and things that will surprise a develop
 
 ---
 
-## Naming Conventions
-
----
-
-### `p` as the Parsed-Tag Variable
-
-Throughout `src/logic/` — particularly `tags.js`, `agents.js`, `tasks.js`, and `clock.js` — the result of `parseTag()` is almost always stored in a single-letter variable `p`:
-
-```js
-const p = parseTag(tag);
-if (p.segments[0] === 'task') { ... }
-```
-
-When a second parsed value is needed in the same scope the pattern produces compound abbreviations: `attrP`, `reqP`, `actP`. These are opaque outside their immediate line.
-
-> ⚠️ **Naming:** Standardize to `parsed` for the primary variable and `parsedAttr` / `parsedReq` / `parsedAct` for secondary ones. The single-letter `p` gives no signal about the type; `parsed` does.
-
----
-
-### `t` Means Both Tag and Task
-
-In different files `t` is used as the loop variable for both tag strings and task objects. Within `agents.js` the same function sometimes iterates `for (const t of attributes)` (tag) and elsewhere uses `tasks.find(t => ...)` (task). The ambiguity is scoped tightly but still requires reading context to resolve.
-
-> ⚠️ **Naming:** Use `tag` for tag string iterators and `task` for task object iterators. The brevity saving is not worth the ambiguity given how central both concepts are to the codebase.
-
----
-
-### Index Variable: `i` vs `idx` vs `index`
-
-Three spellings for the same concept appear across components:
-
-- `i` — loop counter in `.map()` callbacks (AgentCard.jsx, ItemRow.jsx, TaskCard.jsx)
-- `idx` — abbreviation used in ProgressSection.jsx and TagBuilderModal.jsx
-- `index` — full word used in TagRow.jsx, ResultsSection.jsx, RequirementsSection.jsx
-
-> ⚠️ **Naming:** Pick one and use it everywhere. `index` in named parameters (component props, function signatures); `i` acceptable only in short anonymous `.map()` callbacks where the semantics are obvious from context.
-
----
-
-### Abbreviated DOM References in `clock.js`
-
-`updateClockDisplayDOM` uses terse variable names for queried elements:
-
-```js
-const hFill = document.querySelector(`.task-progress-fill[data-task-id="${task.id}"]`);
-const bFill = document.querySelector(`.work-item-bar-fill${sel}`);
-const valEl = document.querySelector(`.work-item-value${sel}`);
-```
-
-`hFill` (header fill), `bFill` (bucket fill), and `valEl` (value element) all require knowledge of the abbreviation scheme to decode.
-
-> ⚠️ **Naming:** `headerFill`, `bucketFill`, `valueEl` (or `valueDisplay`) would be readable without a legend. The same applies to `el` used as a generic element reference in BankPanel.jsx and EditableSpan.jsx — prefer `inputEl`, `spanEl`, etc.
-
----
-
 ## Tag Grammar is the Core Abstraction
 
 The entire data model for agent abilities, task requirements, item bonuses, work types, and equipment is encoded in tag strings. If you touch anything that reads or writes attributes/activities/requirements/work arrays, you must go through `parseTag` / `buildTag` — never manipulate these strings with raw string operations.
@@ -88,9 +33,11 @@ Several functions (`validateAssignment`, `isAttributeActive`) merge both arrays 
 
 ## Work Progress Keys
 
-Task work progress is stored in `task.workProgress` as `{ [key]: number }` where `key` is the second segment of the work tag (`req.segments[1]`). For a `work:skill:arcana=10` tag, the key is `'skill'`, not `'skill:arcana'`. Multiple distinct skill requirements share a key and accumulate together.
+Task work progress is stored in `task.workProgress` as `{ [key]: number }` where `key` is the full sub-path of the work tag — everything after the leading `work` segment, joined by `:`. For a `work:skill:arcana=10` tag, the key is `'skill:arcana'`; for `work:skill=10` (any skill), the key is `'skill'`; for a bare `work=10` tag, the key is `''`.
 
-> ⚠️ **Needs clarification:** This means two work requirements like `work:skill:arcana=5` and `work:skill:stealth=5` would both write to `workProgress['skill']`, effectively combining their progress into one bar. This appears to be a known limitation of the current schema — each task can effectively only have one `work:skill` bucket, not one per skill name.
+This means two requirements like `work:skill:arcana=5` and `work:skill:stealth=5` write to separate `workProgress` buckets and each track independently — satisfying arcana alone will not advance stealth.
+
+`normalizeState` resets `workProgress` to `{}` for any task that has 3-segment work tags, because old saved data used the short key (`'skill'`) and cannot be reliably remapped to the specific new keys.
 
 ---
 

@@ -49,4 +49,4 @@ npm run preview  # Serve the production build locally
 
 No test framework, no CSS preprocessor, no linter configuration is present in the repository.
 
-> ⚠️ **Needs clarification:** There is no `.nvmrc`, `.node-version`, or `engines` field in `package.json`. The minimum supported Node.js version is unspecified. Vite 5 requires Node ≥ 18.
+The minimum supported Node.js version is **18**, declared via `"engines": { "node": ">=18" }` in `package.json`. Vite 8 requires Node ≥ 18.

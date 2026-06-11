@@ -27,7 +27,7 @@ export function getWorkRequirements(task) {
  */
 export function checkTaskComplete(task) {
   return getWorkRequirements(task).every(req => {
-    const key = req.segments[1] ?? '';
+    const key = req.segments.slice(1).join(':');
     return (task.workProgress?.[key] ?? 0) >= parseFloat(req.value ?? 1);
   });
 }

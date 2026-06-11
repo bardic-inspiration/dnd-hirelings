@@ -89,7 +89,7 @@ export function advanceTime(state) {
           for (const req of getWorkRequirements(task)) {
             const workType  = req.segments[1] ?? null;  // e.g. 'skill'
             const skillName = req.segments[2] ?? null;  // e.g. 'arcana', or null for any
-            const key = workType || '';
+            const key = req.segments.slice(1).join(':');
             let rate;
             if (workType === 'skill') {
               const skillTag = currentAttrs.find(attr => {
@@ -179,7 +179,7 @@ export function updateClockDisplayDOM(state, tickInfo) {
     // the overall bar past the sum-of-targets denominator.
     let totalCapped = 0;
     for (const req of reqs) {
-      const key    = req.segments[1] || '';
+      const key    = req.segments.slice(1).join(':');
       const stored = task.workProgress?.[key] ?? 0;
       const rate   = buckets[key] ?? 0;
       const interp = Math.max(0, stored - rate + frac * rate);
@@ -190,7 +190,7 @@ export function updateClockDisplayDOM(state, tickInfo) {
     if (headerFill) headerFill.style.width = `${headerPct.toFixed(1)}%`;
 
     for (const req of reqs) {
-      const key    = req.segments[1] || '';
+      const key    = req.segments.slice(1).join(':');
       const stored = task.workProgress?.[key] ?? 0;
       const rate   = buckets[key] ?? 0;
       const interp = Math.max(0, stored - rate + frac * rate);

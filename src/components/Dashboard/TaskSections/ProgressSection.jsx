@@ -53,18 +53,21 @@ export default function ProgressSection({ task }) {
             onRemove={null}
           />
         ) : workEntries.map(({ parsed, index }) => {
-          const skillName = parsed.segments[1] ?? null;
-          const label = skillName
-            ? `${parsed.segments[0].toUpperCase()}: ${skillName.toUpperCase()}`
-            : parsed.segments[0].toUpperCase();
+          const workKey = parsed.segments.slice(1).join(':');
+          const subtypeSegs = parsed.segments.slice(1);
+          const label = subtypeSegs.length >= 2
+            ? `${subtypeSegs[0].toUpperCase()}: ${subtypeSegs[subtypeSegs.length - 1].toUpperCase()}`
+            : subtypeSegs.length === 1
+              ? subtypeSegs[0].toUpperCase()
+              : parsed.segments[0].toUpperCase();
           return (
             <WorkRow
               key={index}
               label={label}
               taskId={task.id}
-              workKey={skillName ?? ''}
+              workKey={workKey}
               target={parseFloat(parsed.value ?? 1)}
-              progress={workProgressMap[skillName ?? ''] ?? 0}
+              progress={workProgressMap[workKey] ?? 0}
               onRemove={() => dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'work', index })}
             />
           );
