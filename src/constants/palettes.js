@@ -10,7 +10,7 @@ export const PALETTES = {
     highlightBg:  'rgba(126,181,245,0.09)',
     warn:         '#e84040',
     accent:       '#d2a24e',
-    backgroundImage: '/assets/UI/background_dark.jpg',
+    backgroundImage: '/assets/UI/background_dark.webp',
   },
   light: {
     label: 'LIGHT',
@@ -23,7 +23,7 @@ export const PALETTES = {
     highlightBg:  'rgba(32,96,208,0.07)',
     warn:         '#d42020',
     accent:       '#9a6b1e',
-    backgroundImage: '/assets/UI/background_light.jpg',
+    backgroundImage: '/assets/UI/background_light.webp',
   },
   vale: {
     label: 'VALE',
@@ -36,7 +36,7 @@ export const PALETTES = {
     highlightBg:  'rgba(114,200,126,0.09)',
     warn:         '#e87040',
     accent:       '#6fb0c8',
-    backgroundImage: '/assets/UI/background_vale.jpg',
+    backgroundImage: '/assets/UI/background_vale.webp',
   },
   ember: {
     label: 'EMBER',
@@ -49,7 +49,7 @@ export const PALETTES = {
     highlightBg:  'rgba(232,137,60,0.09)',
     warn:         '#ffcc00',
     accent:       '#5fb2a8',
-    backgroundImage: '/assets/UI/background_ember.jpg',
+    backgroundImage: '/assets/UI/background_ember.webp',
   },
   arcane: {
     label: 'ARCANE',
@@ -62,6 +62,6 @@ export const PALETTES = {
     highlightBg:  'rgba(154,122,232,0.09)',
     warn:         '#ff6090',
     accent:       '#c9a24e',
-    backgroundImage: '/assets/UI/background_arcane.jpg',
+    backgroundImage: '/assets/UI/background_arcane.webp',
   },
 };
