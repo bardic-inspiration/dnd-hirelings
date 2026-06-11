@@ -23,7 +23,7 @@ export default function ItemRow({ item }) {
   const handleQty = (v) => {
     const n = parseFloat(v);
     // Depleted items stay in the list (grayed out); only manual delete removes them.
-    update({ qty: isNaN(n) ? 0 : Math.max(0, n) });
+    update({ quantity: isNaN(n) ? 0 : Math.max(0, n) });
   };
 
   const handleValue = (v) => {
@@ -41,7 +41,7 @@ export default function ItemRow({ item }) {
 
   return (
     <div
-      className={`item-row${selected ? ' selected' : ''}${expanded ? ' expanded' : ''}${item.qty <= 0 ? ' depleted' : ''}`}
+      className={`item-row${selected ? ' item-row--selected' : ''}${expanded ? ' item-row--expanded' : ''}${item.quantity <= 0 ? ' item-row--depleted' : ''}`}
       data-id={item.id}
       onClick={handleRowClick}
     >
@@ -59,9 +59,9 @@ export default function ItemRow({ item }) {
         />
         <DragNumber
           className="item-qty mono"
-          value={item.qty}
+          value={item.quantity}
           min={0}
-          onChange={n => update({ qty: n })}
+          onChange={n => update({ quantity: n })}
           onCommit={handleQty}
         />
         <span className="item-value mono">
@@ -98,12 +98,12 @@ export default function ItemRow({ item }) {
         <div className="tag-label">ATTRIBUTES</div>
         <div className="tag-list">
           {!item.attributes.length && <span className="empty-inline">—</span>}
-          {item.attributes.map((tag, i) => {
+          {item.attributes.map((tag, index) => {
             const { label, params } = formatTagLabel(parseTag(tag));
             return (
-              <span key={i} className="tag">
+              <span key={index} className="tag">
                 {label}{params}
-                <span className="x" title="Remove" onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index: i }); }}>×</span>
+                <span className="x" title="Remove" onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index }); }}>×</span>
               </span>
             );
           })}

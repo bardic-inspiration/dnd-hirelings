@@ -5,30 +5,22 @@ import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment,
 import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
 import { parseTag } from '../../logic/tags.js';
 import EditableSpan from '../EditableSpan.jsx';
-
-function flashAgentCard(agentId) {
-  const card = document.querySelector(`.agent-card[data-id="${agentId}"]`);
-  if (!card) return;
-  card.classList.remove('flash-error');
-  void card.offsetWidth;
-  card.classList.add('flash-error');
-  card.addEventListener('animationend', () => card.classList.remove('flash-error'), { once: true });
-}
+import { flashAgentCard } from '../../logic/dom.js';
 
 function TagChip({ tagStr, active, onRemove }) {
-  const p = parseTag(tagStr);
+  const parsed = parseTag(tagStr);
   const { state } = useGame();
   let label;
-  if (p.segments[0] === 'task') {
-    const task = state.tasks.find(t => t.id === p.segments[1]);
-    label = task ? `${task.name}` : p.segments.join(':');
+  if (parsed.segments[0] === 'task') {
+    const task = state.tasks.find(task => task.id === parsed.segments[1]);
+    label = task ? `${task.name}` : parsed.segments.join(':');
   } else {
-    label = p.segments.join(':');
+    label = parsed.segments.join(':');
   }
   return (
-    <span className={`tag${active ? ' active' : ''}`}>
+    <span className={`tag${active ? ' tag--active' : ''}`}>
       {label}
-      {p.value !== null && p.segments[0] !== 'task' && <span className="tag-value">={p.value}</span>}
+      {parsed.value !== null && parsed.segments[0] !== 'task' && <span className="tag-value">={parsed.value}</span>}
       <span className="x" title="Remove" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
     </span>
   );
@@ -55,14 +47,14 @@ export default function AgentCard({ agent }) {
   const [equipTarget, setEquipTarget] = useState(null);
   const [equipSlot, setEquipSlot]   = useState('');
 
-  const selectedTask = selectedTaskId ? state.tasks.find(t => t.id === selectedTaskId) : null;
+  const selectedTask = selectedTaskId ? state.tasks.find(task => task.id === selectedTaskId) : null;
   const assignClass = selectedTask
-    ? (validateAssignment(agent, selectedTask) ? ' assignable' : ' not-assignable')
+    ? (validateAssignment(agent, selectedTask) ? ' agent-card--assignable' : ' agent-card--not-assignable')
     : '';
 
   const personalItems   = getPersonalItems(agent.activities);
   const equippedItems   = getEquippedItems(agent.activities);
-  const availableInventory = state.inventory.filter(i => i.qty > 0);
+  const availableInventory = state.inventory.filter(item => item.quantity > 0);
   const dyn = computeDynamicAttributes(agent, state.inventory);
 
   const openGive = (e) => {
@@ -74,7 +66,7 @@ export default function AgentCard({ agent }) {
   const handleGive = (e) => {
     e.stopPropagation();
     if (!giveItemName || giveQty < 1) return;
-    dispatch({ type: 'AGENT_GIVE_ITEM', id: agent.id, itemName: giveItemName, qty: giveQty });
+    dispatch({ type: 'AGENT_GIVE_ITEM', id: agent.id, itemName: giveItemName, quantity: giveQty });
     setGiveOpen(false);
   };
   const openEquip = (e, name) => {
@@ -85,7 +77,7 @@ export default function AgentCard({ agent }) {
   const handleEquip = (e) => {
     e.stopPropagation();
     if (!equipSlot.trim()) return;
-    dispatch({ type: 'EQUIP_ITEM', id: agent.id, itemName: equipTarget, slot: equipSlot.trim().toLowerCase() });
+    dispatch({ type: 'AGENT_EQUIP_ITEM', id: agent.id, itemName: equipTarget, slot: equipSlot.trim().toLowerCase() });
     setEquipTarget(null);
   };
 
@@ -105,9 +97,9 @@ export default function AgentCard({ agent }) {
 
   // Activities: show only non-complete task tags
   const visibleActivities = agent.activities.filter(tag => {
-    const p = parseTag(tag);
-    if (p.segments[0] !== 'task') return false;
-    const task = state.tasks.find(t => t.id === p.segments[1]);
+    const parsed = parseTag(tag);
+    if (parsed.segments[0] !== 'task') return false;
+    const task = state.tasks.find(task => task.id === parsed.segments[1]);
     return task && !task.isComplete;
   });
 
@@ -136,7 +128,7 @@ export default function AgentCard({ agent }) {
 
       <div className="agent-vitals">
         <div className="vital-bar">
-          <div className="vital-bar-fill vital-bar-fill--hp" style={{ width: `${Math.min(1, dyn.hp / dyn.hp_max) * 100}%` }} />
+          <div className="vital-bar-fill vital-bar-fill--hp" style={{ width: `${Math.min(1, dyn.hp / dyn.hpMax) * 100}%` }} />
           <EditableSpan
             className="vital-bar-label"
             value={String(dyn.hp)}
@@ -145,7 +137,7 @@ export default function AgentCard({ agent }) {
               dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { hp: isNaN(n) ? null : Math.max(0, n) } });
             }}
           />
-          <span className="vital-bar-max">/ {dyn.hp_max}</span>
+          <span className="vital-bar-max">/ {dyn.hpMax}</span>
         </div>
         <div className="vital-bar">
           <div className="vital-bar-fill vital-bar-fill--xp" style={{ width: `${dyn.xpProgress * 100}%` }} />
@@ -189,12 +181,12 @@ export default function AgentCard({ agent }) {
       <div className="tag-section">
         <div className="tag-label">ATTRIBUTES</div>
         <div className="tag-list">
-          {agent.attributes.map((tag, i) => (
+          {agent.attributes.map((tag, index) => (
             <TagChip
-              key={i}
+              key={index}
               tagStr={tag}
               active={isAttributeActive(tag, agent, state.tasks)}
-              onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index: i })}
+              onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
             />
           ))}
           <button className="tag-add" title="Add attribute" onClick={e => {
@@ -212,10 +204,10 @@ export default function AgentCard({ agent }) {
         <div className="tag-label">BAG</div>
         <div className="tag-list">
           {personalItems.length === 0 && !giveOpen && <span className="empty-inline">—</span>}
-          {personalItems.map(({ name, qty, tag }) => (
+          {personalItems.map(({ name, quantity, tag }) => (
             <span key={tag} className="tag">
               {name}
-              {qty > 1 && <span className="tag-value"> ×{qty}</span>}
+              {quantity > 1 && <span className="tag-value"> ×{quantity}</span>}
               <span className="x" title="Equip" onClick={e => openEquip(e, name)}>⚔</span>
               <span className="x" title="Return to inventory" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_RETURN_ITEM', id: agent.id, itemName: name }); }}>↩</span>
             </span>
@@ -227,9 +219,9 @@ export default function AgentCard({ agent }) {
         {giveOpen && (
           <div className="tag-list" onClick={e => e.stopPropagation()}>
             <select value={giveItemName} onChange={e => setGiveItemName(e.target.value)} style={INLINE_INPUT_STYLE}>
-              {availableInventory.map(i => <option key={i.id} value={i.name}>{i.name} ({i.qty})</option>)}
+              {availableInventory.map(item => <option key={item.id} value={item.name}>{item.name} ({item.quantity})</option>)}
             </select>
-            <input type="number" min={1} max={availableInventory.find(i => i.name === giveItemName)?.qty ?? 1} value={giveQty} onChange={e => setGiveQty(Math.max(1, Number(e.target.value)))} style={{ ...INLINE_INPUT_STYLE, width: '48px' }} />
+            <input type="number" min={1} max={availableInventory.find(item => item.name === giveItemName)?.quantity ?? 1} value={giveQty} onChange={e => setGiveQty(Math.max(1, Number(e.target.value)))} style={{ ...INLINE_INPUT_STYLE, width: '48px' }} />
             <button className="ctrl" onClick={handleGive}>GIVE</button>
             <button className="ctrl" onClick={e => { e.stopPropagation(); setGiveOpen(false); }}>✕</button>
           </div>
@@ -250,9 +242,9 @@ export default function AgentCard({ agent }) {
           <div className="tag-label">EQUIPPED</div>
           <div className="tag-list">
             {equippedItems.map(({ slot, name, tag }) => (
-              <span key={tag} className="tag active">
+              <span key={tag} className="tag tag--active">
                 <span className="tag-value">[{slot}]</span>&nbsp;{name}
-                <span className="x" title="Unequip" onClick={e => { e.stopPropagation(); dispatch({ type: 'UNEQUIP_ITEM', id: agent.id, slot, itemName: name }); }}>↩</span>
+                <span className="x" title="Unequip" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_UNEQUIP_ITEM', id: agent.id, slot, itemName: name }); }}>↩</span>
               </span>
             ))}
           </div>
@@ -264,12 +256,12 @@ export default function AgentCard({ agent }) {
         <div className="tag-label">TASKS</div>
         <div className="tag-list">
           {visibleActivities.length === 0 && <span className="empty-inline">—</span>}
-          {visibleActivities.map((tag, i) => {
+          {visibleActivities.map((tag, index) => {
             const isCurrent = !foundCurrent;
             if (isCurrent) foundCurrent = true;
             return (
               <TagChip
-                key={i}
+                key={index}
                 tagStr={tag}
                 active={isCurrent}
                 onRemove={() => dispatch({ type: 'AGENT_REMOVE_ACTIVITY', id: agent.id, tag })}

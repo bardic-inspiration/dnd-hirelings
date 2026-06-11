@@ -12,7 +12,7 @@ export const DEFAULT_STATE = {
     id: '001',
     title: 'GUILD MANAGER',
     clock: 0,
-    timeStep: '1',
+    timeStep: 1,
     bank: 100,
     rateMultiplier: 1,
     workRate: 1,
@@ -44,34 +44,37 @@ function normalizeResults(r) {
   return {
     gold: Number.isFinite(gold) ? gold : 0,
     items: Array.isArray(src.items)
-      ? src.items.map(it => ({ name: String(it?.name ?? ''), qty: Number(it?.qty) || 0 })).filter(it => it.name)
+      ? src.items.map(item => ({
+          name: String(item?.name ?? ''),
+          quantity: Number(item?.quantity ?? item?.qty) || 0,
+        })).filter(item => item.name)
       : [],
     agents: Array.isArray(src.agents)
-      ? src.agents.map(a => ({
+      ? src.agents.map(spawn => ({
           template: {
-            name:        a?.template?.name        ?? 'NEW HIRELING',
-            icon:        a?.template?.icon        ?? '',
-            rate:        a?.template?.rate        ?? 1,
-            rateUnit:    a?.template?.rateUnit    ?? 'GP/DAY',
-            description: a?.template?.description ?? '',
-            attributes:  Array.isArray(a?.template?.attributes) ? a.template.attributes : [],
+            name:        spawn?.template?.name        ?? 'NEW HIRELING',
+            icon:        spawn?.template?.icon        ?? '',
+            rate:        spawn?.template?.rate        ?? 1,
+            rateUnit:    spawn?.template?.rateUnit    ?? 'GP/DAY',
+            description: spawn?.template?.description ?? '',
+            attributes:  Array.isArray(spawn?.template?.attributes) ? spawn.template.attributes : [],
           },
-          qty: Number(a?.qty) || 1,
+          quantity: Number(spawn?.quantity ?? spawn?.qty) || 1,
         }))
       : [],
   };
 }
 
 // Migrates tag strings from older formats to the current grammar.
-function migrateTag(t) {
-  if (typeof t !== 'string') return t;
+function migrateTag(tag) {
+  if (typeof tag !== 'string') return tag;
   // Strip legacy '#' sigil from pre-path-based format.
-  if (t.startsWith('#')) t = t.slice(1);
+  if (tag.startsWith('#')) tag = tag.slice(1);
   // Migrate modifier:path to modifier,path (comma separator introduced in v4 grammar).
   for (const mod of Object.keys(MODIFIER_REGISTRY)) {
-    if (t.startsWith(`${mod}:`)) return `${mod},${t.slice(mod.length + 1)}`;
+    if (tag.startsWith(`${mod}:`)) return `${mod},${tag.slice(mod.length + 1)}`;
   }
-  return t;
+  return tag;
 }
 
 /**
@@ -82,53 +85,56 @@ function migrateTag(t) {
  * - Legacy tag formats (`#tag` → `tag`, `modifier:path` → `modifier,path`)
  * - `tagLibrary` → `tagRegistry` field rename
  * - Corrupt or missing `tagRegistry` (falls back to `seedTagRegistry()`)
- * - Out-of-range `timeStep` values (clamped)
+ * - `qty` → `quantity` field rename on inventory items and task result items
+ * - `timeStep` coerced to a number (legacy string values are parsed); out-of-range clamped
  *
  * @param {object} raw - Potentially stale or partial state from localStorage or a file
  * @returns {GameState}
  */
 export function normalizeState(raw) {
   const state = { ...DEFAULT_STATE, ...raw };
-  state.agents = (raw.agents || []).map(a => ({
-    ...a,
-    attributes:   (a.attributes  ?? []).map(migrateTag),
-    activities:   (a.activities  ?? []).map(migrateTag),
-    description:  a.description  ?? '',
-    icon:         a.icon         ?? '',
-    createdAt:    a.createdAt    ?? Date.now(),
-    lastAssigned: a.lastAssigned ?? null,
-    xp:           a.xp           ?? 0,
-    hp:           a.hp           ?? null,
+  state.agents = (raw.agents || []).map(agent => ({
+    ...agent,
+    attributes:   (agent.attributes  ?? []).map(migrateTag),
+    activities:   (agent.activities  ?? []).map(migrateTag),
+    description:  agent.description  ?? '',
+    icon:         agent.icon         ?? '',
+    createdAt:    agent.createdAt    ?? Date.now(),
+    lastAssigned: agent.lastAssigned ?? null,
+    xp:           agent.xp           ?? 0,
+    hp:           agent.hp           ?? null,
   }));
   state.inventory = (raw.inventory || []).map(item => ({
     id:          item.id   ?? Math.random().toString(36).slice(2, 9),
     name:        item.name ?? 'ITEM',
-    qty:         Number(item.qty)   || 1,
+    quantity:    Number(item.quantity ?? item.qty) || 1,
     icon:        item.icon        ?? '',
     description: item.description  ?? '',
     value:       Number(item.value) || 0,
     attributes:  Array.isArray(item.attributes) ? item.attributes.map(migrateTag) : [],
   }));
-  state.tasks = (raw.tasks || []).map(t => ({
-    ...t,
-    requirements: Array.isArray(t.requirements) ? t.requirements.filter(Boolean).map(migrateTag) : [],
-    work:         Array.isArray(t.work)         ? t.work.filter(Boolean).map(migrateTag)         : [],
-    attributes:   Array.isArray(t.attributes)   ? t.attributes.filter(Boolean).map(migrateTag)   : [],
-    description:  t.description  ?? '',
-    isComplete:   t.isComplete   ?? false,
-    createdAt:    t.createdAt    ?? Date.now(),
-    workProgress: t.workProgress ?? {},
-    results:      normalizeResults(t.results),
+  state.tasks = (raw.tasks || []).map(task => ({
+    ...task,
+    requirements: Array.isArray(task.requirements) ? task.requirements.filter(Boolean).map(migrateTag) : [],
+    work:         Array.isArray(task.work)         ? task.work.filter(Boolean).map(migrateTag)         : [],
+    attributes:   Array.isArray(task.attributes)   ? task.attributes.filter(Boolean).map(migrateTag)   : [],
+    description:  task.description  ?? '',
+    isComplete:   task.isComplete   ?? false,
+    createdAt:    task.createdAt    ?? Date.now(),
+    workProgress: task.workProgress ?? {},
+    results:      normalizeResults(task.results),
   }));
   // `tagLibrary` is the pre-rename field name; read it as a fallback so sessions
   // saved before the rename keep their registry.
   state.tagRegistry = sanitizeRegistry(raw.tagRegistry ?? raw.tagLibrary) ?? seedTagRegistry();
   const s = raw.session || {};
-  const tsNum = parseFloat(s.timeStep ?? '0');
+  // `timeStep` is stored as a number (days per tick). Legacy sessions persisted it
+  // as a string, so coerce here; clamp out-of-range or non-numeric values to 1.
+  const tsNum = parseFloat(s.timeStep);
   state.session = {
     ...DEFAULT_STATE.session,
     ...s,
-    timeStep:       (isNaN(tsNum) || tsNum >= 30) ? '1' : (s.timeStep ?? '1'),
+    timeStep:       (isNaN(tsNum) || tsNum <= 0 || tsNum >= 30) ? 1 : tsNum,
     rateMultiplier: s.rateMultiplier ?? 1,
     workRate:       s.workRate       ?? 1,
     skillBonus:     s.skillBonus     ?? 1,

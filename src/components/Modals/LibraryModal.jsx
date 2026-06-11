@@ -89,18 +89,18 @@ export default function LibraryModal() {
         <div className="library-body">
           <div className="library-list">
             {!ready && <div className="empty">LOADING</div>}
-            {ready && filtered.map(p => (
+            {ready && filtered.map(preset => (
               <div
-                key={p.id}
-                className={`library-row${p.id === selectedId ? ' selected' : ''}`}
-                onClick={() => selectPreset(p)}
+                key={preset.id}
+                className={`library-row${preset.id === selectedId ? ' library-row--selected' : ''}`}
+                onClick={() => selectPreset(preset)}
               >
                 <div
                   className="library-row-icon"
-                  style={config.rowIcon(p) ? { backgroundImage: `url("${config.rowIcon(p)}")` } : {}}
+                  style={config.rowIcon(preset) ? { backgroundImage: `url("${config.rowIcon(preset)}")` } : {}}
                 />
-                <span className="library-row-name">{highlight(p.name, query.trim())}</span>
-                <span className="x" title="Delete preset" onClick={e => handleDelete(e, p.id)}>×</span>
+                <span className="library-row-name">{highlight(preset.name, query.trim())}</span>
+                <span className="x" title="Delete preset" onClick={e => handleDelete(e, preset.id)}>×</span>
               </div>
             ))}
             {ready && (

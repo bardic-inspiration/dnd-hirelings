@@ -41,13 +41,14 @@ Ephemeral UI state. Not persisted. All fields below are part of the returned obj
 | `libraryProps` | `{ type: 'agent' \| 'task' \| 'item' } \| null` | Non-null when LibraryModal is open |
 | `openLibrary` | `(type: 'agent' \| 'task' \| 'item') => void` | Open library modal for a given type |
 | `closeLibrary` | `() => void` | Close library modal |
-| `showConfig` | `boolean` | Whether ConfigModal is visible |
-| `setShowConfig` | `(v: boolean) => void` | Toggle config modal |
+| `configProps` | `{} \| null` | Non-null when ConfigModal is open |
+| `openConfig` | `() => void` | Open config modal |
+| `closeConfig` | `() => void` | Close config modal |
 | `tagRegistryProps` | `{} \| null` | Non-null when TagRegistryModal is open |
 | `openTagRegistry` | `() => void` | Open tag registry modal |
 | `closeTagRegistry` | `() => void` | Close tag registry modal |
 
-> ⚠️ **Naming:** `UIContext` modal state uses two different open/close idioms. `showConfig` is a plain boolean; `tagBuilderProps`, `portraitsProps`, `itemIconsProps`, `libraryProps`, and `tagRegistryProps` are nullable objects (non-null = open). The boolean/nullable-object split requires callers to know which pattern each modal uses. Standardize: either all nullable-object (props travel with the open signal, null = closed) or all boolean `show*` with separate `*Props` state.
+> **Modal state pattern:** All modals use the same nullable-object idiom — `*Props` is `null` when closed and a (possibly empty) object when open, paired with `open*`/`close*` callbacks. Props travel with the open signal.
 
 ### `useAssets()` → `{ registerAssets, isReady }`
 
@@ -82,12 +83,10 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 | `AGENT_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index |
 | `AGENT_ADD_ACTIVITY` | `{ id, tag: string }` | Add activity tag (task assignment or item grant) |
 | `AGENT_REMOVE_ACTIVITY` | `{ id, tag: string }` | Remove exact activity tag |
-| `AGENT_GIVE_ITEM` | `{ id, itemName: string, qty: number }` | Move qty of item from inventory to agent's bag |
-| `AGENT_RETURN_ITEM` | `{ id, itemName: string }` | Move all qty of item from agent's bag back to inventory |
-| `EQUIP_ITEM` | `{ id, itemName: string, slot: string }` | Move item from bag to equipped slot |
-| `UNEQUIP_ITEM` | `{ id, slot: string, itemName: string }` | Move item from equipped slot back to bag |
-
-> ⚠️ **Naming:** `EQUIP_ITEM` and `UNEQUIP_ITEM` operate on agents (they mutate `agent.activities`) but are missing the `AGENT_` prefix that every other agent action carries. They should be `AGENT_EQUIP_ITEM` / `AGENT_UNEQUIP_ITEM` to make their scope clear from the action type alone.
+| `AGENT_GIVE_ITEM` | `{ id, itemName: string, quantity: number }` | Move quantity of item from inventory to agent's bag |
+| `AGENT_RETURN_ITEM` | `{ id, itemName: string }` | Move all of item from agent's bag back to inventory |
+| `AGENT_EQUIP_ITEM` | `{ id, itemName: string, slot: string }` | Move item from bag to equipped slot |
+| `AGENT_UNEQUIP_ITEM` | `{ id, slot: string, itemName: string }` | Move item from equipped slot back to bag |
 
 ### Tasks
 
@@ -155,7 +154,7 @@ tryAssignTask(agent: Agent, selectedTaskId: string|null, tasks: Task[]): 'assign
 isActivityActive(activityTag: string, tasks: Task[]): boolean
 isAttributeActive(attrTag: string, agent: Agent, tasks: Task[]): boolean
 agentsAssignedTo(taskId: string, agents: Agent[]): Agent[]
-getPersonalItems(activities: string[]): { name: string, qty: number, tag: string }[]
+getPersonalItems(activities: string[]): { name: string, quantity: number, tag: string }[]
 getEquippedItems(activities: string[]): { slot: string, name: string, tag: string }[]
 collectAllHeldItems(activities: string[]): { [name: string]: number }
 getEffectiveAttributes(agentAttributes: string[], activities: string[], inventory: InventoryItem[]): string[]
@@ -186,11 +185,9 @@ updateClockDisplayDOM(state: GameState, tickInfo: TickInfo): void
 ```js
 computeDynamicAttributes(agent: Agent, inventory?: InventoryItem[]): {
   xp: number, level: number, xpProgress: number,
-  proficiency: number, ac: number, hp: number, hp_max: number
+  proficiency: number, ac: number, hp: number, hpMax: number
 }
 ```
-
-> ⚠️ **Naming:** The return object mixes conventions: `xpProgress`, `proficiency`, and `ac` are camelCase, but `hp_max` is snake_case. Should be `hpMax` to match the rest of the object and the surrounding codebase style.
 
 ### `src/logic/time.js`
 
@@ -287,7 +284,7 @@ interface GameState {
     id: string;           // user-defined session identifier
     title: string;        // guild name shown in TopBar
     clock: number;        // total elapsed minutes
-    timeStep: string;     // days per tick (numeric string, e.g. '1')
+    timeStep: number;     // days per tick (e.g. 1)
     bank: number;         // gold balance
     rateMultiplier: number; // ticks-per-second multiplier
     workRate: number;     // base work units per tick-day
@@ -309,9 +306,9 @@ interface Agent {
   rateUnit: string;       // display label, e.g. 'GP/DAY'
   description: string;
   attributes: string[];   // tag strings (skills, abilities, traits…)
-  activities: string[];   // task:<id>, item:<name>=qty, equip:<slot>:item:<name>
+  activities: string[];   // task:<id>, item:<name>=<qty>, equip:<slot>:item:<name>
   xp: number;
-  hp: number | null;      // null = use computed hp_max
+  hp: number | null;      // null = use computed hpMax
 }
 
 interface Task {
@@ -326,15 +323,15 @@ interface Task {
   isComplete: boolean;
   results: {
     gold: number;
-    items: { name: string; qty: number }[];
-    agents: { template: Partial<Agent>; qty: number }[];
+    items: { name: string; quantity: number }[];
+    agents: { template: Partial<Agent>; quantity: number }[];
   };
 }
 
 interface InventoryItem {
   id: string;
   name: string;
-  qty: number;
+  quantity: number;
   icon: string;
   description: string;
   value: number;          // gold value per unit (for selling)
@@ -344,6 +341,4 @@ interface InventoryItem {
 type TagRegistry = { [key: string]: TagRegistry }; // recursive keys-only tree
 ```
 
-> ⚠️ **Naming:** `qty` is an abbreviation that appears on `InventoryItem`, `Task.results.items`, and `Agent` activity tags. It is used consistently, but `quantity` is the ecosystem standard for inventory fields and would remove the need for a mental mapping. Since it's encoded in localStorage, renaming requires a migration in `normalizeState`.
-
-> ⚠️ **Naming:** `session.timeStep` is typed as `string` even though it holds a numeric value (days per tick). The string type exists to preserve user input before parsing, but it leaks into the state schema and all consumers must call `parseFloat` on it. Either store it as `number` and handle the input formatting in the component, or rename it `timeStepInput` to signal that it's a raw input buffer rather than a computed value.
+> **Migration note:** `quantity` (on `InventoryItem` and `Task.results.items`/`agents`) and the numeric `session.timeStep` are persisted to localStorage. `normalizeState` reads the legacy `qty` field and legacy string `timeStep` values as fallbacks, so older saves load cleanly. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected.

@@ -15,7 +15,7 @@ import TagRegistryModal from './components/Modals/TagRegistryModal.jsx';
 
 
 export default function App() {
-  const { tagBuilderProps, closeTagBuilder, showConfig, portraitsProps, itemIconsProps, libraryProps, tagRegistryProps, setSelectedTaskId, setSelectedItemId } = useUI();
+  const { tagBuilderProps, closeTagBuilder, configProps, portraitsProps, itemIconsProps, libraryProps, tagRegistryProps, setSelectedTaskId, setSelectedItemId } = useUI();
   const { start, stop, advance } = usePlayClock();
 
   usePalette();
@@ -47,7 +47,7 @@ export default function App() {
           onClose={closeTagBuilder}
         />
       )}
-      {showConfig       && <ConfigModal onRestartPlay={() => { stop(); start(); }} />}
+      {configProps      && <ConfigModal onRestartPlay={() => { stop(); start(); }} />}
       {portraitsProps   && <PortraitsModal />}
       {itemIconsProps   && <ItemIconsModal />}
       {libraryProps     && <LibraryModal />}

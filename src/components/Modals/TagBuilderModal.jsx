@@ -42,7 +42,7 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
 
   const defaultPreset = presets[0];
 
-  const [presetIdx,  setPresetIdx]  = useState(0);
+  const [presetIndex, setPresetIndex] = useState(0);
   const [prefixVal,  setPrefixVal]  = useState(defaultPreset?.prefix ?? '');
   const [pathVal,    setPathVal]    = useState(defaultPreset?.path   ?? '');
   const [nameVal,    setNameVal]    = useState('');
@@ -79,9 +79,9 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
   useEffect(() => { presetRef.current?.focus(); }, []);
 
   function handlePresetChange(e) {
-    const idx = Number(e.target.value);
-    setPresetIdx(idx);
-    applyPreset(idx === -1 ? null : presets[idx]);
+    const index = Number(e.target.value);
+    setPresetIndex(index);
+    applyPreset(index === -1 ? null : presets[index]);
   }
 
   function save() {
@@ -104,10 +104,10 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
 
           <div className="tag-builder-row">
             <label className="tag-builder-label">PRESET</label>
-            <select ref={presetRef} className="tag-builder-field" value={presetIdx} onChange={handlePresetChange} onKeyDown={onKeyDown}>
+            <select ref={presetRef} className="tag-builder-field" value={presetIndex} onChange={handlePresetChange} onKeyDown={onKeyDown}>
               <option value={-1}>— custom —</option>
-              {presets.map((p, i) => (
-                <option key={i} value={i}>{p.label}</option>
+              {presets.map((preset, index) => (
+                <option key={index} value={index}>{preset.label}</option>
               ))}
             </select>
           </div>
@@ -127,7 +127,7 @@ export default function TagBuilderModal({ context, onSave, onClose }) {
           <div className="tag-builder-row">
             <label className="tag-builder-label">PATH</label>
             <input
-              className={`tag-builder-field${pathError ? ' error' : ''}`}
+              className={`tag-builder-field${pathError ? ' tag-builder-field--error' : ''}`}
               placeholder="e.g. skill"
               spellCheck={false}
               value={pathVal}

@@ -15,6 +15,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Transparent: UI structure mirrors data schema
 - No page scroll
 
+### CSS class naming (flat compound):
+- Block: `.block` · Sub-element: `.block-element` · State: `.block--state` (double-hyphen modifier applied as a second class).
+- No bare unnamespaced state classes. Cross-cutting utilities (`.mono`, `.bright`, `.dim`, `.label`, `.value`, `.right`) are the only exception.
+- Index variables: `index` for named params/props; `i` only in short inline `.map()` callbacks; never `idx`.
+
 ## Engineering principles: 
 - Legible code
 - "Don't Repeat Yourself"

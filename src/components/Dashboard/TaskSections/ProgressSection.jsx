@@ -6,7 +6,7 @@ function WorkRow({ label, taskId, workKey, target, progress, onRemove }) {
   const done = progress >= target;
   const pct  = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
   return (
-    <div className={`work-item${done ? ' done' : ''}`}>
+    <div className={`work-item${done ? ' work-item--done' : ''}`}>
       <span className="work-item-skill">{label}</span>
       <div className="work-item-bottom">
         <div className="work-item-bar">
@@ -32,7 +32,7 @@ export default function ProgressSection({ task }) {
   const { dispatch } = useGame();
   const { openTagBuilder } = useUI();
   const workProgressMap = task.workProgress ?? {};
-  const workEntries = (task.work || []).map((tagStr, idx) => ({ p: parseTag(tagStr), idx }));
+  const workEntries = (task.work || []).map((tagStr, index) => ({ parsed: parseTag(tagStr), index }));
 
   const handleAdd = () => openTagBuilder({
     context: 'work',
@@ -52,20 +52,20 @@ export default function ProgressSection({ task }) {
             progress={workProgressMap[''] ?? 0}
             onRemove={null}
           />
-        ) : workEntries.map(({ p, idx }) => {
-          const skillName = p.segments[1] ?? null;
+        ) : workEntries.map(({ parsed, index }) => {
+          const skillName = parsed.segments[1] ?? null;
           const label = skillName
-            ? `${p.segments[0].toUpperCase()}: ${skillName.toUpperCase()}`
-            : p.segments[0].toUpperCase();
+            ? `${parsed.segments[0].toUpperCase()}: ${skillName.toUpperCase()}`
+            : parsed.segments[0].toUpperCase();
           return (
             <WorkRow
-              key={idx}
+              key={index}
               label={label}
               taskId={task.id}
               workKey={skillName ?? ''}
-              target={parseFloat(p.value ?? 1)}
+              target={parseFloat(parsed.value ?? 1)}
               progress={workProgressMap[skillName ?? ''] ?? 0}
-              onRemove={() => dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'work', index: idx })}
+              onRemove={() => dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'work', index })}
             />
           );
         })}

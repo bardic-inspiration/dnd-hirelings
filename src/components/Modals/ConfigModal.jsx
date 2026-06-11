@@ -4,10 +4,10 @@ import { useUI } from '../../state/UIContext.jsx';
 
 export default function ConfigModal({ onRestartPlay }) {
   const { state, dispatch } = useGame();
-  const { setShowConfig }   = useUI();
+  const { closeConfig }     = useUI();
   const { session } = state;
 
-  const close = () => setShowConfig(false);
+  const close = () => closeConfig();
 
   const update = (key, rawValue) => {
     const v = parseFloat(rawValue);

@@ -129,10 +129,10 @@ Presets loaded from the bundled JSON files get `source: 'standard'`; user preset
 
 ## `timeStep` Clamped to < 30 Days
 
-`normalizeState` resets `timeStep` to `'1'` if the stored value is `>= 30`. This prevents accidentally-large steps from causing severe game-clock jumps on load. If you need larger step sizes, this guard in `storage.js:normalizeState` must be changed:
+`normalizeState` resets `timeStep` to `1` if the stored value is `>= 30` (or non-numeric / non-positive). This prevents accidentally-large steps from causing severe game-clock jumps on load. `timeStep` is stored as a `number`; legacy string values are coerced via `parseFloat`. If you need larger step sizes, this guard in `storage.js:normalizeState` must be changed:
 
 ```js
-timeStep: (isNaN(tsNum) || tsNum >= 30) ? '1' : (s.timeStep ?? '1'),
+timeStep: (isNaN(tsNum) || tsNum <= 0 || tsNum >= 30) ? 1 : tsNum,
 ```
 
 ---
@@ -159,7 +159,7 @@ After blur, a 100ms timeout restarts the interval. If you add new editable field
 
 ## HP `null` Means "Full Health"
 
-`agent.hp` is stored as `null` (not `hp_max`) when the agent is at full health. `computeDynamicAttributes` returns `hp_max` when `agent.hp` is null. This means saving and reloading a fully-healed agent correctly reflects the current max HP even if the agent leveled up since creation.
+`agent.hp` is stored as `null` (not `hpMax`) when the agent is at full health. `computeDynamicAttributes` returns `hpMax` when `agent.hp` is null. This means saving and reloading a fully-healed agent correctly reflects the current max HP even if the agent leveled up since creation.
 
 Setting `hp` to `0` explicitly means the agent is at zero HP, not "use max". Don't conflate null and zero.
 

@@ -8,7 +8,7 @@ import ItemPreview from '../components/Modals/previews/ItemPreview.jsx';
 
 const str = (v, fallback = '') => (typeof v === 'string' ? v : fallback);
 const num = (v, fallback = 0) => { const n = Number(v); return Number.isFinite(n) ? n : fallback; };
-const tags = (v) => (Array.isArray(v) ? v.filter(t => typeof t === 'string' && t) : []);
+const tags = (v) => (Array.isArray(v) ? v.filter(tag => typeof tag === 'string' && tag) : []);
 
 // A loaded entry must carry a non-empty string name to be a real preset.
 // Entries that don't are bypassed (usePresets drops normalize() results that
@@ -66,11 +66,11 @@ export const LIBRARY_CONFIGS = {
     storageKey: 'dnd-hirelings-presets-items-v1',
     bundledUrl: '/presets/item_presets.json',
     panelClass: 'library-panel library-panel--wide',
-    makeBlank: () => ({ name: 'NEW ITEM', icon: '', qty: 1, value: 0, description: '', attributes: [] }),
+    makeBlank: () => ({ name: 'NEW ITEM', icon: '', quantity: 1, value: 0, description: '', attributes: [] }),
     normalize: (raw) => ({
       name:        requireName(raw),
       icon:        str(raw?.icon),
-      qty:         num(raw?.qty, 1),
+      quantity:    num(raw?.quantity ?? raw?.qty, 1),
       value:       num(raw?.value, 0),
       description: str(raw?.description),
       attributes:  tags(raw?.attributes),

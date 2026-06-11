@@ -14,11 +14,11 @@ function ItemRow({ item, index, dispatch, task, results }) {
   const setQty = (v) => {
     const n = parseInt(v, 10);
     const items = [...results.items];
-    items[index] = { ...items[index], qty: isNaN(n) ? 0 : n };
+    items[index] = { ...items[index], quantity: isNaN(n) ? 0 : n };
     updateResults(dispatch, task, { items });
   };
   const remove = () => {
-    const items = results.items.filter((_, i) => i !== index);
+    const items = results.items.filter((_, itemIndex) => itemIndex !== index);
     updateResults(dispatch, task, { items });
   };
   return (
@@ -27,7 +27,7 @@ function ItemRow({ item, index, dispatch, task, results }) {
         <strong>ITEM:</strong>{' '}
         <EditableSpan value={item.name} placeholder="item" onCommit={setName} />
         {' ×'}
-        <EditableSpan value={String(item.qty)} onCommit={setQty} />
+        <EditableSpan value={String(item.quantity)} onCommit={setQty} />
       </span>
       <span className="x" onClick={e => { e.stopPropagation(); remove(); }}>×</span>
     </div>
@@ -44,11 +44,11 @@ function AgentRow({ spawn, index, dispatch, task, results }) {
   const setQty = (v) => {
     const n = parseInt(v, 10);
     const agents = [...results.agents];
-    agents[index] = { ...agents[index], qty: isNaN(n) ? 0 : n };
+    agents[index] = { ...agents[index], quantity: isNaN(n) ? 0 : n };
     updateResults(dispatch, task, { agents });
   };
   const remove = () => {
-    const agents = results.agents.filter((_, i) => i !== index);
+    const agents = results.agents.filter((_, agentIndex) => agentIndex !== index);
     updateResults(dispatch, task, { agents });
   };
   return (
@@ -57,7 +57,7 @@ function AgentRow({ spawn, index, dispatch, task, results }) {
         <strong>HIRELING:</strong>{' '}
         <EditableSpan value={tmpl.name || ''} placeholder="hireling" onCommit={setName} />
         {' ×'}
-        <EditableSpan value={String(spawn.qty ?? 1)} onCommit={setQty} />
+        <EditableSpan value={String(spawn.quantity ?? 1)} onCommit={setQty} />
       </span>
       <span className="x" onClick={e => { e.stopPropagation(); remove(); }}>×</span>
     </div>
@@ -74,14 +74,14 @@ export default function ResultsSection({ task }) {
   };
   const addItem = (e) => {
     e.stopPropagation();
-    updateResults(dispatch, task, { items: [...results.items, { name: 'item', qty: 1 }] });
+    updateResults(dispatch, task, { items: [...results.items, { name: 'item', quantity: 1 }] });
   };
   const addAgent = (e) => {
     e.stopPropagation();
     updateResults(dispatch, task, {
       agents: [...results.agents, {
         template: { name: 'NEW HIRELING', icon: '', rate: 1, rateUnit: 'GP/DAY', description: '', attributes: [] },
-        qty: 1,
+        quantity: 1,
       }],
     });
   };
@@ -96,11 +96,11 @@ export default function ResultsSection({ task }) {
             <EditableSpan value={String(results.gold ?? 0)} onCommit={setGold} />
           </span>
         </div>
-        {results.items.map((item, i) => (
-          <ItemRow key={`item-${i}`} item={item} index={i} dispatch={dispatch} task={task} results={results} />
+        {results.items.map((item, index) => (
+          <ItemRow key={`item-${index}`} item={item} index={index} dispatch={dispatch} task={task} results={results} />
         ))}
-        {results.agents.map((spawn, i) => (
-          <AgentRow key={`agent-${i}`} spawn={spawn} index={i} dispatch={dispatch} task={task} results={results} />
+        {results.agents.map((spawn, index) => (
+          <AgentRow key={`agent-${index}`} spawn={spawn} index={index} dispatch={dispatch} task={task} results={results} />
         ))}
       </div>
       <div className="action-row">

@@ -12,8 +12,8 @@ import { uid, now } from '../utils.js';
  */
 export function getWorkRequirements(task) {
   const all = (task.work || [])
-    .map(r => parseTag(r))
-    .filter(p => p.segments[0] === 'work' && p.value !== null && parseFloat(p.value) > 0);
+    .map(tag => parseTag(tag))
+    .filter(parsed => parsed.segments[0] === 'work' && parsed.value !== null && parseFloat(parsed.value) > 0);
   return all.length > 0 ? all : [{ segments: ['work'], value: null }];
 }
 
@@ -48,24 +48,24 @@ export function checkTaskComplete(task) {
  * @returns {{ newInventory: InventoryItem[], newAgents: Agent[], bankDelta: number }}
  */
 export function applyResults(task, inventory, agents) {
-  let newInventory = inventory.map(i => ({ ...i }));
+  let newInventory = inventory.map(item => ({ ...item }));
 
   // 1. Merge result items into inventory.
   for (const reward of task.results?.items || []) {
-    const qty = Number(reward.qty) || 0;
-    if (!reward.name || qty <= 0) continue;
-    const existing = newInventory.find(i => i.name.toLowerCase() === reward.name.toLowerCase());
-    if (existing) existing.qty += qty;
-    else newInventory.push({ id: uid(), name: reward.name, qty, icon: '', description: '', value: 0, attributes: [] });
+    const quantity = Number(reward.quantity) || 0;
+    if (!reward.name || quantity <= 0) continue;
+    const existing = newInventory.find(item => item.name.toLowerCase() === reward.name.toLowerCase());
+    if (existing) existing.quantity += quantity;
+    else newInventory.push({ id: uid(), name: reward.name, quantity, icon: '', description: '', value: 0, attributes: [] });
   }
 
   // 2. Spawn result agents from templates.
   let newAgents = agents;
   const spawned = [];
   for (const spawn of task.results?.agents || []) {
-    const qty = Math.max(0, Math.floor(Number(spawn.qty) || 0));
+    const quantity = Math.max(0, Math.floor(Number(spawn.quantity) || 0));
     const tmpl = spawn.template || {};
-    for (let i = 0; i < qty; i++) {
+    for (let index = 0; index < quantity; index++) {
       spawned.push({
         id: uid(),
         name:        tmpl.name        || 'NEW HIRELING',
@@ -100,11 +100,11 @@ export function applyResults(task, inventory, agents) {
  */
 export function applyTaskComplete(taskId, tasks, agents, inventory) {
   const taskTag = buildTag(['task', taskId]);
-  const task = tasks.find(t => t.id === taskId);
+  const task = tasks.find(task => task.id === taskId);
   if (!task) return { newTasks: tasks, newAgents: agents, newInventory: inventory, bankDelta: 0 };
 
-  const newTasks = tasks.map(t => t.id !== taskId ? t : { ...t, isComplete: true });
-  const unassigned = agents.map(a => ({ ...a, activities: a.activities.filter(act => act !== taskTag) }));
+  const newTasks = tasks.map(task => task.id !== taskId ? task : { ...task, isComplete: true });
+  const unassigned = agents.map(agent => ({ ...agent, activities: agent.activities.filter(act => act !== taskTag) }));
 
   const { newInventory, newAgents, bankDelta } = applyResults(task, inventory, unassigned);
 
@@ -123,12 +123,12 @@ export function computeBlockedTaskIds(activeTasks, inventory) {
   const blocked = new Set();
   for (const task of [...activeTasks].sort((a, b) => a.createdAt - b.createdAt)) {
     for (const req of task.requirements) {
-      const p = parseTag(req);
-      if (p.modifier !== 'req' || p.segments[0] !== 'item') continue;
-      const name = p.segments[1];
+      const parsed = parseTag(req);
+      if (parsed.modifier !== 'req' || parsed.segments[0] !== 'item') continue;
+      const name = parsed.segments[1];
       if (!name) continue;
-      const inv = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
-      if (!inv || inv.qty < (parseFloat(p.value) || 1)) { blocked.add(task.id); break; }
+      const inv = inventory.find(item => item.name.toLowerCase() === name.toLowerCase());
+      if (!inv || inv.quantity < (parseFloat(parsed.value) || 1)) { blocked.add(task.id); break; }
     }
   }
   return blocked;

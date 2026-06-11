@@ -25,10 +25,10 @@ export default function ItemPreview({ draft, onChange }) {
         />
         <DragNumber
           className="item-qty mono"
-          value={draft.qty}
+          value={draft.quantity}
           min={0}
-          onChange={n => onChange({ qty: n })}
-          onCommit={v => { const n = parseFloat(v); onChange({ qty: isNaN(n) ? 0 : Math.max(0, n) }); }}
+          onChange={n => onChange({ quantity: n })}
+          onCommit={v => { const n = parseFloat(v); onChange({ quantity: isNaN(n) ? 0 : Math.max(0, n) }); }}
         />
         <span className="item-value mono">
           <DragNumber
@@ -51,12 +51,12 @@ export default function ItemPreview({ draft, onChange }) {
         <div className="tag-label">ATTRIBUTES</div>
         <div className="tag-list">
           {!draft.attributes.length && <span className="empty-inline">—</span>}
-          {draft.attributes.map((tag, i) => {
+          {draft.attributes.map((tag, index) => {
             const { label, params } = formatTagLabel(parseTag(tag));
             return (
-              <span key={i} className="tag">
+              <span key={index} className="tag">
                 {label}{params}
-                <span className="x" title="Remove" onClick={() => onChange({ attributes: draft.attributes.filter((_, j) => j !== i) })}>×</span>
+                <span className="x" title="Remove" onClick={() => onChange({ attributes: draft.attributes.filter((_, attrIndex) => attrIndex !== index) })}>×</span>
               </span>
             );
           })}

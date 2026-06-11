@@ -5,7 +5,7 @@ export default function HoldButton({ className = '', onClick, onAdjust, title, c
   return (
     <button
       type="button"
-      className={`${className}${holding ? ' holding' : ''}`}
+      className={`${className}${holding ? ' ctrl--holding' : ''}`}
       onPointerDown={onPointerDown}
       title={title}
     >
