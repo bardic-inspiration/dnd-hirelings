@@ -107,6 +107,8 @@ Classes follow a loose kebab-case convention but mix two structural patterns wit
 
 Vite's build step runs two custom plugins (`imageManifestPlugin` in `vite.config.js`) that scan `public/assets/portraits/` and `public/assets/items/` at build time and expose the file lists as virtual modules (`virtual:portrait-manifest`, `virtual:item-manifest`). In dev, file-system watches trigger hot-reload when images are added or removed. This means the portrait and item pickers require no manual manifest maintenance.
 
+Served images are **WebP**: portraits, item icons, and the five theme background images were converted from JPEG (~58% smaller overall) for faster first paint and picker load. Pre-conversion JPEG originals are retained under each directory's `originals/` subfolder (not scanned by the manifest). The display font is served as **WOFF2** (`BNBreezy.woff2`, ~68% smaller than the OTF) with the OTF kept as a fallback in the `@font-face` `src`. When adding new assets, drop WebP files directly into the scanned directories — the manifest's `IMAGE_EXTS` set already includes `webp`.
+
 ---
 
 ## Library Choices
