@@ -2,15 +2,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import { useGame } from '../state/GameContext.jsx';
 import { useUI } from '../state/UIContext.jsx';
 import { advanceTime, getPlayIntervalMs, updateClockDisplayDOM } from '../logic/clock.js';
-
-function flashAgentCard(agentId) {
-  const card = document.querySelector(`.agent-card[data-id="${agentId}"]`);
-  if (!card) return;
-  card.classList.remove('agent-card--flash-error');
-  void card.offsetWidth;
-  card.classList.add('agent-card--flash-error');
-  card.addEventListener('animationend', () => card.classList.remove('agent-card--flash-error'), { once: true });
-}
+import { flashAgentCard } from '../logic/dom.js';
 
 /**
  * Manages the game loop: a `setInterval` for discrete ticks and a `requestAnimationFrame`

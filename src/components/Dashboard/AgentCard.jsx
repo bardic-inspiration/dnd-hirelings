@@ -5,15 +5,7 @@ import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment,
 import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
 import { parseTag } from '../../logic/tags.js';
 import EditableSpan from '../EditableSpan.jsx';
-
-function flashAgentCard(agentId) {
-  const card = document.querySelector(`.agent-card[data-id="${agentId}"]`);
-  if (!card) return;
-  card.classList.remove('agent-card--flash-error');
-  void card.offsetWidth;
-  card.classList.add('agent-card--flash-error');
-  card.addEventListener('animationend', () => card.classList.remove('agent-card--flash-error'), { once: true });
-}
+import { flashAgentCard } from '../../logic/dom.js';
 
 function TagChip({ tagStr, active, onRemove }) {
   const parsed = parseTag(tagStr);
