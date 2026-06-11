@@ -12,7 +12,8 @@ Guild Manager lets players create hirelings, assign them tasks, and run a game c
 - **Tasks** — Define jobs with work requirements and gold rewards
 - **Game clock** — Play/pause/step time; the clock assigns work to available agents and resolves completed tasks
 - **Tag system** — Path-based `modifier,type:subtype=value` tags drive agent attributes, task requirements, and rewards
-- **Equipment** — Agents carry items in a personal Bag and equip them to named slots (weapon, armor, off-hand, ring, head, feet)
+- **Equipment** — Agents carry items in a personal Bag and equip them to named slots (weapon, armor, off-hand, ring, head, feet); equipped items can grant attribute bonuses via `mod,*` tags
+- **Tag Registry** — A live, editable index of every tag structure in your game; auto-registers tags as you author them and supports YAML export/import
 - **Preset library** — Right-click any `+AGENT`, `+TASK`, or `+ITEM` button to open a searchable library with an editable preview; left-click still creates a blank object
 - **UI** — Editable fields, drag-select, color palettes, no page scroll
 
@@ -26,8 +27,18 @@ Tags follow the form `modifier,path:path=value` where modifier and value are opt
 | With modifier | `req,skill:arcana=4` | Task requires Arcana ≥ 4 |
 | Block modifier | `block,trait:undead` | Task blocks agents with the undead trait |
 | Work tag | `work:skill:arcana=8` | Task costs 8 skill (Arcana) work |
+| Mod modifier | `mod,ability:str=1` | Item grants +1 STR when equipped |
 
 Registered namespaces: `ability` (STR/DEX/CON/INT/WIS/CHA), `skill` (all 18), `task`, `tool`, `trait`, `class`, `race`, `level`, `item`, `work`, `equip`. Tags outside the registry are valid and displayed as raw text.
+
+## Tag Registry
+
+Open the Tag Registry with the `TAG REGISTRY` button in the top bar.
+
+- **Folding tree view** — code-editor-style outline; click `+`/`−` to expand or collapse branches, `×` to delete a node
+- **Auto-registration** — adding tags to agents or tasks automatically registers their path structure into the registry
+- **YAML I/O** — `SAVE` exports the full registry as a `.yml` config file; `LOAD` imports and validates it (rejects non-map values, invalid key characters, and duplicate keys)
+- Registry edits persist to localStorage; importing a YAML file replaces the current registry after validation
 
 ## Preset Library
 
@@ -47,8 +58,7 @@ Standard presets ship in `public/presets/`; user presets persist in localStorage
 | State | Context API + useReducer |
 | Styling | Vanilla CSS |
 | Persistence | localStorage |
-
-No external dependencies beyond React and Vite.
+| Config I/O | js-yaml 4.2 |
 
 ## Project Structure
 
