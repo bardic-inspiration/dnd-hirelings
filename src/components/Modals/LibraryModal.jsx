@@ -100,9 +100,7 @@ export default function LibraryModal() {
                   style={config.rowIcon(preset) ? { backgroundImage: `url("${config.rowIcon(preset)}")` } : {}}
                 />
                 <span className="library-row-name">{highlight(preset.name, query.trim())}</span>
-                {preset.source === 'user' && (
-                  <span className="x" title="Delete preset" onClick={e => handleDelete(e, preset.id)}>×</span>
-                )}
+                <span className="x" title="Delete preset" onClick={e => handleDelete(e, preset.id)}>×</span>
               </div>
             ))}
             {ready && (

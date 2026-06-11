@@ -2,57 +2,731 @@
   {
     "name": "HEALING POTION",
     "icon": "/assets/items/image2-001.jpg",
-    "quantity": 1,
-    "value": 25,
-    "description": "Restores a measure of health when consumed.",
-    "attributes": []
+    "quantity": 5,
+    "value": 50,
+    "description": "Restores 2d4+2 hit points when consumed.",
+    "attributes": [
+      "#item:potion",
+      "#item:consumable",
+      "#rarity:common"
+    ]
   },
   {
-    "name": "IRON SWORD",
+    "name": "GREATER HEALING POTION",
+    "icon": "/assets/items/image2-002.jpg",
+    "quantity": 2,
+    "value": 150,
+    "description": "Restores 4d4+4 hit points when consumed.",
+    "attributes": [
+      "#item:potion",
+      "#item:consumable",
+      "#rarity:uncommon"
+    ]
+  },
+  {
+    "name": "POTION OF FIRE RESISTANCE",
+    "icon": "/assets/items/image2-003.jpg",
+    "quantity": 1,
+    "value": 300,
+    "description": "Grants resistance to fire damage for one hour.",
+    "attributes": [
+      "#item:potion",
+      "#item:consumable",
+      "#rarity:uncommon"
+    ]
+  },
+  {
+    "name": "ANTITOXIN",
+    "icon": "/assets/items/image2-004.jpg",
+    "quantity": 3,
+    "value": 50,
+    "description": "Advantage on saving throws against poison for one hour.",
+    "attributes": [
+      "#item:potion",
+      "#item:consumable",
+      "#rarity:common"
+    ]
+  },
+  {
+    "name": "OIL OF SLIPPERINESS",
+    "icon": "/assets/items/image2-005.jpg",
+    "quantity": 1,
+    "value": 480,
+    "description": "Coats a creature or surface, mimicking grease.",
+    "attributes": [
+      "#item:potion",
+      "#item:consumable",
+      "#rarity:uncommon"
+    ]
+  },
+  {
+    "name": "DAGGER",
     "icon": "/assets/items/image2-010.jpg",
+    "quantity": 4,
+    "value": 2,
+    "description": "A simple finesse blade, easily concealed.",
+    "attributes": [
+      "#item:weapon",
+      "#tool:weapon",
+      "bonus,skill:sword=1"
+    ]
+  },
+  {
+    "name": "SHORTSWORD",
+    "icon": "/assets/items/image2-011.jpg",
+    "quantity": 2,
+    "value": 10,
+    "description": "A light, versatile blade favored by scouts.",
+    "attributes": [
+      "#item:weapon",
+      "#tool:weapon",
+      "bonus,skill:sword=1"
+    ]
+  },
+  {
+    "name": "LONGSWORD",
+    "icon": "/assets/items/image2-012.jpg",
+    "quantity": 2,
+    "value": 15,
+    "description": "The reliable martial blade of soldiers everywhere.",
+    "attributes": [
+      "#item:weapon",
+      "#tool:weapon",
+      "bonus,skill:sword=2"
+    ]
+  },
+  {
+    "name": "GREATAXE",
+    "icon": "/assets/items/image2-013.jpg",
+    "quantity": 1,
+    "value": 30,
+    "description": "A brutal two-handed axe. Subtlety not included.",
+    "attributes": [
+      "#item:weapon",
+      "#tool:weapon",
+      "bonus,ability:str=1"
+    ]
+  },
+  {
+    "name": "WARHAMMER",
+    "icon": "/assets/items/image2-014.jpg",
     "quantity": 1,
     "value": 15,
-    "description": "A serviceable blade of plain iron.",
-    "attributes": ["#tool:weapon", "bonus,ability:str=1"]
+    "description": "A heavy hammer that caves shields and skulls alike.",
+    "attributes": [
+      "#item:weapon",
+      "#tool:weapon",
+      "bonus,ability:str=1"
+    ]
+  },
+  {
+    "name": "LONGBOW",
+    "icon": "/assets/items/image2-015.jpg",
+    "quantity": 2,
+    "value": 50,
+    "description": "A tall bow with deadly reach in skilled hands.",
+    "attributes": [
+      "#item:weapon",
+      "#tool:weapon",
+      "bonus,skill:bow=2"
+    ]
+  },
+  {
+    "name": "SHORTBOW",
+    "icon": "/assets/items/image2-016.jpg",
+    "quantity": 2,
+    "value": 25,
+    "description": "A compact bow for hunting and skirmishing.",
+    "attributes": [
+      "#item:weapon",
+      "#tool:weapon",
+      "bonus,skill:bow=1"
+    ]
+  },
+  {
+    "name": "LIGHT CROSSBOW",
+    "icon": "/assets/items/image2-017.jpg",
+    "quantity": 1,
+    "value": 25,
+    "description": "Simple to load, simpler to aim.",
+    "attributes": [
+      "#item:weapon",
+      "#tool:weapon",
+      "bonus,skill:bow=1"
+    ]
+  },
+  {
+    "name": "QUARTERSTAFF",
+    "icon": "/assets/items/image2-018.jpg",
+    "quantity": 3,
+    "value": 1,
+    "description": "A stout length of oak. Cheap and dependable.",
+    "attributes": [
+      "#item:weapon",
+      "#tool:weapon"
+    ]
+  },
+  {
+    "name": "SPEAR",
+    "icon": "/assets/items/image2-019.jpg",
+    "quantity": 3,
+    "value": 1,
+    "description": "A versatile thrown or thrusting weapon.",
+    "attributes": [
+      "#item:weapon",
+      "#tool:weapon"
+    ]
+  },
+  {
+    "name": "ARROWS (20)",
+    "icon": "/assets/items/image2-021.jpg",
+    "quantity": 10,
+    "value": 1,
+    "description": "A bundle of twenty fletched arrows.",
+    "attributes": [
+      "#item:ammunition",
+      "#item:consumable"
+    ]
+  },
+  {
+    "name": "CROSSBOW BOLTS (20)",
+    "icon": "/assets/items/image2-022.jpg",
+    "quantity": 5,
+    "value": 1,
+    "description": "Twenty iron-tipped bolts.",
+    "attributes": [
+      "#item:ammunition",
+      "#item:consumable"
+    ]
+  },
+  {
+    "name": "PADDED ARMOR",
+    "icon": "/assets/items/image2-025.jpg",
+    "quantity": 2,
+    "value": 5,
+    "description": "Quilted layers offering minimal protection.",
+    "attributes": [
+      "#item:armor",
+      "#tool:armor",
+      "bonus,ability:con=1"
+    ]
+  },
+  {
+    "name": "LEATHER ARMOR",
+    "icon": "/assets/items/image2-026.jpg",
+    "quantity": 3,
+    "value": 10,
+    "description": "Supple boiled leather, quiet and light.",
+    "attributes": [
+      "#item:armor",
+      "#tool:armor",
+      "bonus,ability:con=1"
+    ]
+  },
+  {
+    "name": "CHAIN SHIRT",
+    "icon": "/assets/items/image2-027.jpg",
+    "quantity": 2,
+    "value": 50,
+    "description": "A mail shirt worn beneath clothes.",
+    "attributes": [
+      "#item:armor",
+      "#tool:armor",
+      "bonus,ability:con=1"
+    ]
   },
   {
     "name": "CHAIN MAIL",
-    "icon": "/assets/items/image2-011.jpg",
+    "icon": "/assets/items/image2-028.jpg",
     "quantity": 1,
     "value": 75,
     "description": "Interlocking iron rings providing solid protection.",
-    "attributes": ["#tool:armor", "bonus,ability:con=2"]
+    "attributes": [
+      "#item:armor",
+      "#tool:armor",
+      "bonus,ability:con=2"
+    ]
+  },
+  {
+    "name": "PLATE ARMOR",
+    "icon": "/assets/items/image2-029.jpg",
+    "quantity": 1,
+    "value": 1500,
+    "description": "Shaped steel plates covering the whole body.",
+    "attributes": [
+      "#item:armor",
+      "#tool:armor",
+      "bonus,ability:con=3"
+    ]
+  },
+  {
+    "name": "SHIELD",
+    "icon": "/assets/items/image2-030.jpg",
+    "quantity": 3,
+    "value": 10,
+    "description": "A sturdy wooden shield banded with iron.",
+    "attributes": [
+      "#item:armor",
+      "#tool:armor",
+      "bonus,skill:shield=1"
+    ]
   },
   {
     "name": "ROPE (50 FT)",
-    "icon": "/assets/items/image2-020.jpg",
-    "quantity": 1,
+    "icon": "/assets/items/image2-031.jpg",
+    "quantity": 3,
     "value": 1,
     "description": "Fifty feet of sturdy hempen rope.",
-    "attributes": ["#tool:gear"]
+    "attributes": [
+      "#item:wondrous",
+      "#tool:gear"
+    ]
+  },
+  {
+    "name": "GRAPPLING HOOK",
+    "icon": "/assets/items/image2-032.jpg",
+    "quantity": 2,
+    "value": 2,
+    "description": "An iron hook for scaling walls and cliffs.",
+    "attributes": [
+      "#tool:gear",
+      "bonus,skill:athletics=1"
+    ]
   },
   {
     "name": "RATIONS",
-    "icon": "/assets/items/image2-030.jpg",
-    "quantity": 5,
+    "icon": "/assets/items/image2-033.jpg",
+    "quantity": 20,
     "value": 1,
     "description": "Dried trail food for a day.",
-    "attributes": []
+    "attributes": [
+      "#item:consumable",
+      "#item:trade-good"
+    ]
   },
   {
     "name": "TORCH",
-    "icon": "/assets/items/image2-040.jpg",
-    "quantity": 10,
+    "icon": "/assets/items/image2-034.jpg",
+    "quantity": 20,
     "value": 1,
-    "description": "Burns for about an hour.",
-    "attributes": []
+    "description": "Burns for about an hour, shedding bright light.",
+    "attributes": [
+      "#item:consumable",
+      "#tool:gear"
+    ]
+  },
+  {
+    "name": "LANTERN",
+    "icon": "/assets/items/image2-035.jpg",
+    "quantity": 3,
+    "value": 5,
+    "description": "A hooded lantern that casts a steady beam.",
+    "attributes": [
+      "#tool:gear"
+    ]
+  },
+  {
+    "name": "BEDROLL",
+    "icon": "/assets/items/image2-036.jpg",
+    "quantity": 6,
+    "value": 1,
+    "description": "Warm enough for a night under the stars.",
+    "attributes": [
+      "#tool:gear"
+    ]
+  },
+  {
+    "name": "WATERSKIN",
+    "icon": "/assets/items/image2-037.jpg",
+    "quantity": 8,
+    "value": 1,
+    "description": "Holds four pints of water or wine.",
+    "attributes": [
+      "#tool:gear"
+    ]
+  },
+  {
+    "name": "TINDERBOX",
+    "icon": "/assets/items/image2-038.jpg",
+    "quantity": 4,
+    "value": 1,
+    "description": "Flint, steel, and tinder for starting fires.",
+    "attributes": [
+      "#tool:gear"
+    ]
+  },
+  {
+    "name": "CALTROPS",
+    "icon": "/assets/items/image2-039.jpg",
+    "quantity": 5,
+    "value": 1,
+    "description": "Scattered iron spikes to slow pursuers.",
+    "attributes": [
+      "#item:consumable",
+      "#tool:gear"
+    ]
+  },
+  {
+    "name": "MANACLES",
+    "icon": "/assets/items/image2-041.jpg",
+    "quantity": 2,
+    "value": 2,
+    "description": "Iron restraints for captured quarry.",
+    "attributes": [
+      "#tool:gear"
+    ]
+  },
+  {
+    "name": "THIEVES' TOOLS",
+    "icon": "/assets/items/image2-042.jpg",
+    "quantity": 1,
+    "value": 25,
+    "description": "Picks and probes for locks and traps.",
+    "attributes": [
+      "#tool:thieves-tools",
+      "bonus,skill:lockpicking=2"
+    ]
+  },
+  {
+    "name": "HEALER'S KIT",
+    "icon": "/assets/items/image2-043.jpg",
+    "quantity": 3,
+    "value": 5,
+    "description": "Bandages, salves, and splints for ten uses.",
+    "attributes": [
+      "#tool:healers-kit",
+      "#item:consumable",
+      "bonus,skill:medicine=2"
+    ]
+  },
+  {
+    "name": "SMITH'S TOOLS",
+    "icon": "/assets/items/image2-044.jpg",
+    "quantity": 1,
+    "value": 20,
+    "description": "Hammer, tongs, and files for metalwork.",
+    "attributes": [
+      "#tool:smiths-tools",
+      "bonus,skill:smithing=2"
+    ]
+  },
+  {
+    "name": "ALCHEMIST'S SUPPLIES",
+    "icon": "/assets/items/image2-045.jpg",
+    "quantity": 1,
+    "value": 50,
+    "description": "Retorts, reagents, and glassware.",
+    "attributes": [
+      "#tool:alchemists-supplies",
+      "bonus,skill:alchemy=2"
+    ]
   },
   {
     "name": "SCHOLAR'S TOOLS",
-    "icon": "/assets/items/image2-050.jpg",
+    "icon": "/assets/items/image2-046.jpg",
     "quantity": 1,
     "value": 10,
     "description": "Reference texts and instruments for academic work.",
-    "attributes": ["#tool:gear", "bonus,skill:arcana=2", "bonus,skill:history=1"]
+    "attributes": [
+      "#tool:gear",
+      "bonus,skill:arcana=2",
+      "bonus,skill:history=1"
+    ]
+  },
+  {
+    "name": "NAVIGATOR'S TOOLS",
+    "icon": "/assets/items/image2-047.jpg",
+    "quantity": 1,
+    "value": 25,
+    "description": "Charts, compass, and sextant.",
+    "attributes": [
+      "#tool:gear",
+      "bonus,skill:navigation=2"
+    ]
+  },
+  {
+    "name": "DISGUISE KIT",
+    "icon": "/assets/items/image2-048.jpg",
+    "quantity": 1,
+    "value": 25,
+    "description": "Cosmetics and props for assuming another face.",
+    "attributes": [
+      "#tool:gear",
+      "bonus,skill:deception=2"
+    ]
+  },
+  {
+    "name": "LUTE",
+    "icon": "/assets/items/image2-049.jpg",
+    "quantity": 1,
+    "value": 35,
+    "description": "A finely strung instrument for the road.",
+    "attributes": [
+      "#tool:musical-instrument",
+      "bonus,skill:performance=2"
+    ]
+  },
+  {
+    "name": "SPELLBOOK",
+    "icon": "/assets/items/image2-050.jpg",
+    "quantity": 1,
+    "value": 50,
+    "description": "A wizard's grimoire of inscribed spells.",
+    "attributes": [
+      "#tool:spellbook",
+      "#item:wondrous",
+      "bonus,skill:arcana=2"
+    ]
+  },
+  {
+    "name": "SCROLL OF IDENTIFY",
+    "icon": "/assets/items/image2-051.jpg",
+    "quantity": 2,
+    "value": 80,
+    "description": "Reveals the properties of a magic item.",
+    "attributes": [
+      "#item:scroll",
+      "#item:consumable",
+      "#rarity:common"
+    ]
+  },
+  {
+    "name": "SCROLL OF FIREBALL",
+    "icon": "/assets/items/image2-052.jpg",
+    "quantity": 1,
+    "value": 300,
+    "description": "Unleashes a roaring sphere of flame.",
+    "attributes": [
+      "#item:scroll",
+      "#item:consumable",
+      "#rarity:rare"
+    ]
+  },
+  {
+    "name": "HOLY SYMBOL",
+    "icon": "/assets/items/image2-053.jpg",
+    "quantity": 2,
+    "value": 5,
+    "description": "An emblem of faith and a divine focus.",
+    "attributes": [
+      "#tool:holy-symbol",
+      "bonus,skill:religion=1"
+    ]
+  },
+  {
+    "name": "WAND OF MAGIC MISSILE",
+    "icon": "/assets/items/image2-054.jpg",
+    "quantity": 1,
+    "value": 500,
+    "description": "Looses unerring bolts of force. 7 charges.",
+    "attributes": [
+      "#item:wand",
+      "#rarity:uncommon",
+      "bonus,skill:arcana=1"
+    ]
+  },
+  {
+    "name": "STAFF OF HEALING",
+    "icon": "/assets/items/image2-055.jpg",
+    "quantity": 1,
+    "value": 1300,
+    "description": "Channels restorative magic. 10 charges.",
+    "attributes": [
+      "#item:staff",
+      "#rarity:rare",
+      "bonus,skill:medicine=2"
+    ]
+  },
+  {
+    "name": "RING OF PROTECTION",
+    "icon": "/assets/items/image2-056.jpg",
+    "quantity": 1,
+    "value": 3500,
+    "description": "A band that wards its wearer from harm.",
+    "attributes": [
+      "#item:ring",
+      "#rarity:rare",
+      "bonus,ability:con=1"
+    ]
+  },
+  {
+    "name": "CLOAK OF ELVENKIND",
+    "icon": "/assets/items/image2-057.jpg",
+    "quantity": 1,
+    "value": 1000,
+    "description": "Shimmering cloth that blurs its wearer from sight.",
+    "attributes": [
+      "#item:wondrous",
+      "#rarity:uncommon",
+      "bonus,skill:stealth=2"
+    ]
+  },
+  {
+    "name": "BOOTS OF STRIDING",
+    "icon": "/assets/items/image2-058.jpg",
+    "quantity": 1,
+    "value": 1200,
+    "description": "Tireless boots that quicken every step.",
+    "attributes": [
+      "#item:wondrous",
+      "#rarity:uncommon",
+      "bonus,skill:athletics=1"
+    ]
+  },
+  {
+    "name": "BAG OF HOLDING",
+    "icon": "/assets/items/image2-059.jpg",
+    "quantity": 1,
+    "value": 4000,
+    "description": "An extradimensional sack of vast capacity.",
+    "attributes": [
+      "#item:wondrous",
+      "#rarity:uncommon"
+    ]
+  },
+  {
+    "name": "AMULET OF HEALTH",
+    "icon": "/assets/items/image2-060.jpg",
+    "quantity": 1,
+    "value": 8000,
+    "description": "Bolsters the wearer's constitution.",
+    "attributes": [
+      "#item:wondrous",
+      "#rarity:rare",
+      "bonus,ability:con=2"
+    ]
+  },
+  {
+    "name": "GOLD COINS",
+    "icon": "/assets/items/image2-061.jpg",
+    "quantity": 250,
+    "value": 1,
+    "description": "Standard currency of the realm.",
+    "attributes": [
+      "#item:treasure",
+      "#item:trade-good"
+    ]
+  },
+  {
+    "name": "SILVER COINS",
+    "icon": "/assets/items/image2-062.jpg",
+    "quantity": 500,
+    "value": 1,
+    "description": "Ten silver to the gold.",
+    "attributes": [
+      "#item:treasure",
+      "#item:trade-good"
+    ]
+  },
+  {
+    "name": "GEMSTONE",
+    "icon": "/assets/items/image2-063.jpg",
+    "quantity": 6,
+    "value": 50,
+    "description": "A cut gem, easy to carry and trade.",
+    "attributes": [
+      "#item:treasure",
+      "#rarity:uncommon"
+    ]
+  },
+  {
+    "name": "RUBY",
+    "icon": "/assets/items/image2-064.jpg",
+    "quantity": 2,
+    "value": 500,
+    "description": "A flawless blood-red ruby.",
+    "attributes": [
+      "#item:treasure",
+      "#rarity:rare"
+    ]
+  },
+  {
+    "name": "GOLD IDOL",
+    "icon": "/assets/items/image2-065.jpg",
+    "quantity": 1,
+    "value": 750,
+    "description": "A small idol of solid gold, looted from a ruin.",
+    "attributes": [
+      "#item:treasure",
+      "#rarity:rare"
+    ]
+  },
+  {
+    "name": "SILK BOLT",
+    "icon": "/assets/items/image2-066.jpg",
+    "quantity": 4,
+    "value": 10,
+    "description": "A bolt of fine silk for trade.",
+    "attributes": [
+      "#item:trade-good"
+    ]
+  },
+  {
+    "name": "SPICE POUCH",
+    "icon": "/assets/items/image2-067.jpg",
+    "quantity": 8,
+    "value": 2,
+    "description": "Exotic spices worth their weight in coin.",
+    "attributes": [
+      "#item:trade-good"
+    ]
+  },
+  {
+    "name": "DRAGON SCALE",
+    "icon": "/assets/items/image2-068.jpg",
+    "quantity": 3,
+    "value": 100,
+    "description": "A reagent prized by armorers and alchemists.",
+    "attributes": [
+      "#item:reagent",
+      "#rarity:rare"
+    ]
+  },
+  {
+    "name": "TROLL BLOOD VIAL",
+    "icon": "/assets/items/image2-069.jpg",
+    "quantity": 4,
+    "value": 40,
+    "description": "A regenerative reagent for potion-brewing.",
+    "attributes": [
+      "#item:reagent",
+      "#item:consumable",
+      "#rarity:uncommon"
+    ]
+  },
+  {
+    "name": "MOONPETAL HERB",
+    "icon": "/assets/items/image2-070.jpg",
+    "quantity": 12,
+    "value": 5,
+    "description": "A pale flower that blooms only by night.",
+    "attributes": [
+      "#item:reagent",
+      "#item:consumable",
+      "#trait:foraging"
+    ]
+  },
+  {
+    "name": "IRON INGOT",
+    "icon": "/assets/items/image2-071.jpg",
+    "quantity": 10,
+    "value": 3,
+    "description": "Refined iron ready for the forge.",
+    "attributes": [
+      "#item:trade-good",
+      "#item:reagent"
+    ]
+  },
+  {
+    "name": "TANGLEFOOT BAG",
+    "icon": "/assets/items/image2-072.jpg",
+    "quantity": 4,
+    "value": 50,
+    "description": "Bursts into sticky resin, miring whatever it strikes.",
+    "attributes": [
+      "#item:consumable",
+      "#tool:gear",
+      "#rarity:common"
+    ]
   }
 ]

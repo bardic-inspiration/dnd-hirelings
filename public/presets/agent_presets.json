@@ -1,42 +1,355 @@
 [
   {
     "name": "VETERAN GUARD",
-    "icon": "/assets/portraits/portrait-01.jpg",
+    "icon": "/assets/portraits/portrait-001.jpg",
     "rate": 2,
     "rateUnit": "GP/DAY",
     "description": "Seasoned melee fighter, steady under pressure.",
-    "attributes": ["#class:fighter", "#skill:sword=2", "#skill:shield=1"]
+    "attributes": [
+      "#class:fighter",
+      "#race:human",
+      "#level=4",
+      "#skill:sword=2",
+      "#skill:shield=1"
+    ]
   },
   {
     "name": "HEDGE WIZARD",
-    "icon": "/assets/portraits/portrait-05.jpg",
+    "icon": "/assets/portraits/portrait-002.jpg",
     "rate": 3,
     "rateUnit": "GP/DAY",
     "description": "Self-taught spellcaster with a knack for utility magic.",
-    "attributes": ["#class:wizard", "#skill:arcana=2", "#tool:spellbook"]
+    "attributes": [
+      "#class:wizard",
+      "#race:human",
+      "#level=3",
+      "#skill:arcana=2",
+      "#tool:spellbook"
+    ]
   },
   {
-    "name": "SCOUT",
-    "icon": "/assets/portraits/portrait-12.jpg",
+    "name": "ELVEN SCOUT",
+    "icon": "/assets/portraits/portrait-003.jpg",
     "rate": 2,
     "rateUnit": "GP/DAY",
-    "description": "Quiet tracker, ranges ahead of the party.",
-    "attributes": ["#class:ranger", "#skill:stealth=2", "#skill:survival=2"]
+    "description": "Quiet tracker who ranges far ahead of the company.",
+    "attributes": [
+      "#class:ranger",
+      "#race:elf",
+      "#level=3",
+      "#skill:stealth=2",
+      "#skill:survival=2",
+      "#skill:bow=2"
+    ]
   },
   {
     "name": "FIELD MEDIC",
-    "icon": "/assets/portraits/portrait-18.jpg",
+    "icon": "/assets/portraits/portrait-004.jpg",
     "rate": 3,
     "rateUnit": "GP/DAY",
-    "description": "Keeps the company on its feet.",
-    "attributes": ["#class:cleric", "#skill:medicine=2", "#tool:healers-kit"]
+    "description": "Keeps the company on its feet through any campaign.",
+    "attributes": [
+      "#class:cleric",
+      "#race:half-elf",
+      "#level=4",
+      "#skill:medicine=2",
+      "#tool:healers-kit",
+      "#tool:holy-symbol"
+    ]
   },
   {
-    "name": "LABORER",
-    "icon": "",
+    "name": "DAY LABORER",
+    "icon": "/assets/portraits/portrait-005.jpg",
     "rate": 1,
     "rateUnit": "GP/DAY",
     "description": "Strong back, willing hands. Cheap and reliable.",
-    "attributes": ["#skill:athletics=1"]
+    "attributes": [
+      "#race:human",
+      "#skill:athletics=1"
+    ]
+  },
+  {
+    "name": "DWARVEN SMITH",
+    "icon": "/assets/portraits/portrait-006.jpg",
+    "rate": 4,
+    "rateUnit": "GP/DAY",
+    "description": "Master of the forge; repairs and forges arms and armor.",
+    "attributes": [
+      "#class:artificer",
+      "#race:dwarf",
+      "#level=5",
+      "#skill:smithing=3",
+      "#tool:smiths-tools",
+      "#trait:craft"
+    ]
+  },
+  {
+    "name": "HALFLING BURGLAR",
+    "icon": "/assets/portraits/portrait-007.jpg",
+    "rate": 3,
+    "rateUnit": "GP/DAY",
+    "description": "Light fingers and lighter footsteps. Opens what won't open.",
+    "attributes": [
+      "#class:rogue",
+      "#race:halfling",
+      "#level=3",
+      "#skill:stealth=3",
+      "#skill:lockpicking=2",
+      "#skill:sleightofhand=2",
+      "#tool:thieves-tools"
+    ]
+  },
+  {
+    "name": "WANDERING BARD",
+    "icon": "/assets/portraits/portrait-008.jpg",
+    "rate": 2,
+    "rateUnit": "GP/DAY",
+    "description": "Gathers rumors and lifts spirits in equal measure.",
+    "attributes": [
+      "#class:bard",
+      "#race:half-elf",
+      "#level=3",
+      "#skill:performance=2",
+      "#skill:persuasion=2",
+      "#tool:musical-instrument"
+    ]
+  },
+  {
+    "name": "TEMPLE PALADIN",
+    "icon": "/assets/portraits/portrait-009.jpg",
+    "rate": 5,
+    "rateUnit": "GP/DAY",
+    "description": "Oath-bound knight, a bulwark of faith and steel.",
+    "attributes": [
+      "#class:paladin",
+      "#race:human",
+      "#level=5",
+      "#skill:sword=2",
+      "#skill:religion=1",
+      "#tool:holy-symbol",
+      "#trait:combat"
+    ]
+  },
+  {
+    "name": "GROVE DRUID",
+    "icon": "/assets/portraits/portrait-010.jpg",
+    "rate": 4,
+    "rateUnit": "GP/DAY",
+    "description": "Keeper of the old ways; speaks for beast and bramble.",
+    "attributes": [
+      "#class:druid",
+      "#race:elf",
+      "#level=4",
+      "#skill:nature=3",
+      "#skill:animalhandling=2",
+      "#trait:wilderness"
+    ]
+  },
+  {
+    "name": "STREET TOUGH",
+    "icon": "/assets/portraits/portrait-011.jpg",
+    "rate": 2,
+    "rateUnit": "GP/DAY",
+    "description": "Knuckle-bruiser from the docks. Asks no questions.",
+    "attributes": [
+      "#class:barbarian",
+      "#race:half-orc",
+      "#level=2",
+      "#skill:athletics=2",
+      "#skill:intimidation=2",
+      "#trait:urban"
+    ]
+  },
+  {
+    "name": "ARCANE APPRENTICE",
+    "icon": "/assets/portraits/portrait-012.jpg",
+    "rate": 1,
+    "rateUnit": "GP/DAY",
+    "description": "Eager student of the art, still smudged with chalk.",
+    "attributes": [
+      "#class:wizard",
+      "#race:gnome",
+      "#level=1",
+      "#skill:arcana=1",
+      "#tool:spellbook",
+      "#trait:study"
+    ]
+  },
+  {
+    "name": "CARAVAN GUIDE",
+    "icon": "/assets/portraits/portrait-013.jpg",
+    "rate": 3,
+    "rateUnit": "GP/DAY",
+    "description": "Knows every road, ford, and bandit ambush for a hundred miles.",
+    "attributes": [
+      "#class:ranger",
+      "#race:human",
+      "#level=3",
+      "#skill:navigation=2",
+      "#skill:survival=2",
+      "#trait:travel"
+    ]
+  },
+  {
+    "name": "GUILD ALCHEMIST",
+    "icon": "/assets/portraits/portrait-014.jpg",
+    "rate": 4,
+    "rateUnit": "GP/DAY",
+    "description": "Distills potions and poisons alike behind a locked door.",
+    "attributes": [
+      "#class:artificer",
+      "#race:gnome",
+      "#level=4",
+      "#skill:alchemy=3",
+      "#tool:alchemists-supplies",
+      "#trait:craft"
+    ]
+  },
+  {
+    "name": "SHADOW ASSASSIN",
+    "icon": "/assets/portraits/portrait-015.jpg",
+    "rate": 6,
+    "rateUnit": "GP/DAY",
+    "description": "A blade in the dark. Expensive, discreet, lethal.",
+    "attributes": [
+      "#class:rogue",
+      "#race:tiefling",
+      "#level=6",
+      "#skill:stealth=3",
+      "#skill:deception=2",
+      "#skill:sword=2",
+      "#trait:stealth"
+    ]
+  },
+  {
+    "name": "DRAGONBORN MERCENARY",
+    "icon": "/assets/portraits/portrait-016.jpg",
+    "rate": 5,
+    "rateUnit": "GP/DAY",
+    "description": "A towering sellsword whose breath still smolders.",
+    "attributes": [
+      "#class:fighter",
+      "#race:dragonborn",
+      "#level=5",
+      "#skill:sword=3",
+      "#skill:athletics=2",
+      "#trait:combat"
+    ]
+  },
+  {
+    "name": "CLOISTERED SCHOLAR",
+    "icon": "/assets/portraits/portrait-017.jpg",
+    "rate": 3,
+    "rateUnit": "GP/DAY",
+    "description": "Pale, patient, and bottomless on matters of history.",
+    "attributes": [
+      "#race:human",
+      "#skill:history=3",
+      "#skill:investigation=2",
+      "#skill:arcana=1",
+      "#trait:study"
+    ]
+  },
+  {
+    "name": "MARSH HUNTER",
+    "icon": "/assets/portraits/portrait-018.jpg",
+    "rate": 2,
+    "rateUnit": "GP/DAY",
+    "description": "Trapper and forager who thrives where others sink.",
+    "attributes": [
+      "#class:ranger",
+      "#race:halfling",
+      "#level=2",
+      "#skill:survival=3",
+      "#skill:bow=1",
+      "#trait:foraging"
+    ]
+  },
+  {
+    "name": "WARLOCK BROKER",
+    "icon": "/assets/portraits/portrait-019.jpg",
+    "rate": 5,
+    "rateUnit": "GP/DAY",
+    "description": "Trades in secrets and pacts. Reads the fine print twice.",
+    "attributes": [
+      "#class:warlock",
+      "#race:tiefling",
+      "#level=4",
+      "#skill:deception=3",
+      "#skill:arcana=2",
+      "#trait:diplomacy"
+    ]
+  },
+  {
+    "name": "MOUNTAIN GUARD",
+    "icon": "/assets/portraits/portrait-020.jpg",
+    "rate": 3,
+    "rateUnit": "GP/DAY",
+    "description": "Stoic dwarf who has held a gate or two in his day.",
+    "attributes": [
+      "#class:fighter",
+      "#race:dwarf",
+      "#level=4",
+      "#skill:shield=2",
+      "#skill:athletics=1",
+      "#trait:combat"
+    ]
+  },
+  {
+    "name": "TRAVELING PRIEST",
+    "icon": "/assets/portraits/portrait-021.jpg",
+    "rate": 3,
+    "rateUnit": "GP/DAY",
+    "description": "Tends the sick and consecrates ground wherever he stops.",
+    "attributes": [
+      "#class:cleric",
+      "#race:human",
+      "#level=3",
+      "#skill:medicine=2",
+      "#skill:religion=2",
+      "#tool:holy-symbol"
+    ]
+  },
+  {
+    "name": "SORCERER PRODIGY",
+    "icon": "/assets/portraits/portrait-022.jpg",
+    "rate": 5,
+    "rateUnit": "GP/DAY",
+    "description": "Raw, untrained power crackling beneath the skin.",
+    "attributes": [
+      "#class:sorcerer",
+      "#race:half-elf",
+      "#level=5",
+      "#skill:arcana=3",
+      "#trait:ritual"
+    ]
+  },
+  {
+    "name": "MONASTERY ADEPT",
+    "icon": "/assets/portraits/portrait-023.jpg",
+    "rate": 4,
+    "rateUnit": "GP/DAY",
+    "description": "Disciplined martial artist, calm as still water.",
+    "attributes": [
+      "#class:monk",
+      "#race:human",
+      "#level=4",
+      "#skill:acrobatics=3",
+      "#skill:insight=2",
+      "#trait:combat"
+    ]
+  },
+  {
+    "name": "DOCKSIDE COOK",
+    "icon": "/assets/portraits/portrait-024.jpg",
+    "rate": 1,
+    "rateUnit": "GP/DAY",
+    "description": "Feeds a whole company on a copper and a prayer.",
+    "attributes": [
+      "#race:halfling",
+      "#skill:cooking=2",
+      "#skill:appraisal=1",
+      "#trait:urban"
+    ]
   }
 ]
