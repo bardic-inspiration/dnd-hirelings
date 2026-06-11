@@ -18,7 +18,8 @@
 
 @font-face {
   font-family: 'BNBrickHouse';
-  src: url('/assets/UI/fonts/BNBreezy.otf') format('opentype');
+  src: url('/assets/UI/fonts/BNBreezy.woff2') format('woff2'),
+       url('/assets/UI/fonts/BNBreezy.otf')   format('opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
