@@ -135,14 +135,12 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 ### `src/logic/tags.js`
 
 ```js
-parseTag(s: string): { modifier: string|null, segments: string[], value: string|null }
+parseTag(tagString: string): { modifier: string|null, segments: string[], value: string|null }
 buildTag(segments: string[], value?: string|null, modifier?: string|null): string
 tagMatches(tag: ParsedTag, prefix: { segments: string[] }): boolean
 mergeAttribute(attrs: string[], tag: string): string[]
 formatTagLabel(parsed: ParsedTag): { label: string, params: string }
 ```
-
-> ⚠️ **Naming:** The `parseTag` parameter is named `s` — a single letter with no type signal. `tagString` or `rawTag` would be self-documenting, especially since this function is the codebase's primary entry point for tag handling. Similarly, internal loop variables throughout `tags.js` use `s` for raw string and `p` for the parsed result; both should be more descriptive.
 
 ### `src/logic/agents.js`
 
@@ -321,7 +319,7 @@ interface Task {
   requirements: string[]; // req,* and block,* tag strings
   work: string[];         // work:* tag strings with =<target> values
   attributes: string[];   // tag strings
-  workProgress: { [workKey: string]: number };
+  workProgress: { [workKey: string]: number }; // key = segments.slice(1).join(':'), e.g. 'skill:arcana'
   isComplete: boolean;
   results: {
     gold: number;
@@ -343,4 +341,4 @@ interface InventoryItem {
 type TagRegistry = { [key: string]: TagRegistry }; // recursive keys-only tree
 ```
 
-> **Migration note:** `quantity` (on `InventoryItem` and `Task.results.items`/`agents`) and the numeric `session.timeStep` are persisted to localStorage. `normalizeState` reads the legacy `qty` field and legacy string `timeStep` values as fallbacks, so older saves load cleanly. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected.
+> **Migration note:** `normalizeState` handles several schema changes from older saves: (1) `qty` → `quantity` on `InventoryItem` and `Task.results.items`/`agents`; (2) `session.timeStep` coerced from legacy string to `number`; (3) `workProgress` keys — old saves used `segments[1]` alone (e.g. `'skill'`) while the current format uses the full sub-path (e.g. `'skill:arcana'`); progress is reset for any task whose `work` tags have 3+ segments since the old short keys are ambiguous. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected.

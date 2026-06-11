@@ -1,4 +1,4 @@
-import { MODIFIER_REGISTRY } from '../logic/tags.js';
+import { MODIFIER_REGISTRY, parseTag } from '../logic/tags.js';
 import { seedTagRegistry } from '../logic/tagRegistry.js';
 
 /**
@@ -97,6 +97,10 @@ function migrateTag(tag) {
  * - Corrupt or missing `tagRegistry` (falls back to `seedTagRegistry()`)
  * - `qty` → `quantity` field rename on inventory items and task result items
  * - `timeStep` coerced to a number (legacy string values are parsed); out-of-range clamped
+ * - `workProgress` keys migrated: old format used `segments[1]` alone (e.g. `'skill'`); new
+ *   format uses the full sub-path (`segments.slice(1).join(':')`, e.g. `'skill:arcana'`).
+ *   Progress is reset for any task that has 3-segment work tags, since old short keys are
+ *   ambiguous across distinct specific-skill requirements.
  *
  * @param {object} raw - Potentially stale or partial state from localStorage or a file
  * @returns {GameState}
@@ -123,17 +127,24 @@ export function normalizeState(raw) {
     value:       Number(item.value) || 0,
     attributes:  Array.isArray(item.attributes) ? item.attributes.map(migrateTag) : [],
   }));
-  state.tasks = (raw.tasks || []).map(task => ({
-    ...task,
-    requirements: Array.isArray(task.requirements) ? task.requirements.filter(Boolean).map(migrateTag) : [],
-    work:         Array.isArray(task.work)         ? task.work.filter(Boolean).map(migrateTag)         : [],
-    attributes:   Array.isArray(task.attributes)   ? task.attributes.filter(Boolean).map(migrateTag)   : [],
-    description:  task.description  ?? '',
-    isComplete:   task.isComplete   ?? false,
-    createdAt:    task.createdAt    ?? Date.now(),
-    workProgress: task.workProgress ?? {},
-    results:      normalizeResults(task.results),
-  }));
+  state.tasks = (raw.tasks || []).map(task => {
+    const work = Array.isArray(task.work) ? task.work.filter(Boolean).map(migrateTag) : [];
+    // Old workProgress used segments[1] alone as keys (e.g. 'skill'). New format uses the
+    // full sub-path (e.g. 'skill:arcana'). Reset progress for tasks with 3-segment work tags
+    // where the old short key is ambiguous across multiple specific requirements.
+    const hasSpecificWork = work.some(tag => parseTag(tag).segments.length >= 3);
+    return {
+      ...task,
+      requirements: Array.isArray(task.requirements) ? task.requirements.filter(Boolean).map(migrateTag) : [],
+      work,
+      attributes:   Array.isArray(task.attributes)   ? task.attributes.filter(Boolean).map(migrateTag)   : [],
+      description:  task.description  ?? '',
+      isComplete:   task.isComplete   ?? false,
+      createdAt:    task.createdAt    ?? Date.now(),
+      workProgress: hasSpecificWork ? {} : (task.workProgress ?? {}),
+      results:      normalizeResults(task.results),
+    };
+  });
   // `tagLibrary` is the pre-rename field name; read it as a fallback so sessions
   // saved before the rename keep their registry.
   state.tagRegistry = sanitizeRegistry(raw.tagRegistry ?? raw.tagLibrary) ?? seedTagRegistry();
