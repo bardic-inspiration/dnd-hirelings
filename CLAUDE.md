@@ -36,6 +36,14 @@ Request approval before introducing new dependencies.
 ### Development Practices: 
 After implementing and/or refactoring features, prune resulting dead code and delete resulting obsolete files.
 
+### Documentation:
+- Every exported function, hook, context, and component gets a JSDoc comment covering purpose, params, return value, and side effects.
+- `docs/` is the source of truth for architecture, API, environment, and gotchas — update the relevant file whenever behaviour, structure, or a public interface changes.
+- Flag ambiguities or incomplete implementations with a `> ⚠️` blockquote in the relevant doc rather than leaving them undocumented.
+- Naming flags use `> ⚠️ **Naming:**`; clarification flags use `> ⚠️ **Needs clarification:**`.
+- Index variables: `index` in named parameters and props; `i` only in short anonymous `.map()` callbacks. Never `idx`.
+- Use full words for all variable names — no single-letter abbreviations except `i` per the rule above.
+
 ## Git:
 Commit messages: 50–100 characters.
 Atomic commits. One logical unit per commit.
