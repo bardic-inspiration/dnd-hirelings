@@ -1211,6 +1211,17 @@ select.tag-builder-field {
   border-color: var(--highlight);
 }
 
+/* Cell whose image has not yet settled: a gentle pulse over the dimmer base
+   stands in until useAssetGroup marks this URL ready and the thumbnail paints. */
+.portrait-frame--loading {
+  animation: portrait-frame-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes portrait-frame-pulse {
+  0%, 100% { background-color: var(--dimmer); }
+  50%      { background-color: var(--border); }
+}
+
 .portrait-frame--lit {
   border-color: var(--highlight);
 }
