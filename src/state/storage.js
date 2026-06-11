@@ -1,8 +1,18 @@
 import { MODIFIER_REGISTRY } from '../logic/tags.js';
 import { seedTagRegistry } from '../logic/tagRegistry.js';
 
-export const STORAGE_KEY = 'dnd-hirelings-state-v3';
-export const PALETTE_KEY = 'dnd-hirelings-palette';
+/**
+ * Central registry of every localStorage key the app reads or writes.
+ * Versioning strategy: all keys carry a version suffix; bump the suffix when
+ * the stored format changes (not on every release). Migration code must be added
+ * alongside any suffix bump.
+ */
+export const STORAGE_KEYS = {
+  STATE:   'dnd-hirelings-state-v3',
+  PALETTE: 'dnd-hirelings-palette-v1',
+  /** @param {string} type - 'agents' | 'tasks' | 'items' */
+  PRESETS: (type) => `dnd-hirelings-presets-${type}-v1`,
+};
 
 export const DEFAULT_RESULTS = { gold: 0, items: [], agents: [] };
 
@@ -152,7 +162,7 @@ export function normalizeState(raw) {
  */
 export function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEYS.STATE);
     if (!raw) return DEFAULT_STATE;
     return normalizeState(JSON.parse(raw));
   } catch {
@@ -167,5 +177,5 @@ export function loadState() {
  * @param {GameState} state
  */
 export function saveState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEYS.STATE, JSON.stringify(state));
 }

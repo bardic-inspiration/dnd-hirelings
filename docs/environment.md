@@ -17,26 +17,17 @@ Each scanned directory's `originals/` subfolder holds pre-conversion source imag
 
 ## Browser Storage Keys
 
-All persistent state is stored in `localStorage` under the keys below.
+All persistent state is stored in `localStorage`. Every key is defined in the `STORAGE_KEYS` object exported from `src/state/storage.js` — that is the single source of truth for auditing all keys.
 
-| Key | Required | Default | Description |
-|-----|----------|---------|-------------|
-| `dnd-hirelings-state-v3` | No | `DEFAULT_STATE` from `storage.js` | Full serialized game state (agents, tasks, inventory, session, tagRegistry). Loaded on startup; saved on every state change. |
-| `dnd-hirelings-palette` | No | `'dark'` | Name of the active color theme. One of: `dark`, `light`, `vale`, `ember`, `arcane`. |
-| `dnd-hirelings-presets-agents-v1` | No | `[]` | User-authored agent presets. Bundled (standard) presets are not stored here. |
-| `dnd-hirelings-presets-tasks-v1` | No | `[]` | User-authored task presets. |
-| `dnd-hirelings-presets-items-v1` | No | `[]` | User-authored item presets. |
+**Versioning strategy:** all keys carry a version suffix (`-v1`, `-v3`, …). The suffix is bumped only when the stored format changes in a breaking way. Any suffix bump must be accompanied by migration code (read the old key, write the new key, remove the old key on next save).
 
-> ⚠️ **Needs clarification:** The preset storage keys (`-v1`) and the game state key (`-v3`) use different versioning schemes. If either format changes in the future, migration logic will need to be added to `storage.js` (game state) or `usePresets.js` (presets).
-
-> ⚠️ **Naming:** The two constants `STORAGE_KEY` and `PALETTE_KEY` are defined in `storage.js`, but the three preset keys are constructed dynamically inside `src/constants/libraries.jsx` as `storageKey` fields on each library config object. There is no single place to audit all localStorage keys the app uses. Consider consolidating into a `STORAGE_KEYS` object in `storage.js`:
-> ```js
-> export const STORAGE_KEYS = {
->   STATE:   'dnd-hirelings-state-v3',
->   PALETTE: 'dnd-hirelings-palette',
->   PRESETS: (type) => `dnd-hirelings-presets-${type}-v1`,
-> };
-> ``` If either format changes in the future, migration logic will need to be added to `storage.js` (game state) or `usePresets.js` (presets).
+| Key | `STORAGE_KEYS` field | Default | Description |
+|-----|----------------------|---------|-------------|
+| `dnd-hirelings-state-v3` | `STATE` | `DEFAULT_STATE` from `storage.js` | Full serialized game state (agents, tasks, inventory, session, tagRegistry). Loaded on startup; saved on every state change. |
+| `dnd-hirelings-palette-v1` | `PALETTE` | `'dark'` | Name of the active color theme. One of: `dark`, `light`, `vale`, `ember`, `arcane`. On first read, falls back to the legacy unversioned key `dnd-hirelings-palette`. |
+| `dnd-hirelings-presets-agents-v1` | `PRESETS('agents')` | `[]` | User-authored agent presets. Bundled (standard) presets are not stored here. |
+| `dnd-hirelings-presets-tasks-v1` | `PRESETS('tasks')` | `[]` | User-authored task presets. |
+| `dnd-hirelings-presets-items-v1` | `PRESETS('items')` | `[]` | User-authored item presets. |
 
 ## Scripts
 
