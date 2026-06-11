@@ -61,8 +61,13 @@ src/
 ├── constants/    # Palettes, portrait data, library configs
 └── styles/       # CSS
 public/
-└── presets/      # Bundled agent, task, and item presets
+├── presets/      # Bundled agent, task, and item presets
+└── assets/       # Portraits, item icons (WebP), theme backgrounds (WebP), fonts (WOFF2)
 ```
+
+Served images are WebP and the display font is WOFF2; the portrait and item
+pickers are populated automatically by a build-time manifest. See
+[`docs/assets.md`](docs/assets.md) for the asset pipeline.
 
 ## Getting Started
 
