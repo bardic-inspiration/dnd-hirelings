@@ -16,7 +16,7 @@ function TagListSection({ label, addLabel, context, field, tags, onChange }) {
     <div className="task-section">
       <div className="tag-label">{label}</div>
       <div className="task-tag-list">
-        {!tags.length && <div className="empty-state">—</div>}
+        {!tags.length && <div className="task-tag-list-empty">—</div>}
         {tags.map((tag, i) => {
           const { label: tl, params } = formatTagLabel(parseTag(tag));
           return (

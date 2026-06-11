@@ -880,7 +880,7 @@ body {
 
 .tag-list-item .x:hover { color: var(--fg); }
 
-.empty-state {
+.task-tag-list-empty {
   color: var(--dim);
   font-size: var(--fs-xs);
   padding: 6px;

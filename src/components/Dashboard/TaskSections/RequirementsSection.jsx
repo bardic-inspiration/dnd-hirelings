@@ -17,7 +17,7 @@ export default function RequirementsSection({ task }) {
     <div className="task-section">
       <div className="tag-label">REQUIREMENTS</div>
       <div className="task-tag-list">
-        {!reqs.length && <div className="empty-state">—</div>}
+        {!reqs.length && <div className="task-tag-list-empty">—</div>}
         {reqs.map((tag, index) => (
           <TagRow key={index} taskId={task.id} tagStr={tag} index={index} field="requirements" />
         ))}

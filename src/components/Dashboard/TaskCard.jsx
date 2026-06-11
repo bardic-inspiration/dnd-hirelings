@@ -13,7 +13,7 @@ function TaskProgressBar({ task }) {
   const totalRequired = reqs.reduce((s, e) => s + parseFloat(e.value ?? 1), 0);
   const totalProgress = task.isComplete
     ? totalRequired
-    : reqs.reduce((s, e) => s + Math.min(parseFloat(e.value ?? 1), task.workProgress?.[e.segments[1] ?? ''] ?? 0), 0);
+    : reqs.reduce((s, e) => s + Math.min(parseFloat(e.value ?? 1), task.workProgress?.[e.segments.slice(1).join(':')] ?? 0), 0);
   const pct = totalRequired > 0 ? Math.min(100, (totalProgress / totalRequired) * 100) : 0;
   return (
     <div className="task-progress">
@@ -40,7 +40,7 @@ function AttributesSection({ task }) {
     <div className="task-section">
       <div className="tag-label">ATTRIBUTES</div>
       <div className="task-tag-list">
-        {!attrs.length && <div className="empty-state">—</div>}
+        {!attrs.length && <div className="task-tag-list-empty">—</div>}
         {attrs.map((tag, index) => {
           const { label, params } = formatTagLabel(parseTag(tag));
           return (
