@@ -2,6 +2,7 @@
 // to the library system means adding one entry here plus a preview component —
 // the modal shell, storage hook, and file I/O are all type-agnostic.
 
+import { STORAGE_KEYS } from '../state/storage.js';
 import AgentPreview from '../components/Modals/previews/AgentPreview.jsx';
 import TaskPreview from '../components/Modals/previews/TaskPreview.jsx';
 import ItemPreview from '../components/Modals/previews/ItemPreview.jsx';
@@ -24,7 +25,7 @@ export const LIBRARY_CONFIGS = {
   agent: {
     type: 'agent',
     label: 'HIRELINGS',
-    storageKey: 'dnd-hirelings-presets-agents-v1',
+    storageKey: STORAGE_KEYS.PRESETS('agents'),
     bundledUrl: '/presets/agent_presets.json',
     panelClass: 'library-panel',
     makeBlank: () => ({ name: 'NEW HIRELING', icon: '', rate: 1, rateUnit: 'GP/DAY', description: '', attributes: [] }),
@@ -44,7 +45,7 @@ export const LIBRARY_CONFIGS = {
   task: {
     type: 'task',
     label: 'TASKS',
-    storageKey: 'dnd-hirelings-presets-tasks-v1',
+    storageKey: STORAGE_KEYS.PRESETS('tasks'),
     bundledUrl: '/presets/task_presets.json',
     panelClass: 'library-panel',
     makeBlank: () => ({ name: 'NEW TASK', description: '', requirements: [], work: [], attributes: [] }),
@@ -63,7 +64,7 @@ export const LIBRARY_CONFIGS = {
   item: {
     type: 'item',
     label: 'ITEMS',
-    storageKey: 'dnd-hirelings-presets-items-v1',
+    storageKey: STORAGE_KEYS.PRESETS('items'),
     bundledUrl: '/presets/item_presets.json',
     panelClass: 'library-panel library-panel--wide',
     makeBlank: () => ({ name: 'NEW ITEM', icon: '', quantity: 1, value: 0, description: '', attributes: [] }),
