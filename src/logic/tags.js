@@ -41,16 +41,16 @@ export const TAG_REGISTRY = {
  * - `segments` — the content path only (modifier excluded)
  * - `value` — scalar after `=` in the last segment, or null
  *
- * @param {string} s - Raw tag string
+ * @param {string} tagString - Raw tag string
  * @returns {{ modifier: string|null, segments: string[], value: string|null }}
  */
-export function parseTag(s) {
-  const commaIdx = s.indexOf(',');
+export function parseTag(tagString) {
+  const commaIdx = tagString.indexOf(',');
   let modifier = null;
-  let raw = s;
+  let raw = tagString;
   if (commaIdx >= 0) {
-    modifier = s.slice(0, commaIdx);
-    raw = s.slice(commaIdx + 1);
+    modifier = tagString.slice(0, commaIdx);
+    raw = tagString.slice(commaIdx + 1);
   }
   const parts = raw.split(':');
   const last = parts[parts.length - 1];
@@ -102,9 +102,9 @@ export function mergeAttribute(attrs, tag) {
   const incoming = parseTag(tag);
   const inKey = (incoming.modifier ? `${incoming.modifier},` : '') + incoming.segments.join(':').toLowerCase();
   return [
-    ...attrs.filter(t => {
-      const p = parseTag(t);
-      const key = (p.modifier ? `${p.modifier},` : '') + p.segments.join(':').toLowerCase();
+    ...attrs.filter(tag => {
+      const parsed = parseTag(tag);
+      const key = (parsed.modifier ? `${parsed.modifier},` : '') + parsed.segments.join(':').toLowerCase();
       return key !== inKey;
     }),
     tag,

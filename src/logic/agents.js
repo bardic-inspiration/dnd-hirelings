@@ -11,9 +11,9 @@ import { parseTag, buildTag, tagMatches, mergeAttribute } from './tags.js';
  */
 export function getCurrentTask(agent, tasks) {
   for (const tag of agent.activities) {
-    const p = parseTag(tag);
-    if (p.segments[0] !== 'task') continue;
-    const task = tasks.find(t => t.id === p.segments[1]);
+    const parsed = parseTag(tag);
+    if (parsed.segments[0] !== 'task') continue;
+    const task = tasks.find(task => task.id === parsed.segments[1]);
     if (task && !task.isComplete) return task;
   }
   return null;
@@ -27,11 +27,11 @@ export function getCurrentTask(agent, tasks) {
  * @returns {number}
  */
 export function activeTaskCount(agent, tasks) {
-  return agent.activities.filter(a => {
-    const p = parseTag(a);
-    if (p.segments[0] !== 'task') return false;
-    const t = tasks.find(x => x.id === p.segments[1]);
-    return t && !t.isComplete;
+  return agent.activities.filter(tag => {
+    const parsed = parseTag(tag);
+    if (parsed.segments[0] !== 'task') return false;
+    const task = tasks.find(task => task.id === parsed.segments[1]);
+    return task && !task.isComplete;
   }).length;
 }
 
@@ -51,35 +51,35 @@ export function activeTaskCount(agent, tasks) {
  */
 export function validateAssignment(agent, task) {
   for (const req of task.requirements) {
-    const reqP = parseTag(req);
-    if (reqP.modifier !== 'req') continue;
+    const parsedReq = parseTag(req);
+    if (parsedReq.modifier !== 'req') continue;
     // item requirements are inventory concerns, not agent-attribute concerns
-    if (reqP.segments[0] === 'item') continue;
+    if (parsedReq.segments[0] === 'item') continue;
     const allTags = [...agent.attributes, ...agent.activities];
-    const match = allTags.find(t => tagMatches(parseTag(t), { segments: reqP.segments }));
+    const match = allTags.find(tag => tagMatches(parseTag(tag), { segments: parsedReq.segments }));
     if (!match) return false;
-    if (reqP.value !== null) {
+    if (parsedReq.value !== null) {
       const attrVal = parseFloat(parseTag(match).value);
-      if (isNaN(attrVal) || attrVal < parseFloat(reqP.value)) return false;
+      if (isNaN(attrVal) || attrVal < parseFloat(parsedReq.value)) return false;
     }
   }
   for (const req of task.requirements) {
-    const reqP = parseTag(req);
-    if (reqP.modifier !== 'block') continue;
+    const parsedReq = parseTag(req);
+    if (parsedReq.modifier !== 'block') continue;
     const allTags = [...agent.attributes, ...agent.activities];
-    if (allTags.some(t => tagMatches(parseTag(t), { segments: reqP.segments }))) return false;
+    if (allTags.some(tag => tagMatches(parseTag(tag), { segments: parsedReq.segments }))) return false;
   }
   for (const attr of agent.attributes) {
-    const attrP = parseTag(attr);
-    if (attrP.modifier !== 'req') continue;
-    const match = task.requirements.find(t => {
-      const tp = parseTag(t);
-      return tp.modifier === 'req' && tagMatches(tp, { segments: attrP.segments });
+    const parsedAttr = parseTag(attr);
+    if (parsedAttr.modifier !== 'req') continue;
+    const match = task.requirements.find(req => {
+      const parsedReq = parseTag(req);
+      return parsedReq.modifier === 'req' && tagMatches(parsedReq, { segments: parsedAttr.segments });
     });
     if (!match) return false;
-    if (attrP.value !== null) {
+    if (parsedAttr.value !== null) {
       const reqVal = parseFloat(parseTag(match).value);
-      if (isNaN(reqVal) || reqVal < parseFloat(attrP.value)) return false;
+      if (isNaN(reqVal) || reqVal < parseFloat(parsedAttr.value)) return false;
     }
   }
   return true;
@@ -95,7 +95,7 @@ export function validateAssignment(agent, task) {
  */
 export function tryAssignTask(agent, selectedTaskId, tasks) {
   if (!selectedTaskId) return 'no-task';
-  const task = tasks.find(t => t.id === selectedTaskId);
+  const task = tasks.find(task => task.id === selectedTaskId);
   if (!task) return 'no-task';
   if (!validateAssignment(agent, task)) return 'invalid';
   if (agent.activities.includes(buildTag(['task', task.id]))) return 'already-assigned';
@@ -112,9 +112,9 @@ export function tryAssignTask(agent, selectedTaskId, tasks) {
  * @returns {boolean}
  */
 export function isActivityActive(activityTag, tasks) {
-  const p = parseTag(activityTag);
-  if (p.segments[0] === 'task') {
-    const task = tasks.find(t => t.id === p.segments[1]);
+  const parsed = parseTag(activityTag);
+  if (parsed.segments[0] === 'task') {
+    const task = tasks.find(task => task.id === parsed.segments[1]);
     return !!(task && !task.isComplete);
   }
   return true;
@@ -130,17 +130,17 @@ export function isActivityActive(activityTag, tasks) {
  * @returns {boolean}
  */
 export function isAttributeActive(attrTag, agent, tasks) {
-  const attrP = parseTag(attrTag);
+  const parsedAttr = parseTag(attrTag);
   for (const act of agent.activities) {
-    const actP = parseTag(act);
-    if (actP.segments[0] !== 'task') continue;
-    const task = tasks.find(t => t.id === actP.segments[1]);
+    const parsedAct = parseTag(act);
+    if (parsedAct.segments[0] !== 'task') continue;
+    const task = tasks.find(task => task.id === parsedAct.segments[1]);
     if (!task || task.isComplete) continue;
     for (const req of task.requirements) {
-      const reqP = parseTag(req);
-      if (reqP.modifier !== 'req') continue;
-      if (reqP.segments[0] === 'item') continue;
-      if (tagMatches(attrP, { segments: reqP.segments })) return true;
+      const parsedReq = parseTag(req);
+      if (parsedReq.modifier !== 'req') continue;
+      if (parsedReq.segments[0] === 'item') continue;
+      if (tagMatches(parsedAttr, { segments: parsedReq.segments })) return true;
     }
   }
   return false;
@@ -163,14 +163,14 @@ export function agentsAssignedTo(taskId, agents) {
  * Reads `item:<name>=<qty>` activity tags only; `equip:*` tags are excluded.
  *
  * @param {string[]} activities
- * @returns {{ name: string, qty: number, tag: string }[]}
+ * @returns {{ name: string, quantity: number, tag: string }[]}
  */
 export function getPersonalItems(activities) {
   return activities
-    .filter(t => parseTag(t).segments[0] === 'item')
+    .filter(tag => parseTag(tag).segments[0] === 'item')
     .map(tag => {
-      const p = parseTag(tag);
-      return { name: p.segments[1], qty: Number(p.value) || 1, tag };
+      const parsed = parseTag(tag);
+      return { name: parsed.segments[1], quantity: Number(parsed.value) || 1, tag };
     });
 }
 
@@ -182,13 +182,13 @@ export function getPersonalItems(activities) {
  */
 export function getEquippedItems(activities) {
   return activities
-    .filter(t => {
-      const p = parseTag(t);
-      return p.segments[0] === 'equip' && p.segments[2] === 'item' && p.segments.length >= 4;
+    .filter(tag => {
+      const parsed = parseTag(tag);
+      return parsed.segments[0] === 'equip' && parsed.segments[2] === 'item' && parsed.segments.length >= 4;
     })
     .map(tag => {
-      const p = parseTag(tag);
-      return { slot: p.segments[1], name: p.segments[3], tag };
+      const parsed = parseTag(tag);
+      return { slot: parsed.segments[1], name: parsed.segments[3], tag };
     });
 }
 
@@ -202,8 +202,8 @@ export function getEquippedItems(activities) {
  */
 export function collectAllHeldItems(activities) {
   const totals = {};
-  for (const { name, qty } of getPersonalItems(activities)) {
-    totals[name] = (totals[name] || 0) + qty;
+  for (const { name, quantity } of getPersonalItems(activities)) {
+    totals[name] = (totals[name] || 0) + quantity;
   }
   for (const { name } of getEquippedItems(activities)) {
     totals[name] = (totals[name] || 0) + 1;
@@ -231,14 +231,14 @@ export function getEffectiveAttributes(agentAttributes, activities, inventory) {
 
   const bonusMap = {}; // { 'ability:str': 2, 'skill:arcana': 1, ... }
   for (const { name } of equipped) {
-    const item = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
+    const item = inventory.find(item => item.name.toLowerCase() === name.toLowerCase());
     if (!item) continue;
     for (const tag of (item.attributes ?? [])) {
-      const p = parseTag(tag);
-      if (p.modifier !== 'bonus') continue;
-      const n = parseFloat(p.value);
+      const parsed = parseTag(tag);
+      if (parsed.modifier !== 'bonus') continue;
+      const n = parseFloat(parsed.value);
       if (isNaN(n)) continue;
-      const key = p.segments.join(':').toLowerCase();
+      const key = parsed.segments.join(':').toLowerCase();
       bonusMap[key] = (bonusMap[key] ?? 0) + n;
     }
   }
@@ -247,12 +247,12 @@ export function getEffectiveAttributes(agentAttributes, activities, inventory) {
 
   const applied = new Set();
   const result = agentAttributes.map(attr => {
-    const p = parseTag(attr);
-    if (p.modifier) return attr;
-    const key = p.segments.join(':').toLowerCase();
+    const parsed = parseTag(attr);
+    if (parsed.modifier) return attr;
+    const key = parsed.segments.join(':').toLowerCase();
     if (!(key in bonusMap)) return attr;
     applied.add(key);
-    return buildTag(p.segments, (parseFloat(p.value) ?? 0) + bonusMap[key], null);
+    return buildTag(parsed.segments, (parseFloat(parsed.value) ?? 0) + bonusMap[key], null);
   });
 
   for (const [key, val] of Object.entries(bonusMap)) {
@@ -274,10 +274,10 @@ export function getEffectiveAttributes(agentAttributes, activities, inventory) {
  */
 export function mergeItemQty(activities, name, delta) {
   const key = `item:${name.toLowerCase()}`;
-  const existing = activities.find(t => parseTag(t).segments.join(':').toLowerCase() === key);
+  const existing = activities.find(tag => parseTag(tag).segments.join(':').toLowerCase() === key);
   const currentQty = existing ? Number(parseTag(existing).value) || 1 : 0;
   const newQty = currentQty + delta;
-  const without = existing ? activities.filter(t => t !== existing) : [...activities];
+  const without = existing ? activities.filter(tag => tag !== existing) : [...activities];
   if (newQty <= 0) return without;
   return mergeAttribute(without, buildTag(['item', name], newQty));
 }

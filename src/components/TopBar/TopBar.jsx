@@ -10,7 +10,7 @@ import HoldButton from './HoldButton.jsx';
 
 export default function TopBar({ onPlay, onStop, onAdvance }) {
   const { state, dispatch } = useGame();
-  const { playing, setShowConfig, openTagRegistry } = useUI();
+  const { playing, openConfig, openTagRegistry } = useUI();
   const { session } = state;
   const [palette, setPalette] = useState(getStoredPalette);
 
@@ -32,9 +32,9 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
   };
 
   const adjustStep = (delta) => {
-    const cur  = parseFloat(session.timeStep) || 1;
+    const cur  = Number(session.timeStep) || 1;
     const next = Math.max(1, Math.min(DAYS_PER_YEAR, Math.round(cur + delta)));
-    updateSession({ timeStep: String(next) });
+    updateSession({ timeStep: next });
   };
 
   const handleSave = () => saveStateToFile(state);
@@ -126,7 +126,7 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
           <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleLoad} />
         </label>
         <button className="ctrl" onClick={openTagRegistry}>TAG REGISTRY</button>
-        <button className="ctrl" onClick={() => setShowConfig(true)}>SETTINGS</button>
+        <button className="ctrl" onClick={openConfig}>SETTINGS</button>
       </div>
     </nav>
   );

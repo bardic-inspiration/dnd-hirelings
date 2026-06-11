@@ -3,10 +3,10 @@ import { getEffectiveAttributes } from './agents.js';
 
 // Returns the numeric value of an ability tag (e.g. 'ability:str=14' → 14).
 function getAbility(attributes, name) {
-  for (const t of attributes) {
-    const p = parseTag(t);
-    if (p.segments[0] === 'ability' && p.segments[1]?.toLowerCase() === name.toLowerCase()) {
-      return parseFloat(p.value) || 10;
+  for (const tag of attributes) {
+    const parsed = parseTag(tag);
+    if (parsed.segments[0] === 'ability' && parsed.segments[1]?.toLowerCase() === name.toLowerCase()) {
+      return parseFloat(parsed.value) || 10;
     }
   }
   return 10; // default ability score
@@ -14,9 +14,9 @@ function getAbility(attributes, name) {
 
 // Returns the sub-segment value of a single-child tag (e.g. 'class:fighter' → 'fighter').
 function getTagSub(attributes, seg0) {
-  for (const t of attributes) {
-    const p = parseTag(t);
-    if (p.segments[0] === seg0 && p.segments[1]) return p.segments[1].toLowerCase();
+  for (const tag of attributes) {
+    const parsed = parseTag(tag);
+    if (parsed.segments[0] === seg0 && parsed.segments[1]) return parsed.segments[1].toLowerCase();
   }
   return null;
 }
@@ -43,7 +43,7 @@ function xpForLevel(lvl) {
  *
  * @param {Agent} agent - `agent.hp === null` means "at full health"
  * @param {InventoryItem[]} [inventory] - Used to resolve `bonus,*` tags on equipped items
- * @returns {{ xp: number, level: number, xpProgress: number, proficiency: number, ac: number, hp: number, hp_max: number }}
+ * @returns {{ xp: number, level: number, xpProgress: number, proficiency: number, ac: number, hp: number, hpMax: number }}
  */
 export function computeDynamicAttributes(agent, inventory = []) {
   const attrs = getEffectiveAttributes(agent.attributes ?? [], agent.activities ?? [], inventory);
@@ -77,8 +77,8 @@ export function computeDynamicAttributes(agent, inventory = []) {
     cls === 'barbarian'                                     ?  2 : 0;
 
   const conMod    = Math.floor((con - 10) / 2);
-  const hp_max    = Math.max(1, 10 + (5 + classBonus + conMod) * level);
-  const hp        = agent.hp !== null && agent.hp !== undefined ? agent.hp : hp_max;
+  const hpMax     = Math.max(1, 10 + (5 + classBonus + conMod) * level);
+  const hp        = agent.hp !== null && agent.hp !== undefined ? agent.hp : hpMax;
 
-  return { xp, level, xpProgress, proficiency, ac, hp, hp_max };
+  return { xp, level, xpProgress, proficiency, ac, hp, hpMax };
 }

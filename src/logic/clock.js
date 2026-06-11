@@ -12,8 +12,8 @@ import { getWorkRequirements, checkTaskComplete, computeBlockedTaskIds, applyTas
  * @returns {number} Minutes per tick
  */
 export function getStepMinutes(session) {
-  const m = String(session.timeStep).match(/\d+(\.\d+)?/);
-  return m ? parseFloat(m[0]) * 1440 : 1440;
+  const days = Number(session.timeStep);
+  return days > 0 ? days * 1440 : 1440;
 }
 
 /**
@@ -52,28 +52,27 @@ export function advanceTime(state) {
   const stepMins = getStepMinutes(session);
   const stepDays = stepMins / 1440;
 
-  let tasks     = state.tasks.map(t => ({ ...t, workProgress: { ...t.workProgress } }));
-  let inventory = state.inventory.map(i => ({ ...i }));
+  let tasks     = state.tasks.map(task => ({ ...task, workProgress: { ...task.workProgress } }));
+  let inventory = state.inventory.map(item => ({ ...item }));
   let newSession = { ...session };
-  let newAgents = agents.map(a => ({ ...a, activities: [...a.activities] }));
+  let newAgents = agents.map(agent => ({ ...agent, activities: [...agent.activities] }));
 
-  const findTask = id => tasks.find(t => t.id === id);
   const getTask  = agent => getCurrentTask(agent, tasks);
 
-  const working = newAgents.filter(a => getTask(a) !== null);
+  const working = newAgents.filter(agent => getTask(agent) !== null);
 
   if (working.length) {
-    const activeTasks = [...new Set(working.map(a => getTask(a)).filter(Boolean))];
+    const activeTasks = [...new Set(working.map(agent => getTask(agent)).filter(Boolean))];
     const blockedIds  = computeBlockedTaskIds(activeTasks, inventory);
-    const eligible    = working.filter(a => !blockedIds.has(getTask(a)?.id));
+    const eligible    = working.filter(agent => !blockedIds.has(getTask(agent)?.id));
 
-    working.filter(a => blockedIds.has(getTask(a)?.id)).forEach(a => flashAgentIds.push(a.id));
+    working.filter(agent => blockedIds.has(getTask(agent)?.id)).forEach(agent => flashAgentIds.push(agent.id));
 
     if (eligible.length) {
-      const totalCost = eligible.reduce((sum, a) => sum + (parseFloat(a.rate) || 0) * stepDays, 0);
+      const totalCost = eligible.reduce((sum, agent) => sum + (parseFloat(agent.rate) || 0) * stepDays, 0);
 
       if (totalCost > (newSession.bank ?? 0)) {
-        eligible.forEach(a => flashAgentIds.push(a.id));
+        eligible.forEach(agent => flashAgentIds.push(agent.id));
       } else {
         newSession.bank = Math.round(((newSession.bank ?? 0) - totalCost) * 100) / 100;
 
@@ -94,9 +93,9 @@ export function advanceTime(state) {
             let rate;
             if (workType === 'skill') {
               const skillTag = currentAttrs.find(attr => {
-                const ap = parseTag(attr);
-                if (ap.segments[0] !== 'skill') return false;
-                return !skillName || ap.segments[1]?.toLowerCase() === skillName.toLowerCase();
+                const parsedAttr = parseTag(attr);
+                if (parsedAttr.segments[0] !== 'skill') return false;
+                return !skillName || parsedAttr.segments[1]?.toLowerCase() === skillName.toLowerCase();
               });
               if (!skillTag) continue;
               const skillVal = parseFloat(parseTag(skillTag).value) || 1;
@@ -161,8 +160,8 @@ export function updateClockDisplayDOM(state, tickInfo) {
 
   const { year, day } = formatClockParts(state.session.clock + frac * stepMins);
   const set = (id, val) => {
-    const el = document.getElementById(id);
-    if (el && document.activeElement !== el) el.textContent = val;
+    const element = document.getElementById(id);
+    if (element && document.activeElement !== element) element.textContent = val;
   };
   set('clock-year', year);
   set('clock-day', day);
@@ -187,8 +186,8 @@ export function updateClockDisplayDOM(state, tickInfo) {
       totalCapped += Math.min(req.value, interp);
     }
     const headerPct = Math.min(100, (totalCapped / totalRequired) * 100);
-    const hFill = document.querySelector(`.task-progress-fill[data-task-id="${task.id}"]`);
-    if (hFill) hFill.style.width = `${headerPct.toFixed(1)}%`;
+    const headerFill = document.querySelector(`.task-progress-fill[data-task-id="${task.id}"]`);
+    if (headerFill) headerFill.style.width = `${headerPct.toFixed(1)}%`;
 
     for (const req of reqs) {
       const key    = req.segments[1] || '';
@@ -197,10 +196,10 @@ export function updateClockDisplayDOM(state, tickInfo) {
       const interp = Math.max(0, stored - rate + frac * rate);
       const pct    = Math.min(100, (interp / req.value) * 100);
       const sel    = `[data-task-id="${task.id}"][data-work-key="${key}"]`;
-      const bFill  = document.querySelector(`.work-item-bar-fill${sel}`);
-      if (bFill) bFill.style.width = `${pct.toFixed(1)}%`;
-      const valEl  = document.querySelector(`.work-item-value${sel}`);
-      if (valEl)   valEl.textContent = `${Math.floor(Math.min(interp, req.value))} / ${req.value}`;
+      const bucketFill = document.querySelector(`.work-item-bar-fill${sel}`);
+      if (bucketFill) bucketFill.style.width = `${pct.toFixed(1)}%`;
+      const valueDisplay = document.querySelector(`.work-item-value${sel}`);
+      if (valueDisplay) valueDisplay.textContent = `${Math.floor(Math.min(interp, req.value))} / ${req.value}`;
     }
   }
 }

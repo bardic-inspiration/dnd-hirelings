@@ -12,7 +12,7 @@ import { collectAllHeldItems, mergeItemQty } from '../logic/agents.js';
 // not registered to avoid polluting the skeleton with per-item names.
 const registerTags = (state, ...tags) => {
   let reg = state.tagRegistry;
-  for (const t of tags) reg = addTagToRegistry(reg, t);
+  for (const tag of tags) reg = addTagToRegistry(reg, tag);
   return reg === state.tagRegistry ? state : { ...state, tagRegistry: reg };
 };
 
@@ -34,7 +34,7 @@ const DEFAULT_ITEM_NAME = 'NEW ITEM';
 
 const DEFAULT_ITEM = {
   name: DEFAULT_ITEM_NAME,
-  qty: 1,
+  quantity: 1,
   icon: '',
   description: '',
   value: 0,
@@ -54,17 +54,17 @@ const defined = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) =
 // fields (id, createdAt, activities, workProgress, isComplete, results) and
 // library bookkeeping (source) are never taken from a preset — the create
 // actions re-stamp those after spreading the picked fields.
-const pickAgentFields = (p) => defined({
-  name: p.name, icon: p.icon, rate: p.rate, rateUnit: p.rateUnit,
-  description: p.description, attributes: p.attributes,
+const pickAgentFields = (preset) => defined({
+  name: preset.name, icon: preset.icon, rate: preset.rate, rateUnit: preset.rateUnit,
+  description: preset.description, attributes: preset.attributes,
 });
-const pickTaskFields = (p) => defined({
-  name: p.name, description: p.description,
-  requirements: p.requirements, work: p.work, attributes: p.attributes,
+const pickTaskFields = (preset) => defined({
+  name: preset.name, description: preset.description,
+  requirements: preset.requirements, work: preset.work, attributes: preset.attributes,
 });
-const pickItemFields = (p) => defined({
-  name: p.name, icon: p.icon, qty: p.qty, value: p.value,
-  description: p.description, attributes: p.attributes,
+const pickItemFields = (preset) => defined({
+  name: preset.name, icon: preset.icon, quantity: preset.quantity, value: preset.value,
+  description: preset.description, attributes: preset.attributes,
 });
 
 function mergeInventoryByName(inventory) {
@@ -77,7 +77,7 @@ function mergeInventoryByName(inventory) {
       indexByName.set(key, out.length);
       out.push({ ...item });
     } else {
-      out[at] = { ...out[at], qty: out[at].qty + item.qty };
+      out[at] = { ...out[at], quantity: out[at].quantity + item.quantity };
     }
   }
   return out;
@@ -99,26 +99,26 @@ export function reducer(state, action) {
       }] };
 
     case 'AGENT_UPDATE':
-      return { ...state, agents: state.agents.map(a => a.id !== action.id ? a : { ...a, ...action.changes }) };
+      return { ...state, agents: state.agents.map(agent => agent.id !== action.id ? agent : { ...agent, ...action.changes }) };
 
     case 'AGENT_DELETE': {
-      const deleted = state.agents.find(a => a.id === action.id);
+      const deleted = state.agents.find(agent => agent.id === action.id);
       if (!deleted) return state;
       const heldItems = collectAllHeldItems(deleted.activities);
       let inventory = state.inventory;
-      for (const [name, qty] of Object.entries(heldItems)) {
-        const existing = inventory.find(i => i.name.trim().toLowerCase() === name.toLowerCase());
+      for (const [name, quantity] of Object.entries(heldItems)) {
+        const existing = inventory.find(item => item.name.trim().toLowerCase() === name.toLowerCase());
         if (existing) {
-          inventory = inventory.map(i => i === existing ? { ...i, qty: i.qty + qty } : i);
+          inventory = inventory.map(item => item === existing ? { ...item, quantity: item.quantity + quantity } : item);
         } else {
-          inventory = [...inventory, { ...DEFAULT_ITEM, id: uid(), name, qty }];
+          inventory = [...inventory, { ...DEFAULT_ITEM, id: uid(), name, quantity }];
         }
       }
-      return { ...state, agents: state.agents.filter(a => a.id !== action.id), inventory };
+      return { ...state, agents: state.agents.filter(agent => agent.id !== action.id), inventory };
     }
 
     case 'AGENT_DUPLICATE': {
-      const orig = state.agents.find(a => a.id === action.id);
+      const orig = state.agents.find(agent => agent.id === action.id);
       if (!orig) return state;
       const copy = { ...JSON.parse(JSON.stringify(orig)), id: uid(), activities: [], createdAt: now(), lastAssigned: null };
       return { ...state, agents: [...state.agents, copy] };
@@ -127,18 +127,18 @@ export function reducer(state, action) {
     case 'AGENT_ADD_ATTRIBUTE':
       return registerTags({
         ...state,
-        agents: state.agents.map(a => a.id !== action.id ? a : {
-          ...a,
-          attributes: mergeAttribute(a.attributes, action.tag),
+        agents: state.agents.map(agent => agent.id !== action.id ? agent : {
+          ...agent,
+          attributes: mergeAttribute(agent.attributes, action.tag),
         }),
       }, action.tag);
 
     case 'AGENT_REMOVE_ATTRIBUTE':
       return {
         ...state,
-        agents: state.agents.map(a => a.id !== action.id ? a : {
-          ...a,
-          attributes: a.attributes.filter((_, i) => i !== action.index),
+        agents: state.agents.map(agent => agent.id !== action.id ? agent : {
+          ...agent,
+          attributes: agent.attributes.filter((_, index) => index !== action.index),
         }),
       };
 
@@ -147,9 +147,9 @@ export function reducer(state, action) {
       // authored structure, so they are not registered into the library.
       return {
         ...state,
-        agents: state.agents.map(a => a.id !== action.id ? a : {
-          ...a,
-          activities: [...a.activities, action.tag],
+        agents: state.agents.map(agent => agent.id !== action.id ? agent : {
+          ...agent,
+          activities: [...agent.activities, action.tag],
           lastAssigned: now(),
         }),
       };
@@ -157,61 +157,61 @@ export function reducer(state, action) {
     case 'AGENT_REMOVE_ACTIVITY':
       return {
         ...state,
-        agents: state.agents.map(a => a.id !== action.id ? a : {
-          ...a,
-          activities: a.activities.filter(t => t !== action.tag),
+        agents: state.agents.map(agent => agent.id !== action.id ? agent : {
+          ...agent,
+          activities: agent.activities.filter(tag => tag !== action.tag),
         }),
       };
 
     case 'AGENT_GIVE_ITEM': {
-      const { id, itemName, qty } = action;
-      const src = state.inventory.find(i => i.name.trim().toLowerCase() === itemName.trim().toLowerCase());
-      if (!src || src.qty < qty) return state;
-      const inventory = src.qty === qty
-        ? state.inventory.filter(i => i !== src)
-        : state.inventory.map(i => i === src ? { ...i, qty: i.qty - qty } : i);
-      const agents = state.agents.map(a => a.id !== id ? a : {
-        ...a, activities: mergeItemQty(a.activities, src.name, qty),
+      const { id, itemName, quantity } = action;
+      const src = state.inventory.find(item => item.name.trim().toLowerCase() === itemName.trim().toLowerCase());
+      if (!src || src.quantity < quantity) return state;
+      const inventory = src.quantity === quantity
+        ? state.inventory.filter(item => item !== src)
+        : state.inventory.map(item => item === src ? { ...item, quantity: item.quantity - quantity } : item);
+      const agents = state.agents.map(agent => agent.id !== id ? agent : {
+        ...agent, activities: mergeItemQty(agent.activities, src.name, quantity),
       });
       return { ...state, inventory, agents };
     }
 
     case 'AGENT_RETURN_ITEM': {
       const { id, itemName } = action;
-      const agent = state.agents.find(a => a.id === id);
+      const agent = state.agents.find(agent => agent.id === id);
       if (!agent) return state;
       const key = `item:${itemName.toLowerCase()}`;
-      const tag = agent.activities.find(t => parseTag(t).segments.join(':').toLowerCase() === key);
+      const tag = agent.activities.find(tag => parseTag(tag).segments.join(':').toLowerCase() === key);
       if (!tag) return state;
-      const qty = Number(parseTag(tag).value) || 1;
-      const agents = state.agents.map(a => a.id !== id ? a : {
-        ...a, activities: a.activities.filter(t => t !== tag),
+      const quantity = Number(parseTag(tag).value) || 1;
+      const agents = state.agents.map(agent => agent.id !== id ? agent : {
+        ...agent, activities: agent.activities.filter(activityTag => activityTag !== tag),
       });
-      const existing = state.inventory.find(i => i.name.trim().toLowerCase() === itemName.trim().toLowerCase());
+      const existing = state.inventory.find(item => item.name.trim().toLowerCase() === itemName.trim().toLowerCase());
       const inventory = existing
-        ? state.inventory.map(i => i === existing ? { ...i, qty: i.qty + qty } : i)
-        : [...state.inventory, { ...DEFAULT_ITEM, id: uid(), name: itemName, qty }];
+        ? state.inventory.map(item => item === existing ? { ...item, quantity: item.quantity + quantity } : item)
+        : [...state.inventory, { ...DEFAULT_ITEM, id: uid(), name: itemName, quantity }];
       return { ...state, agents, inventory };
     }
 
-    case 'EQUIP_ITEM': {
+    case 'AGENT_EQUIP_ITEM': {
       const { id, itemName, slot } = action;
-      const agents = state.agents.map(a => {
-        if (a.id !== id) return a;
-        const activities = mergeItemQty(a.activities, itemName, -1);
+      const agents = state.agents.map(agent => {
+        if (agent.id !== id) return agent;
+        const activities = mergeItemQty(agent.activities, itemName, -1);
         const equipTag = buildTag(['equip', slot, 'item', itemName]);
-        return { ...a, activities: mergeAttribute(activities, equipTag) };
+        return { ...agent, activities: mergeAttribute(activities, equipTag) };
       });
       return { ...state, agents };
     }
 
-    case 'UNEQUIP_ITEM': {
+    case 'AGENT_UNEQUIP_ITEM': {
       const { id, slot, itemName } = action;
-      const agents = state.agents.map(a => {
-        if (a.id !== id) return a;
+      const agents = state.agents.map(agent => {
+        if (agent.id !== id) return agent;
         const equipTag = buildTag(['equip', slot, 'item', itemName]);
-        const without = a.activities.filter(t => t !== equipTag);
-        return { ...a, activities: mergeItemQty(without, itemName, 1) };
+        const without = agent.activities.filter(tag => tag !== equipTag);
+        return { ...agent, activities: mergeItemQty(without, itemName, 1) };
       });
       return { ...state, agents };
     }
@@ -236,19 +236,19 @@ export function reducer(state, action) {
       };
 
     case 'TASK_UPDATE':
-      return { ...state, tasks: state.tasks.map(t => t.id !== action.id ? t : { ...t, ...action.changes }) };
+      return { ...state, tasks: state.tasks.map(task => task.id !== action.id ? task : { ...task, ...action.changes }) };
 
     case 'TASK_DELETE': {
       const taskTag = `task:${action.id}`;
       return {
         ...state,
-        tasks: state.tasks.filter(t => t.id !== action.id),
-        agents: state.agents.map(a => ({ ...a, activities: a.activities.filter(act => act !== taskTag) })),
+        tasks: state.tasks.filter(task => task.id !== action.id),
+        agents: state.agents.map(agent => ({ ...agent, activities: agent.activities.filter(act => act !== taskTag) })),
       };
     }
 
     case 'TASK_DUPLICATE': {
-      const orig = state.tasks.find(t => t.id === action.id);
+      const orig = state.tasks.find(task => task.id === action.id);
       if (!orig) return state;
       const copy = { ...JSON.parse(JSON.stringify(orig)), id: uid(), workProgress: {}, isComplete: false, createdAt: now() };
       return { ...state, tasks: [...state.tasks, copy] };
@@ -257,9 +257,9 @@ export function reducer(state, action) {
     case 'TASK_SET_COMPLETE': {
       const { id, isComplete } = action;
       if (!isComplete) {
-        return { ...state, tasks: state.tasks.map(t => t.id !== id ? t : { ...t, isComplete: false }) };
+        return { ...state, tasks: state.tasks.map(task => task.id !== id ? task : { ...task, isComplete: false }) };
       }
-      const task = state.tasks.find(t => t.id === id);
+      const task = state.tasks.find(task => task.id === id);
       if (!task || task.isComplete) return state;
       const { newTasks, newAgents, newInventory, bankDelta } = applyTaskComplete(id, state.tasks, state.agents, state.inventory);
       return {
@@ -276,7 +276,7 @@ export function reducer(state, action) {
       if (!TASK_TAG_FIELDS.has(field)) return state;
       return registerTags({
         ...state,
-        tasks: state.tasks.map(t => t.id !== action.id ? t : { ...t, [field]: [...(t[field] || []), action.tag] }),
+        tasks: state.tasks.map(task => task.id !== action.id ? task : { ...task, [field]: [...(task[field] || []), action.tag] }),
       }, action.tag);
     }
 
@@ -285,9 +285,9 @@ export function reducer(state, action) {
       if (!TASK_TAG_FIELDS.has(field)) return state;
       return {
         ...state,
-        tasks: state.tasks.map(t => t.id !== action.id ? t : {
-          ...t,
-          [field]: (t[field] || []).filter((_, i) => i !== action.index),
+        tasks: state.tasks.map(task => task.id !== action.id ? task : {
+          ...task,
+          [field]: (task[field] || []).filter((_, index) => index !== action.index),
         }),
       };
     }
@@ -295,9 +295,9 @@ export function reducer(state, action) {
     case 'TASK_UPDATE_RESULTS':
       return {
         ...state,
-        tasks: state.tasks.map(t => t.id !== action.id ? t : {
-          ...t,
-          results: { ...(t.results || DEFAULT_RESULTS), ...action.changes },
+        tasks: state.tasks.map(task => task.id !== action.id ? task : {
+          ...task,
+          results: { ...(task.results || DEFAULT_RESULTS), ...action.changes },
         }),
       };
 
@@ -332,7 +332,7 @@ export function reducer(state, action) {
         ...state,
         inventory: state.inventory.map(item => item.id !== action.id ? item : {
           ...item,
-          attributes: item.attributes.filter((_, i) => i !== action.index),
+          attributes: item.attributes.filter((_, index) => index !== action.index),
         }),
       };
 

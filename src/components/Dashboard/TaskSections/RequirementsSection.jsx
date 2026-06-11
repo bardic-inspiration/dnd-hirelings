@@ -18,8 +18,8 @@ export default function RequirementsSection({ task }) {
       <div className="tag-label">REQUIREMENTS</div>
       <div className="task-tag-list">
         {!reqs.length && <div className="empty-state">—</div>}
-        {reqs.map((tag, i) => (
-          <TagRow key={i} taskId={task.id} tagStr={tag} index={i} field="requirements" />
+        {reqs.map((tag, index) => (
+          <TagRow key={index} taskId={task.id} tagStr={tag} index={index} field="requirements" />
         ))}
       </div>
       <button className="tag-add" onClick={e => { e.stopPropagation(); handleAdd(); }}>+ REQ</button>

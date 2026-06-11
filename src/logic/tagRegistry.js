@@ -272,9 +272,9 @@ export function flattenRegistry(registry, expanded) {
 // only counts occurrences.
 export function tagsInUse(state) {
   const tags = [];
-  for (const a of state.agents || []) tags.push(...(a.attributes || []), ...(a.activities || []));
-  for (const t of state.tasks || []) tags.push(...(t.requirements || []), ...(t.work || []), ...(t.attributes || []));
-  for (const it of state.inventory || []) tags.push(...(it.attributes || []));
+  for (const agent of state.agents || []) tags.push(...(agent.attributes || []), ...(agent.activities || []));
+  for (const task of state.tasks || []) tags.push(...(task.requirements || []), ...(task.work || []), ...(task.attributes || []));
+  for (const item of state.inventory || []) tags.push(...(item.attributes || []));
   return tags;
 }
 

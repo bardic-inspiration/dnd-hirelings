@@ -9,19 +9,19 @@ export default function BankPanel() {
   const bank = state.session.bank ?? 0;
 
   const selectedItem = selectedItemId
-    ? state.inventory.find(i => i.id === selectedItemId)
+    ? state.inventory.find(item => item.id === selectedItemId)
     : null;
 
   const adjust = (delta) =>
     dispatch({ type: 'SESSION_UPDATE', payload: { bank: Math.round((bank + delta) * 100) / 100 } });
 
-  // Sell one unit of the selected item: bank += value, qty -= 1. Depleted items
+  // Sell one unit of the selected item: bank += value, quantity -= 1. Depleted items
   // stay in the list (grayed) rather than being removed.
-  const canSell = selectedItem && selectedItem.qty > 0;
+  const canSell = selectedItem && selectedItem.quantity > 0;
   const sellSelected = () => {
     if (!canSell) return;
     adjust(selectedItem.value || 0);
-    dispatch({ type: 'INVENTORY_UPDATE_ITEM', id: selectedItem.id, changes: { qty: selectedItem.qty - 1 } });
+    dispatch({ type: 'INVENTORY_UPDATE_ITEM', id: selectedItem.id, changes: { quantity: selectedItem.quantity - 1 } });
   };
 
   const { holding, onPointerDown } = usePressHoldDrag({
@@ -30,17 +30,17 @@ export default function BankPanel() {
   });
 
   // Flash green on increase, red on decrease.
-  const elRef   = useRef(null);
-  const prevRef = useRef(bank);
+  const amountRef = useRef(null);
+  const prevRef   = useRef(bank);
   useEffect(() => {
-    const el = elRef.current;
-    if (!el || bank === prevRef.current) { prevRef.current = bank; return; }
+    const amountEl = amountRef.current;
+    if (!amountEl || bank === prevRef.current) { prevRef.current = bank; return; }
     const cls = bank > prevRef.current ? 'flash-increase' : 'flash-decrease';
     prevRef.current = bank;
-    el.classList.remove('flash-increase', 'flash-decrease');
-    void el.offsetWidth;
-    el.classList.add(cls);
-    el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+    amountEl.classList.remove('flash-increase', 'flash-decrease');
+    void amountEl.offsetWidth;
+    amountEl.classList.add(cls);
+    amountEl.addEventListener('animationend', () => amountEl.classList.remove(cls), { once: true });
   }, [bank]);
 
   return (
@@ -52,7 +52,7 @@ export default function BankPanel() {
       onPointerDown={onPointerDown}
     >
       <span className="bank-label">BANK:</span>
-      <span ref={elRef} className="bank-amount mono">{bank.toFixed(1)}</span>
+      <span ref={amountRef} className="bank-amount mono">{bank.toFixed(1)}</span>
       <span className="bank-label">GOLD</span>
     </div>
   );

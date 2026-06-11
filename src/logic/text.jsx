@@ -9,13 +9,13 @@
  */
 export function highlight(name, query) {
   if (!query) return name;
-  const idx = name.toLowerCase().indexOf(query.toLowerCase());
-  if (idx === -1) return name;
+  const matchIndex = name.toLowerCase().indexOf(query.toLowerCase());
+  if (matchIndex === -1) return name;
   return (
     <>
-      {name.slice(0, idx)}
-      <span style={{ color: 'var(--highlight)' }}>{name.slice(idx, idx + query.length)}</span>
-      {name.slice(idx + query.length)}
+      {name.slice(0, matchIndex)}
+      <span style={{ color: 'var(--highlight)' }}>{name.slice(matchIndex, matchIndex + query.length)}</span>
+      {name.slice(matchIndex + query.length)}
     </>
   );
 }

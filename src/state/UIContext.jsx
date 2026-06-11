@@ -14,7 +14,7 @@ export function UIProvider({ children }) {
   const [playing, setPlaying]               = useState(false);
   const [tagBuilderProps, setTagBuilderProps] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
-  const [showConfig, setShowConfig]         = useState(false);
+  const [configProps, setConfigProps]       = useState(null);
   const [portraitsProps, setPortraitsProps] = useState(null);
   const [itemIconsProps, setItemIconsProps] = useState(null);
   const [libraryProps, setLibraryProps]     = useState(null);
@@ -30,6 +30,9 @@ export function UIProvider({ children }) {
 
   const openTagBuilder  = useCallback((props) => setTagBuilderProps(props), []);
   const closeTagBuilder = useCallback(() => setTagBuilderProps(null), []);
+
+  const openConfig  = useCallback(() => setConfigProps({}), []);
+  const closeConfig = useCallback(() => setConfigProps(null), []);
 
   const openPortraits  = useCallback((onSelect) => setPortraitsProps({ onSelect }), []);
   const closePortraits = useCallback(() => setPortraitsProps(null), []);
@@ -50,7 +53,7 @@ export function UIProvider({ children }) {
       playing, setPlaying,
       tagBuilderProps, openTagBuilder, closeTagBuilder,
       selectedItemId, setSelectedItemId,
-      showConfig, setShowConfig,
+      configProps, openConfig, closeConfig,
       portraitsProps, openPortraits, closePortraits,
       itemIconsProps, openItemIcons, closeItemIcons,
       libraryProps, openLibrary, closeLibrary,
