@@ -11,7 +11,9 @@ The build tool is Vite. No `.env` files are used. The only build-time behavior i
 | Portrait asset directory | `vite.config.js` → `imageManifestPlugin.dir` | `public/assets/portraits` — scanned at build time to produce the portrait picker manifest |
 | Item icon asset directory | `vite.config.js` → `imageManifestPlugin.dir` | `public/assets/items` — scanned at build time to produce the item icon picker manifest |
 
-The two `imageManifestPlugin` instances expose these directories as virtual modules (`virtual:portrait-manifest`, `virtual:item-manifest`). Adding or removing image files from these directories while `vite dev` is running triggers a hot-reload automatically.
+The two `imageManifestPlugin` instances expose these directories as virtual modules (`virtual:portrait-manifest`, `virtual:item-manifest`). Adding or removing image files from these directories while `vite dev` is running triggers a hot-reload automatically. Served images are WebP and the display font is WOFF2; see `docs/assets.md` for the full asset pipeline.
+
+Each scanned directory's `originals/` subfolder holds pre-conversion source images. These are git-ignored (`public/assets/*/originals/` in `.gitignore`), kept locally for re-export, and excluded from both the manifest scan and the repository.
 
 ## Browser Storage Keys
 

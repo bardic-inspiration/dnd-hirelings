@@ -1,7 +1,7 @@
 [
   {
     "name": "VETERAN GUARD",
-    "icon": "/assets/portraits/portrait-001.jpg",
+    "icon": "/assets/portraits/portrait-001.webp",
     "rate": 2,
     "rateUnit": "GP/DAY",
     "description": "Seasoned melee fighter, steady under pressure.",
@@ -15,7 +15,7 @@
   },
   {
     "name": "HEDGE WIZARD",
-    "icon": "/assets/portraits/portrait-002.jpg",
+    "icon": "/assets/portraits/portrait-002.webp",
     "rate": 3,
     "rateUnit": "GP/DAY",
     "description": "Self-taught spellcaster with a knack for utility magic.",
@@ -29,7 +29,7 @@
   },
   {
     "name": "ELVEN SCOUT",
-    "icon": "/assets/portraits/portrait-003.jpg",
+    "icon": "/assets/portraits/portrait-003.webp",
     "rate": 2,
     "rateUnit": "GP/DAY",
     "description": "Quiet tracker who ranges far ahead of the company.",
@@ -44,7 +44,7 @@
   },
   {
     "name": "FIELD MEDIC",
-    "icon": "/assets/portraits/portrait-004.jpg",
+    "icon": "/assets/portraits/portrait-004.webp",
     "rate": 3,
     "rateUnit": "GP/DAY",
     "description": "Keeps the company on its feet through any campaign.",
@@ -59,7 +59,7 @@
   },
   {
     "name": "DAY LABORER",
-    "icon": "/assets/portraits/portrait-005.jpg",
+    "icon": "/assets/portraits/portrait-005.webp",
     "rate": 1,
     "rateUnit": "GP/DAY",
     "description": "Strong back, willing hands. Cheap and reliable.",
@@ -70,7 +70,7 @@
   },
   {
     "name": "DWARVEN SMITH",
-    "icon": "/assets/portraits/portrait-006.jpg",
+    "icon": "/assets/portraits/portrait-006.webp",
     "rate": 4,
     "rateUnit": "GP/DAY",
     "description": "Master of the forge; repairs and forges arms and armor.",
@@ -85,7 +85,7 @@
   },
   {
     "name": "HALFLING BURGLAR",
-    "icon": "/assets/portraits/portrait-007.jpg",
+    "icon": "/assets/portraits/portrait-007.webp",
     "rate": 3,
     "rateUnit": "GP/DAY",
     "description": "Light fingers and lighter footsteps. Opens what won't open.",
@@ -101,7 +101,7 @@
   },
   {
     "name": "WANDERING BARD",
-    "icon": "/assets/portraits/portrait-008.jpg",
+    "icon": "/assets/portraits/portrait-008.webp",
     "rate": 2,
     "rateUnit": "GP/DAY",
     "description": "Gathers rumors and lifts spirits in equal measure.",
@@ -116,7 +116,7 @@
   },
   {
     "name": "TEMPLE PALADIN",
-    "icon": "/assets/portraits/portrait-009.jpg",
+    "icon": "/assets/portraits/portrait-009.webp",
     "rate": 5,
     "rateUnit": "GP/DAY",
     "description": "Oath-bound knight, a bulwark of faith and steel.",
@@ -132,7 +132,7 @@
   },
   {
     "name": "GROVE DRUID",
-    "icon": "/assets/portraits/portrait-010.jpg",
+    "icon": "/assets/portraits/portrait-010.webp",
     "rate": 4,
     "rateUnit": "GP/DAY",
     "description": "Keeper of the old ways; speaks for beast and bramble.",
@@ -147,7 +147,7 @@
   },
   {
     "name": "STREET TOUGH",
-    "icon": "/assets/portraits/portrait-011.jpg",
+    "icon": "/assets/portraits/portrait-011.webp",
     "rate": 2,
     "rateUnit": "GP/DAY",
     "description": "Knuckle-bruiser from the docks. Asks no questions.",
@@ -162,7 +162,7 @@
   },
   {
     "name": "ARCANE APPRENTICE",
-    "icon": "/assets/portraits/portrait-012.jpg",
+    "icon": "/assets/portraits/portrait-012.webp",
     "rate": 1,
     "rateUnit": "GP/DAY",
     "description": "Eager student of the art, still smudged with chalk.",
@@ -177,7 +177,7 @@
   },
   {
     "name": "CARAVAN GUIDE",
-    "icon": "/assets/portraits/portrait-013.jpg",
+    "icon": "/assets/portraits/portrait-013.webp",
     "rate": 3,
     "rateUnit": "GP/DAY",
     "description": "Knows every road, ford, and bandit ambush for a hundred miles.",
@@ -192,7 +192,7 @@
   },
   {
     "name": "GUILD ALCHEMIST",
-    "icon": "/assets/portraits/portrait-014.jpg",
+    "icon": "/assets/portraits/portrait-014.webp",
     "rate": 4,
     "rateUnit": "GP/DAY",
     "description": "Distills potions and poisons alike behind a locked door.",
@@ -207,7 +207,7 @@
   },
   {
     "name": "SHADOW ASSASSIN",
-    "icon": "/assets/portraits/portrait-015.jpg",
+    "icon": "/assets/portraits/portrait-015.webp",
     "rate": 6,
     "rateUnit": "GP/DAY",
     "description": "A blade in the dark. Expensive, discreet, lethal.",
@@ -223,7 +223,7 @@
   },
   {
     "name": "DRAGONBORN MERCENARY",
-    "icon": "/assets/portraits/portrait-016.jpg",
+    "icon": "/assets/portraits/portrait-016.webp",
     "rate": 5,
     "rateUnit": "GP/DAY",
     "description": "A towering sellsword whose breath still smolders.",
@@ -238,7 +238,7 @@
   },
   {
     "name": "CLOISTERED SCHOLAR",
-    "icon": "/assets/portraits/portrait-017.jpg",
+    "icon": "/assets/portraits/portrait-017.webp",
     "rate": 3,
     "rateUnit": "GP/DAY",
     "description": "Pale, patient, and bottomless on matters of history.",
@@ -252,7 +252,7 @@
   },
   {
     "name": "MARSH HUNTER",
-    "icon": "/assets/portraits/portrait-018.jpg",
+    "icon": "/assets/portraits/portrait-018.webp",
     "rate": 2,
     "rateUnit": "GP/DAY",
     "description": "Trapper and forager who thrives where others sink.",
@@ -267,7 +267,7 @@
   },
   {
     "name": "WARLOCK BROKER",
-    "icon": "/assets/portraits/portrait-019.jpg",
+    "icon": "/assets/portraits/portrait-019.webp",
     "rate": 5,
     "rateUnit": "GP/DAY",
     "description": "Trades in secrets and pacts. Reads the fine print twice.",
@@ -282,7 +282,7 @@
   },
   {
     "name": "MOUNTAIN GUARD",
-    "icon": "/assets/portraits/portrait-020.jpg",
+    "icon": "/assets/portraits/portrait-020.webp",
     "rate": 3,
     "rateUnit": "GP/DAY",
     "description": "Stoic dwarf who has held a gate or two in his day.",
@@ -297,7 +297,7 @@
   },
   {
     "name": "TRAVELING PRIEST",
-    "icon": "/assets/portraits/portrait-021.jpg",
+    "icon": "/assets/portraits/portrait-021.webp",
     "rate": 3,
     "rateUnit": "GP/DAY",
     "description": "Tends the sick and consecrates ground wherever he stops.",
@@ -312,7 +312,7 @@
   },
   {
     "name": "SORCERER PRODIGY",
-    "icon": "/assets/portraits/portrait-022.jpg",
+    "icon": "/assets/portraits/portrait-022.webp",
     "rate": 5,
     "rateUnit": "GP/DAY",
     "description": "Raw, untrained power crackling beneath the skin.",
@@ -326,7 +326,7 @@
   },
   {
     "name": "MONASTERY ADEPT",
-    "icon": "/assets/portraits/portrait-023.jpg",
+    "icon": "/assets/portraits/portrait-023.webp",
     "rate": 4,
     "rateUnit": "GP/DAY",
     "description": "Disciplined martial artist, calm as still water.",
@@ -341,7 +341,7 @@
   },
   {
     "name": "DOCKSIDE COOK",
-    "icon": "/assets/portraits/portrait-024.jpg",
+    "icon": "/assets/portraits/portrait-024.webp",
     "rate": 1,
     "rateUnit": "GP/DAY",
     "description": "Feeds a whole company on a copper and a prayer.",

@@ -27,6 +27,9 @@ export function AssetProvider({ children }) {
     filtered.forEach(url => {
       const img = new Image();
       const settle = (status) => {
+        // Guard against double-settling: a cached image fires both the async
+        // load event and the synchronous `img.complete` path below.
+        if (registryRef.current.get(url) !== 'pending') return;
         const updated = new Map(registryRef.current);
         updated.set(url, status);
         registryRef.current = updated;
@@ -35,6 +38,10 @@ export function AssetProvider({ children }) {
       img.onload  = () => settle('loaded');
       img.onerror = () => settle('error');
       img.src = url;
+      // If the browser already has this image (e.g. from <link rel="preload">
+      // in index.html), the load event will not fire again — resolve the gate
+      // synchronously to avoid a LOADING flash on repeat visits.
+      if (img.complete) settle('loaded');
     });
   }, []);
 

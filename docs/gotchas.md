@@ -119,6 +119,8 @@ This means:
 
 Adding more `useRegisterAssets` calls elsewhere will add to this blocking set. Use `useAssetGroup` (local, modal-scoped) for images that can load lazily.
 
+On repeat visits the background is already in the HTTP cache (via the `<link rel="preload">` injected by `index.html`), so `AssetContext` checks `img.complete` synchronously after setting `src` and resolves the gate immediately — no LOADING flash. `settle` guards against double-resolution (the cached path and the async `onload` can both fire), so this is safe for the uncached first-load case too.
+
 ---
 
 ## Preset `source` Field is Runtime-only

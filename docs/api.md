@@ -262,9 +262,11 @@ The `config` parameter must conform to the `LibraryConfig` shape defined in `src
 
 Fires `onClick()` on quick release. Fires `onAdjust(delta)` (integer steps) during vertical drag after hold threshold.
 
-### `useAssetGroup(urls: string[])` → `{ isReady: boolean }`
+### `useAssetGroup(urls: string[])` → `{ isReady: boolean, readySet: Set<string> }`
 
-Local (not global) load gate. Resolves when all URLs in the group have loaded or errored. Used inside modals to defer rendering image grids.
+Local (not global) load gate for modal-scoped image grids. Tracks readiness **per URL** rather than all-or-nothing: `readySet` holds every URL that has loaded or errored, and `isReady` is true once all URLs have settled. Cached images resolve synchronously via `img.complete`.
+
+The picker modals render every cell immediately and consult `readySet.has(url)` to reveal each thumbnail the moment its own image settles — so a single slow image or 404 no longer holds the whole grid behind a loading screen.
 
 ### `usePalette()`
 

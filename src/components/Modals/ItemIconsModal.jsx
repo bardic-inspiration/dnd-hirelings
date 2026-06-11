@@ -8,7 +8,7 @@ export default function ItemIconsModal() {
   const { itemIconsProps, closeItemIcons } = useUI();
   const [query, setQuery]                  = useState('');
   const fileInputRef                       = useRef(null);
-  const { isReady }                        = useAssetGroup(ITEM_URLS.map(p => p.url));
+  const { readySet }                       = useAssetGroup(ITEM_URLS.map(p => p.url));
 
   const filtered = query.trim()
     ? ITEM_URLS.filter(p => p.name.toLowerCase().includes(query.trim().toLowerCase()))
@@ -32,15 +32,11 @@ export default function ItemIconsModal() {
     <Modal onClose={closeItemIcons} overlayClass="config-overlay">
       <div className="portraits-panel item-icons-panel" onClick={e => e.stopPropagation()}>
         <div className="portraits-grid-wrap item-icons-grid-wrap">
-          {isReady ? (
           <div className="portraits-grid item-icons-grid">
             {filtered.map(p => (
-              <IconFrame key={p.url} url={p.url} onSelect={handleSelect} />
+              <IconFrame key={p.url} url={p.url} ready={readySet.has(p.url)} onSelect={handleSelect} />
             ))}
           </div>
-          ) : (
-          <ModalLoadingPlaceholder />
-          )}
         </div>
         <div className="portraits-search-bar">
           <input
@@ -70,18 +66,7 @@ export default function ItemIconsModal() {
   );
 }
 
-function ModalLoadingPlaceholder() {
-  return (
-    <div style={{
-      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: 'var(--dim)', fontFamily: 'monospace', letterSpacing: '0.2em', fontSize: '0.75rem',
-    }}>
-      LOADING
-    </div>
-  );
-}
-
-function IconFrame({ url, onSelect }) {
+function IconFrame({ url, ready, onSelect }) {
   const [phase, setPhase] = useState(null); // null | 'lit' | 'decay'
   const timerRef          = useRef(null);
   const rafRef            = useRef(null);
@@ -102,12 +87,13 @@ function IconFrame({ url, onSelect }) {
   const cls = phase === 'lit'   ? ' portrait-frame--lit'
             : phase === 'decay' ? ' portrait-frame--lit portrait-frame--decay'
             : '';
+  const loadingCls = ready ? '' : ' portrait-frame--loading';
 
   return (
     <div
-      className={`portrait-frame${cls}`}
+      className={`portrait-frame${cls}${loadingCls}`}
       onClick={handleClick}
-      style={{ backgroundImage: `url("${url}")` }}
+      style={ready ? { backgroundImage: `url("${url}")` } : undefined}
     />
   );
 }

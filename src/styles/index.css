@@ -18,7 +18,8 @@
 
 @font-face {
   font-family: 'BNBrickHouse';
-  src: url('/assets/UI/fonts/BNBreezy.otf') format('opentype');
+  src: url('/assets/UI/fonts/BNBreezy.woff2') format('woff2'),
+       url('/assets/UI/fonts/BNBreezy.otf')   format('opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -1205,10 +1206,32 @@ select.tag-builder-field {
   background-position: center;
   cursor: pointer;
   transition: border-color 0.15s;
+  /* Skip layout/paint for cells scrolled out of the picker viewport. The
+     intrinsic-size estimate (4-column portrait grid) keeps scroll geometry
+     stable before off-screen cells render; `auto` lets the browser cache each
+     cell's real size once painted. Item icons override the estimate below. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 140px;
+}
+
+/* Item icons pack 12 per row, so cells are far smaller than portrait frames. */
+.item-icons-grid .portrait-frame {
+  contain-intrinsic-size: auto 64px;
 }
 
 .portrait-frame:hover {
   border-color: var(--highlight);
+}
+
+/* Cell whose image has not yet settled: a gentle pulse over the dimmer base
+   stands in until useAssetGroup marks this URL ready and the thumbnail paints. */
+.portrait-frame--loading {
+  animation: portrait-frame-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes portrait-frame-pulse {
+  0%, 100% { background-color: var(--dimmer); }
+  50%      { background-color: var(--border); }
 }
 
 .portrait-frame--lit {
