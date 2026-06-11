@@ -1205,6 +1205,17 @@ select.tag-builder-field {
   background-position: center;
   cursor: pointer;
   transition: border-color 0.15s;
+  /* Skip layout/paint for cells scrolled out of the picker viewport. The
+     intrinsic-size estimate (4-column portrait grid) keeps scroll geometry
+     stable before off-screen cells render; `auto` lets the browser cache each
+     cell's real size once painted. Item icons override the estimate below. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 140px;
+}
+
+/* Item icons pack 12 per row, so cells are far smaller than portrait frames. */
+.item-icons-grid .portrait-frame {
+  contain-intrinsic-size: auto 64px;
 }
 
 .portrait-frame:hover {
