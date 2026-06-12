@@ -11,7 +11,6 @@ const UIContext = createContext(null);
  * - `mode`: `'tag'` (default) or `'condition'` (APPLY builds a condition template)
  * - `onApply`: `(tagString|template) => void` — library preset drafts take the
  *   applied value instead of a dispatch; also elevates the modal above the library
- * - `initialModifier`: preselects the modifier dropdown (e.g. `'req'`)
  *
  * `pendingApply` holds a tag/condition awaiting a board-entity click (selection
  * mode, hosted by App.jsx): `null | { kind: 'tag', tag } | { kind: 'condition', template }`.

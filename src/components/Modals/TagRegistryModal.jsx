@@ -46,7 +46,7 @@ function splitDraftValue(draft) {
  * (see UIContext): `target` routes APPLY to a board entity, `mode: 'condition'`
  * makes APPLY build a condition template, `onApply` redirects the applied value
  * to a callback (library preset drafts) and elevates the overlay above the
- * library panel, `initialModifier` preselects the modifier dropdown.
+ * library panel.
  *
  * ADD registers a structure path; APPLY assigns the draft to its destination.
  * With no target/onApply (TopBar open), APPLY arms selection mode via
@@ -60,13 +60,13 @@ export default function TagRegistryModal() {
   const { state, dispatch } = useGame();
   const registry = state.tagRegistry;
 
-  const { target = null, mode = 'tag', onApply = null, initialModifier = null } = tagRegistryProps ?? {};
+  const { target = null, mode = 'tag', onApply = null } = tagRegistryProps ?? {};
   const isConditionMode = mode === 'condition';
   const isGlobal = !target && !onApply;
 
   const [expanded, setExpanded] = useState(new Set());
   const [draft, setDraft] = useState('');
-  const [modifier, setModifier] = useState(initialModifier ?? '');
+  const [modifier, setModifier] = useState('');
   const fileInputRef = useRef(null);
   const inputRef = useRef(null);
 

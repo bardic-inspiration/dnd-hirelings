@@ -52,7 +52,6 @@ interface TagRegistryProps {       // all fields optional
   target?: { type: 'agent'|'task'|'item', id: string };  // board entity APPLY assigns to
   mode?: 'tag' | 'condition';      // 'condition': APPLY builds a ConditionTemplate
   onApply?: (tagString | template) => void;  // library preset drafts; elevates overlay
-  initialModifier?: string;        // preselect the modifier dropdown (e.g. 'req')
 }
 ```
 

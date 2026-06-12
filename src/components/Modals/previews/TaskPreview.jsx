@@ -4,16 +4,15 @@ import { routeTaskTag } from '../../../logic/tasks.js';
 import EditableSpan from '../../EditableSpan.jsx';
 
 // One editable tag list (requirements / attributes). Reuses the task-card
-// section/tag classes but writes to the draft via onChange. The applied tag
-// routes by its own modifier (`routeTaskTag`), so a `req,`-prefixed tag lands
-// in requirements even when added from the attributes section — the section
-// only controls which list it displays and the preselected modifier.
-function TagListSection({ label, addLabel, initialModifier, field, draft, onChange }) {
+// section/tag classes but writes to the draft via onChange. Only the section
+// with `addLabel` renders the registry shortcut; the applied tag routes by
+// its own modifier (`routeTaskTag`), so a `req,`-prefixed tag lands in
+// requirements even though the shortcut sits in the attributes section.
+function TagListSection({ label, addLabel, field, draft, onChange }) {
   const { openTagRegistry } = useUI();
   const tags = draft[field] || [];
 
   const handleAdd = () => openTagRegistry({
-    initialModifier,
     onApply: (tag) => {
       const route = routeTaskTag(tag);
       onChange({ [route]: [...(draft[route] || []), tag] });
@@ -35,7 +34,7 @@ function TagListSection({ label, addLabel, initialModifier, field, draft, onChan
           );
         })}
       </div>
-      <button className="tag-add" onClick={handleAdd}>{addLabel}</button>
+      {addLabel && <button className="tag-add" onClick={handleAdd}>{addLabel}</button>}
     </div>
   );
 }
@@ -96,7 +95,7 @@ export default function TaskPreview({ draft, onChange }) {
           onCommit={v => onChange({ description: v })}
         />
         <TagListSection
-          label="REQUIREMENTS" addLabel="+ REQ" initialModifier="req"
+          label="REQUIREMENTS"
           field="requirements" draft={draft} onChange={onChange}
         />
         <ConditionTemplateSection conditions={draft.conditions || []} onChange={onChange} />

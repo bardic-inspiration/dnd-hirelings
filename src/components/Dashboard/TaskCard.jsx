@@ -28,6 +28,9 @@ function TaskProgressBar({ task }) {
   );
 }
 
+// Hosts the card's single `+ TAG` shortcut to the tag registry. The applied
+// tag routes by its own modifier (TAG_APPLY → routeTaskTag), so a `req`-
+// modified tag built here still lands in the requirements list above.
 function AttributesSection({ task }) {
   const { dispatch } = useGame();
   const { openTagRegistry } = useUI();

@@ -73,7 +73,7 @@ Selection mode (App.jsx): `setPendingApply` arms a **capture-phase** document cl
 
 Routing is the entity's job, not the modal's: `TAG_APPLY` sends `req`/`block` tags to a task's `requirements` and everything else to `attributes` (`routeTaskTag`, driven by `MODIFIER_REGISTRY[modifier].taskField`); agents/items always dedupe-merge into `attributes`. Note the preserved asymmetry: task tag lists append (duplicates possible), agent/item attributes replace by path.
 
-> ⚠️ **Needs clarification:** with routing-by-prefix, a task card's `+ REQ` and `+ TAG` buttons differ only in the preselected modifier dropdown — the dropdown, not the button, decides the destination list. The two buttons may be worth collapsing into one.
+Because routing is by prefix, a task card carries a single `+ TAG` registry shortcut (in the attributes section, mirrored in the library's task preview); the requirements list has no add button of its own — a `req`/`block`-modified tag applied via `+ TAG` routes there.
 
 - `exact` — same segment count, every segment matches pairwise.
 - `numbered` — only the first `depth` segments are compared; the default depth is the pattern's length, which makes it prefix matching.
