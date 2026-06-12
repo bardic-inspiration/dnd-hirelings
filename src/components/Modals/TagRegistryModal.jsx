@@ -2,9 +2,13 @@ import { useState, useRef, useMemo } from 'react';
 import Modal from './Modal.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
-import { parseTag } from '../../logic/tags.js';
+import { parseTag, buildTag, MODIFIER_REGISTRY } from '../../logic/tags.js';
 import { parsePattern, matchTagPath } from '../../logic/tagMatching.js';
-import { tagRegistrySave, tagRegistryLoad, flattenRegistry, tagsInUse, countTagsInUse } from '../../logic/tagRegistry.js';
+import { conditionTemplateFromDraft } from '../../logic/conditions.js';
+import {
+  tagRegistrySave, tagRegistryLoad, flattenRegistry, tagsInUse, countTagsInUse,
+  pathExists, patternMatchesRegistry,
+} from '../../logic/tagRegistry.js';
 
 // Walks a count tree (from countTagsInUse) down a segment path to its node, or
 // undefined if the path isn't present.
@@ -29,14 +33,42 @@ function draftParts(draft) {
   return s.split(':').map(p => p.trim().toLowerCase());
 }
 
+// Splits a draft on its LAST '=' into { path, value }. Unlike parseTag this
+// never re-joins segments, so escaped pattern colons ('\:') survive intact.
+function splitDraftValue(draft) {
+  const match = String(draft).trim().match(/^(.*?)(?:=([^=]*))?$/s);
+  return { path: match[1], value: match[2] ?? null };
+}
+
+/**
+ * The Tag Registry modal: the single surface for browsing, defining, assigning,
+ * and pattern-linking tags. Reads its open-call props from `useUI().tagRegistryProps`
+ * (see UIContext): `target` routes APPLY to a board entity, `mode: 'condition'`
+ * makes APPLY build a condition template, `onApply` redirects the applied value
+ * to a callback (library preset drafts) and elevates the overlay above the
+ * library panel, `initialModifier` preselects the modifier dropdown.
+ *
+ * ADD registers a structure path; APPLY assigns the draft to its destination.
+ * With no target/onApply (TopBar open), APPLY arms selection mode via
+ * `setPendingApply` and the next board-entity click receives the tag/condition.
+ *
+ * Side effects: dispatches `TAG_APPLY` / `TASK_CONDITION_ADD` / registry
+ * mutations; closes itself via `closeTagRegistry`.
+ */
 export default function TagRegistryModal() {
-  const { closeTagRegistry } = useUI();
+  const { tagRegistryProps, closeTagRegistry, setPendingApply } = useUI();
   const { state, dispatch } = useGame();
   const registry = state.tagRegistry;
 
+  const { target = null, mode = 'tag', onApply = null, initialModifier = null } = tagRegistryProps ?? {};
+  const isConditionMode = mode === 'condition';
+  const isGlobal = !target && !onApply;
+
   const [expanded, setExpanded] = useState(new Set());
   const [draft, setDraft] = useState('');
+  const [modifier, setModifier] = useState(initialModifier ?? '');
   const fileInputRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Flatten to ordered visible rows; line numbers reflect full-document position
   // (they skip over collapsed subtrees), matching a code editor's folding gutter.
@@ -49,9 +81,8 @@ export default function TagRegistryModal() {
   );
 
   // True when the draft carries pattern syntax (wildcards or escapes). Pattern
-  // drafts are search-only: the ghost suggestion stays quiet and Enter will not
-  // add a path — '*' is not a valid registry key, and a pattern names a match,
-  // not a structure node.
+  // drafts never ADD ('*' is not a valid registry key — a pattern names a match,
+  // not a structure node) and APPLY only as condition links.
   const isPattern = /[\\*]/.test(draft);
 
   // Ghost suggestion: an existing key from the CURRENT tier (the node at the path
@@ -113,6 +144,19 @@ export default function TagRegistryModal() {
     };
   }, [draft]);
 
+  // APPLY validity: a plain draft must name an existing registry path; a pattern
+  // must match at least one registry path AND have a condition destination
+  // (condition mode, or the global open where it arms condition selection).
+  // Condition-mode special case: a bare '=target' draft (empty path) is a valid
+  // "any agent" link (tagPath null).
+  const canApply = useMemo(() => {
+    const { path } = splitDraftValue(draft);
+    if (!draft.trim()) return false;
+    if (isPattern) return (isConditionMode || isGlobal) && patternMatchesRegistry(registry, path);
+    if (isConditionMode && !path) return true; // '=20' → general condition
+    return pathExists(registry, parseTag(draft).segments);
+  }, [draft, isPattern, isConditionMode, isGlobal, registry]);
+
   const toggle = (pathStr) => setExpanded(prev => {
     const next = new Set(prev);
     if (next.has(pathStr)) next.delete(pathStr); else next.add(pathStr);
@@ -120,6 +164,27 @@ export default function TagRegistryModal() {
   });
 
   const handleDelete = (segments) => dispatch({ type: 'TAGREG_DELETE_NODE', segments });
+
+  // Clicking a tree key loads its full path into the builder input.
+  const handleKeyClick = (row) => {
+    setDraft(row.pathStr);
+    inputRef.current?.focus();
+  };
+
+  // Typing 'req,' (any registered modifier + comma) lifts the modifier out of
+  // the draft into the dropdown, keeping the input a pure path[=value].
+  const handleDraftChange = (value) => {
+    if (!isConditionMode) {
+      const comma = value.indexOf(',');
+      const prefix = comma >= 0 ? value.slice(0, comma).trim().toLowerCase() : null;
+      if (prefix && MODIFIER_REGISTRY[prefix]) {
+        setModifier(prefix);
+        setDraft(value.slice(comma + 1));
+        return;
+      }
+    }
+    setDraft(value);
+  };
 
   const handleAdd = () => {
     if (isPattern) return; // search-only draft; wildcards are not registry keys
@@ -135,6 +200,27 @@ export default function TagRegistryModal() {
       return next;
     });
     setDraft('');
+  };
+
+  // Assigns the draft to its destination and closes. Condition drafts become
+  // templates; pattern drafts (global only) arm condition selection mode; plain
+  // drafts compose modifier + path + value into a tag for onApply / TAG_APPLY /
+  // tag selection mode.
+  const handleApply = () => {
+    if (!canApply) return;
+    if (isConditionMode || isPattern) {
+      const template = conditionTemplateFromDraft(draft);
+      if (onApply) onApply(template);
+      else if (target) dispatch({ type: 'TASK_CONDITION_ADD', id: target.id, template });
+      else setPendingApply({ kind: 'condition', template });
+    } else {
+      const parsed = parseTag(draft.trim());
+      const tag = buildTag(parsed.segments, parsed.value, modifier || null);
+      if (onApply) onApply(tag);
+      else if (target) dispatch({ type: 'TAG_APPLY', target, tag });
+      else setPendingApply({ kind: 'tag', tag });
+    }
+    closeTagRegistry();
   };
 
   const handleSave = () => tagRegistrySave(registry, state.session.id);
@@ -155,9 +241,13 @@ export default function TagRegistryModal() {
     if (e.key === 'Enter') { e.preventDefault(); handleAdd(); }
   };
 
+  const placeholder = isConditionMode
+    ? 'PATH=TARGET · PATTERNS OK (SKILL:*)'
+    : 'CLICK A KEY · TYPE TO SEARCH OR ADD';
+
   return (
-    <Modal onClose={closeTagRegistry} overlayClass="config-overlay">
-      <div className="library-panel" onClick={e => e.stopPropagation()}>
+    <Modal onClose={closeTagRegistry} overlayClass={`tag-registry-overlay${onApply ? ' tag-registry-overlay--elevated' : ''}`}>
+      <div className="tag-registry-panel" onClick={e => e.stopPropagation()}>
         <div className="tagreg-top">
           <span className="tagreg-head">
             <span className="library-heading">TAG REGISTRY</span>
@@ -200,7 +290,7 @@ export default function TagRegistryModal() {
                 ) : (
                   <span className={`tagreg-tick${row.isLast ? ' tagreg-tick--last' : ''}`} />
                 )}
-                <span className="tagreg-key">
+                <span className="tagreg-key" onClick={() => handleKeyClick(row)} title={row.pathStr}>
                   {n > 0 && <span className="tagreg-match">{row.key.slice(0, n)}</span>}
                   {row.key.slice(n)}
                   <span className="tagreg-colon">:</span>
@@ -213,21 +303,37 @@ export default function TagRegistryModal() {
         </div>
 
         <div className="tagreg-builder">
+          {!isConditionMode && (
+            <select
+              className="tagreg-prefix"
+              value={modifier}
+              onChange={e => setModifier(e.target.value)}
+              title={modifier ? MODIFIER_REGISTRY[modifier]?.description : 'Modifier prefix'}
+            >
+              <option value="">—</option>
+              {Object.entries(MODIFIER_REGISTRY).map(([key, def]) => (
+                <option key={key} value={key} title={def.description}>{key.toUpperCase()}</option>
+              ))}
+            </select>
+          )}
           <div className="tagreg-input-wrap">
             {suggestion && (
               <div className="tagreg-ghost" aria-hidden="true"><span className="tagreg-ghost-typed">{draft}</span>{suggestion}</div>
             )}
             <input
+              ref={inputRef}
               className="tagreg-input"
               type="text"
-              placeholder="BUILD A TAG   e.g.  item:weapon:martial   ·   SEARCH   e.g.  skill:*  ·  **:fire"
+              placeholder={placeholder}
               value={draft}
               spellCheck={false}
-              onChange={e => setDraft(e.target.value)}
+              onChange={e => handleDraftChange(e.target.value)}
               onKeyDown={onKeyDown}
               autoFocus
             />
           </div>
+          <button className="ctrl" onClick={handleAdd} disabled={!draft.trim() || isPattern} title="Register this path">ADD</button>
+          <button className="ctrl" onClick={handleApply} disabled={!canApply} title="Assign to a target">APPLY</button>
         </div>
       </div>
     </Modal>

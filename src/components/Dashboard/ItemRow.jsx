@@ -7,7 +7,7 @@ import DragNumber from './DragNumber.jsx';
 
 export default function ItemRow({ item }) {
   const { dispatch } = useGame();
-  const { selectedItemId, setSelectedItemId, openItemIcons, openTagBuilder } = useUI();
+  const { selectedItemId, setSelectedItemId, openItemIcons, openTagRegistry } = useUI();
   const [expanded, setExpanded] = useState(false);
 
   const selected = selectedItemId === item.id;
@@ -33,10 +33,7 @@ export default function ItemRow({ item }) {
 
   const handleAddAttr = (e) => {
     e.stopPropagation();
-    openTagBuilder({
-      context: 'attribute',
-      onSave: (tag) => dispatch({ type: 'INVENTORY_ADD_ATTRIBUTE', id: item.id, tag }),
-    });
+    openTagRegistry({ target: { type: 'item', id: item.id } });
   };
 
   return (

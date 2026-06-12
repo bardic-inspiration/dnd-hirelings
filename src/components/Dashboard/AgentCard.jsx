@@ -39,7 +39,7 @@ const INLINE_INPUT_STYLE = {
 
 export default function AgentCard({ agent }) {
   const { state, dispatch } = useGame();
-  const { selectedTaskId, openTagBuilder, openPortraits } = useUI();
+  const { selectedTaskId, openTagRegistry, openPortraits } = useUI();
 
   const [giveOpen, setGiveOpen]     = useState(false);
   const [giveItemName, setGiveItemName] = useState('');
@@ -191,10 +191,7 @@ export default function AgentCard({ agent }) {
           ))}
           <button className="tag-add" title="Add attribute" onClick={e => {
             e.stopPropagation();
-            openTagBuilder({
-              context: 'attribute',
-              onSave: (tag) => dispatch({ type: 'AGENT_ADD_ATTRIBUTE', id: agent.id, tag }),
-            });
+            openTagRegistry({ target: { type: 'agent', id: agent.id } });
           }}>+</button>
         </div>
       </div>

@@ -190,6 +190,15 @@ body {
   border-color: var(--fg);
   color: var(--bg);
 }
+.ctrl:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ctrl:disabled:hover {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--fg);
+}
 
 .ctrl--combo {
   display: inline-flex;
@@ -721,7 +730,8 @@ body {
 /* ============================================================
    CONFIG PANEL OVERLAY
    ============================================================ */
-.config-overlay {
+.config-overlay,
+.tag-registry-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
@@ -730,6 +740,8 @@ body {
   justify-content: center;
   z-index: 100;
 }
+/* Opened from a library preview (onApply): stack above the library panel. */
+.tag-registry-overlay--elevated { z-index: 200; }
 
 .config-panel {
   background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
@@ -901,128 +913,6 @@ body {
   font-size: var(--fs-xs);
   padding: 6px;
   font-style: italic;
-}
-
-/* ============================================================
-   TAG / CONDITION BUILDER FORMS (modals)
-   ============================================================ */
-.tag-builder-overlay,
-.condition-builder-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-}
-
-.tag-builder-card,
-.condition-builder-card {
-  background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
-  border: var(--line) solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  min-width: 320px;
-  max-width: 420px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-}
-
-.tag-builder-title,
-.condition-builder-title {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--fg);
-  border-bottom: var(--line) solid var(--border);
-  padding-bottom: 8px;
-}
-
-.tag-builder-fields,
-.condition-builder-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.tag-builder-row,
-.condition-builder-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.tag-builder-label,
-.condition-builder-label {
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--dim);
-  flex: 0 0 60px;
-}
-
-.tag-builder-field,
-.condition-builder-field {
-  flex: 1;
-  background: var(--dimmer);
-  border: var(--line) solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--fg);
-  padding: 6px 8px;
-  font-family: inherit;
-  font-size: var(--fs-sm);
-  outline: none;
-  transition: border-color 0.1s;
-}
-
-.tag-builder-field:focus,
-.condition-builder-field:focus { border-color: var(--highlight); }
-
-select.tag-builder-field,
-select.condition-builder-field {
-  appearance: none;
-  cursor: pointer;
-  padding-right: 24px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237eb5f5' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 6px center;
-  background-size: 16px;
-}
-
-.tag-builder-field--error,
-.condition-builder-field--error {
-  border-color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 8%, var(--dimmer));
-}
-
-.tag-builder-preview,
-.condition-builder-preview {
-  flex: 1;
-  font-family: ui-monospace, "Courier New", monospace;
-  font-size: var(--fs-xs);
-  color: var(--dim);
-  letter-spacing: 0.04em;
-  word-break: break-all;
-  padding: 2px 0;
-}
-
-.tag-builder-buttons,
-.condition-builder-buttons {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-  justify-content: flex-end;
-}
-
-.tag-builder-buttons .ctrl,
-.condition-builder-buttons .ctrl {
-  font-size: var(--fs-xs);
-  padding: 4px 12px;
 }
 
 /* ============================================================
@@ -1348,7 +1238,8 @@ select.condition-builder-field {
 /* ============================================================
    LIBRARY / BUILDER MODALS
    ============================================================ */
-.library-panel {
+.library-panel,
+.tag-registry-panel {
   background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
   border: var(--line) solid var(--border);
   border-radius: var(--radius-lg);
@@ -1600,7 +1491,9 @@ select.condition-builder-field {
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--fg);
+  cursor: pointer;
 }
+.tagreg-key:hover { color: var(--accent); }
 .tagreg-colon { color: var(--dim); }
 .tagreg-match { color: var(--highlight); }
 
@@ -1630,7 +1523,33 @@ select.condition-builder-field {
 .tagreg-row:hover .tagreg-x { opacity: 1; }
 .tagreg-x:hover { color: var(--warn); }
 
-.tagreg-builder { display: flex; }
+.tagreg-builder {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.tagreg-prefix {
+  flex: 0 0 auto;
+  background: var(--dimmer);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 5px 24px 5px 10px;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.1s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237eb5f5' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 16px;
+}
+.tagreg-prefix:focus { border-color: var(--highlight); }
 
 .tagreg-input-wrap {
   position: relative;
@@ -1676,6 +1595,20 @@ select.condition-builder-field {
   color: var(--dim);
 }
 .tagreg-ghost-typed { color: transparent; }
+
+/* ============================================================
+   TAG-APPLY SELECTION MODE
+   The body carries .tag-apply-mode while a tag/condition from the registry
+   awaits a board-entity click (see App.jsx); cards signal targetability with
+   an accent border on hover. The --conditions variant restricts targets to
+   task cards, so agent/item hover stays neutral.
+   ============================================================ */
+.tag-apply-mode .task-card:hover,
+.tag-apply-mode:not(.tag-apply-mode--conditions) .agent-card:hover,
+.tag-apply-mode:not(.tag-apply-mode--conditions) .item-row:hover {
+  border-color: var(--accent);
+  cursor: copy;
+}
 
 /* Tasks have no icon: a filled square placeholder stands in for a future map. */
 .task-preview-frame {

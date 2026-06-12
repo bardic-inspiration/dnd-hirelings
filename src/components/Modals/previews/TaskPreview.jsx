@@ -1,15 +1,23 @@
 import { useUI } from '../../../state/UIContext.jsx';
 import { parseTag, formatTagLabel } from '../../../logic/tags.js';
+import { routeTaskTag } from '../../../logic/tasks.js';
 import EditableSpan from '../../EditableSpan.jsx';
 
 // One editable tag list (requirements / attributes). Reuses the task-card
-// section/tag classes but writes to the draft via onChange.
-function TagListSection({ label, addLabel, context, field, tags, onChange }) {
-  const { openTagBuilder } = useUI();
+// section/tag classes but writes to the draft via onChange. The applied tag
+// routes by its own modifier (`routeTaskTag`), so a `req,`-prefixed tag lands
+// in requirements even when added from the attributes section — the section
+// only controls which list it displays and the preselected modifier.
+function TagListSection({ label, addLabel, initialModifier, field, draft, onChange }) {
+  const { openTagRegistry } = useUI();
+  const tags = draft[field] || [];
 
-  const handleAdd = () => openTagBuilder({
-    context,
-    onSave: (tag) => onChange({ [field]: [...tags, tag] }),
+  const handleAdd = () => openTagRegistry({
+    initialModifier,
+    onApply: (tag) => {
+      const route = routeTaskTag(tag);
+      onChange({ [route]: [...(draft[route] || []), tag] });
+    },
   });
 
   return (
@@ -36,10 +44,11 @@ function TagListSection({ label, addLabel, context, field, tags, onChange }) {
 // progress (those are stamped at task creation), so rows key by index and
 // removal filters by index.
 function ConditionTemplateSection({ conditions, onChange }) {
-  const { openConditionBuilder } = useUI();
+  const { openTagRegistry } = useUI();
 
-  const handleAdd = () => openConditionBuilder({
-    onSave: (template) => onChange({ conditions: [...conditions, template] }),
+  const handleAdd = () => openTagRegistry({
+    mode: 'condition',
+    onApply: (template) => onChange({ conditions: [...conditions, template] }),
   });
 
   return (
@@ -87,13 +96,13 @@ export default function TaskPreview({ draft, onChange }) {
           onCommit={v => onChange({ description: v })}
         />
         <TagListSection
-          label="REQUIREMENTS" addLabel="+ REQ" context="requirement"
-          field="requirements" tags={draft.requirements} onChange={onChange}
+          label="REQUIREMENTS" addLabel="+ REQ" initialModifier="req"
+          field="requirements" draft={draft} onChange={onChange}
         />
         <ConditionTemplateSection conditions={draft.conditions || []} onChange={onChange} />
         <TagListSection
-          label="ATTRIBUTES" addLabel="+ TAG" context="attribute"
-          field="attributes" tags={draft.attributes} onChange={onChange}
+          label="ATTRIBUTES" addLabel="+ TAG"
+          field="attributes" draft={draft} onChange={onChange}
         />
       </div>
     </div>

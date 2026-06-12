@@ -4,12 +4,9 @@ import TagRow from './TagRow.jsx';
 
 export default function RequirementsSection({ task }) {
   const { dispatch } = useGame();
-  const { openTagBuilder } = useUI();
+  const { openTagRegistry } = useUI();
 
-  const handleAdd = () => openTagBuilder({
-    context: 'requirement',
-    onSave: (tag) => dispatch({ type: 'TASK_ADD_TAG', id: task.id, field: 'requirements', tag }),
-  });
+  const handleAdd = () => openTagRegistry({ target: { type: 'task', id: task.id }, initialModifier: 'req' });
 
   const reqs = task.requirements || [];
 

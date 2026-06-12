@@ -6,7 +6,7 @@ import EditableSpan from '../../EditableSpan.jsx';
 // preset via onChange instead of dispatching board actions. Attribute "active"
 // highlighting and the TASKS section are board-only, so they're omitted here.
 export default function AgentPreview({ draft, onChange }) {
-  const { openPortraits, openTagBuilder } = useUI();
+  const { openPortraits, openTagRegistry } = useUI();
 
   return (
     <div className="agent-card library-preview-card">
@@ -58,9 +58,8 @@ export default function AgentPreview({ draft, onChange }) {
               </span>
             );
           })}
-          <button className="tag-add" title="Add attribute" onClick={() => openTagBuilder({
-            context: 'attribute',
-            onSave: (tag) => onChange({ attributes: mergeAttribute(draft.attributes, tag) }),
+          <button className="tag-add" title="Add attribute" onClick={() => openTagRegistry({
+            onApply: (tag) => onChange({ attributes: mergeAttribute(draft.attributes, tag) }),
           })}>+</button>
         </div>
       </div>
