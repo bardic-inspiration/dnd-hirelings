@@ -22,23 +22,12 @@ const PRESETS = {
     { label: 'Block Race',   prefix: 'block', path: 'race',   hasValue: false },
     { label: 'Block Skill',  prefix: 'block', path: 'skill',  hasValue: false },
   ],
-  work: [
-    { label: 'General', prefix: '',     path: 'work',  hasValue: true },
-    { label: 'Skill',   prefix: 'work', path: 'skill', hasValue: true },
-  ],
 };
 
 export default function TagBuilderModal({ context, onSave, onClose }) {
-  const presets = (() => {
-    if (context === 'requirement') return PRESETS.requirement;
-    if (context === 'work')        return PRESETS.work;
-    if (context === 'task')        return [...PRESETS.requirement, ...PRESETS.work];
-    return PRESETS.attribute;
-  })();
+  const presets = context === 'requirement' ? PRESETS.requirement : PRESETS.attribute;
 
-  const title = context === 'attribute' ? 'NEW ATTRIBUTE'
-    : context === 'work'               ? 'ADD WORK'
-    : 'ADD TAG';
+  const title = context === 'attribute' ? 'NEW ATTRIBUTE' : 'ADD TAG';
 
   const defaultPreset = presets[0];
 

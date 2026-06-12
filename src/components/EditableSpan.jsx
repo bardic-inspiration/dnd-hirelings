@@ -1,6 +1,20 @@
 import { useRef, useEffect } from 'react';
 
-export default function EditableSpan({ value, onCommit, className, placeholder }) {
+/**
+ * Click-to-edit inline text span (contenteditable). Selects all content on
+ * focus, commits the trimmed text via `onCommit` on blur or Enter, and
+ * restores the original text on Escape. The React `value` prop only syncs to
+ * the DOM while the span is not focused, so in-progress edits are never
+ * clobbered by re-renders or RAF writes.
+ *
+ * @param {object} props
+ * @param {string} props.value - Current text content
+ * @param {(value: string) => void} props.onCommit - Called with the trimmed text when it changed
+ * @param {string} [props.className]
+ * @param {string} [props.placeholder] - Rendered via CSS `data-placeholder` when empty
+ * Remaining props (e.g. `data-*` attributes) are forwarded onto the span.
+ */
+export default function EditableSpan({ value, onCommit, className, placeholder, ...rest }) {
   const ref = useRef(null);
   const originalRef = useRef(value || '');
 
@@ -42,6 +56,7 @@ export default function EditableSpan({ value, onCommit, className, placeholder }
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
       onClick={e => e.stopPropagation()}
+      {...rest}
     >
       {value || ''}
     </span>

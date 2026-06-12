@@ -32,6 +32,9 @@ Ephemeral UI state. Not persisted. All fields below are part of the returned obj
 | `tagBuilderProps` | `TagBuilderProps \| null` | Non-null when TagBuilderModal is open |
 | `openTagBuilder` | `(props: TagBuilderProps) => void` | Open the tag builder modal |
 | `closeTagBuilder` | `() => void` | Close the tag builder modal |
+| `conditionBuilderProps` | `{ onSave } \| null` | Non-null when ConditionBuilderModal is open |
+| `openConditionBuilder` | `(props: { onSave: (template: ConditionTemplate) => void }) => void` | Open the condition builder modal |
+| `closeConditionBuilder` | `() => void` | Close the condition builder modal |
 | `portraitsProps` | `{ onSelect } \| null` | Non-null when PortraitsModal is open |
 | `openPortraits` | `(onSelect: (url: string) => void) => void` | Open portrait picker |
 | `closePortraits` | `() => void` | Close portrait picker |
@@ -97,8 +100,11 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 | `TASK_DELETE` | `{ id }` | Delete task; removes all agent assignments |
 | `TASK_DUPLICATE` | `{ id }` | Deep-copy task; resets progress and completion |
 | `TASK_SET_COMPLETE` | `{ id, isComplete: boolean }` | Complete (runs `applyTaskComplete`) or un-complete a task |
-| `TASK_ADD_TAG` | `{ id, field: 'requirements'\|'work'\|'attributes', tag: string }` | Append tag to task field |
+| `TASK_ADD_TAG` | `{ id, field: 'requirements'\|'attributes', tag: string }` | Append tag to task field |
 | `TASK_REMOVE_TAG` | `{ id, field, index: number }` | Remove tag by index from task field |
+| `TASK_CONDITION_ADD` | `{ id, template: ConditionTemplate }` | Append condition (stamped with fresh id, zero progress); registers a non-null `tracker.tagPath` into the tag registry |
+| `TASK_CONDITION_UPDATE` | `{ id, conditionId, changes: Partial<Condition> }` | Patch a condition (click-to-edit progress/target) |
+| `TASK_CONDITION_REMOVE` | `{ id, conditionId }` | Remove a condition by id |
 | `TASK_UPDATE_RESULTS` | `{ id, changes: Partial<Task['results']> }` | Patch task result fields |
 
 ### Inventory
@@ -142,6 +148,31 @@ mergeAttribute(attrs: string[], tag: string): string[]
 formatTagLabel(parsed: ParsedTag): { label: string, params: string }
 ```
 
+### `src/logic/tagMatching.js`
+
+```js
+MATCH_MODE_REGISTRY: { [mode: string]: (pattern, segments, options?) => boolean }
+matchTagPath(patternPath: string|string[], tagSegments: string[], options?: { mode?: 'exact'|'numbered'|'open', depth?: number }): boolean
+parsePattern(patternPath: string|string[]): { kind: 'literal'|'single'|'multi', value?: string }[]
+formatPatternLabel(patternPath: string|string[]): string
+escapePatternSegment(text: string): string
+SINGLE_WILDCARD, MULTI_WILDCARD, ESCAPE_CHARACTER  // '*', '**', '\'
+```
+
+Pattern-vs-tag matching engine with pluggable modes (`MATCH_MODE_REGISTRY` is
+the extension point, mirroring `TRACKER_REGISTRY`):
+
+- `exact` — same segment count, pairwise match (the default mode)
+- `numbered` — first `depth` segments pairwise; default depth = pattern length (prefix semantics)
+- `open` — glob alignment: `*` passes exactly one segment, `**` passes zero or more (used by condition tag links; identical to exact for `**`-free patterns)
+
+`formatPatternLabel` renders a pattern as the engine reads it (`'skill:*'` → `skill:‹any›`) for preview UI.
+
+Wildcards and escapes exist only on the pattern side; tag segments are always
+literal text. `\*`, `\:`, `\\` escape literal asterisks, colons, and backslashes
+in patterns; `escapePatternSegment` builds safe literal segments from arbitrary
+text. See `docs/gotchas.md` → Tag-Path Match Modes.
+
 ### `src/logic/agents.js`
 
 ```js
@@ -162,19 +193,37 @@ mergeItemQty(activities: string[], name: string, delta: number): string[]
 ### `src/logic/tasks.js`
 
 ```js
-getWorkRequirements(task: Task): ParsedTag[]
-checkTaskComplete(task: Task): boolean
+checkTaskComplete(task: Task, clockAdvanced?: boolean): boolean
 applyResults(task: Task, inventory: InventoryItem[], agents: Agent[]): { newInventory, newAgents, bankDelta }
 applyTaskComplete(taskId: string, tasks: Task[], agents: Agent[], inventory: InventoryItem[]): { newTasks, newAgents, newInventory, bankDelta }
 computeBlockedTaskIds(activeTasks: Task[], inventory: InventoryItem[]): Set<string>
 ```
+
+### `src/logic/conditions.js`
+
+```js
+TRACKER_REGISTRY: { [kind: string]: (condition, context) => number }
+computeConditionContribution(condition: Condition, context: { effectiveAttributes, session, stepDays }): number
+defaultConditionName(tagPath: string|null): string
+createConditionTemplate(input: { name?, target?, tagPath?, kind? }): ConditionTemplate
+normalizeConditionTemplate(raw: object): ConditionTemplate
+conditionFromTemplate(template: ConditionTemplate|Condition): Condition  // fresh id, zero progress
+normalizeCondition(raw: object): Condition
+migrateLegacyWorkTemplates(workTags: string[]): ConditionTemplate[]
+migrateLegacyWork(workTags: string[], workProgress?: object): Condition[]
+resetConditions(conditions: Condition[]): Condition[]
+```
+
+`TRACKER_REGISTRY` is the extension point for progress-tracking logic: each
+`tracker.kind` maps to a contribution function, so future event- or rule-driven
+trackers plug in without touching the clock loop.
 
 ### `src/logic/clock.js`
 
 ```js
 getStepMinutes(session: Session): number
 getPlayIntervalMs(session: Session): number
-advanceTime(state: GameState): { newState: GameState, flashAgentIds: string[], taskWorkPerTick: object }
+advanceTime(state: GameState): { newState: GameState, flashAgentIds: string[], taskProgressPerTick: { [taskId]: { [conditionId]: number } } }
 updateClockDisplayDOM(state: GameState, tickInfo: TickInfo): void
 ```
 
@@ -287,8 +336,8 @@ interface GameState {
     timeStep: number;     // days per tick (e.g. 1)
     bank: number;         // gold balance
     rateMultiplier: number; // ticks-per-second multiplier
-    workRate: number;     // base work units per tick-day
-    skillBonus: number;   // multiplier applied to skill-derived work
+    workRate: number;     // base progress units per tick-day
+    skillBonus: number;   // multiplier applied to a matched tag link's value
   };
   agents: Agent[];
   tasks: Task[];
@@ -317,15 +366,30 @@ interface Task {
   name: string;
   description: string;
   requirements: string[]; // req,* and block,* tag strings
-  work: string[];         // work:* tag strings with =<target> values
   attributes: string[];   // tag strings
-  workProgress: { [workKey: string]: number }; // key = segments.slice(1).join(':'), e.g. 'skill:arcana'
+  conditions: Condition[]; // progress subcategories; all must be satisfied to complete
   isComplete: boolean;
   results: {
     gold: number;
     items: { name: string; quantity: number }[];
     agents: { template: Partial<Agent>; quantity: number }[];
   };
+}
+
+interface ConditionTemplate {  // preset / builder form (no runtime fields)
+  name: string;                // display label
+  target: number;              // required progress total; > 0 (boolean = 1)
+  tracker: {
+    kind: string;              // key into TRACKER_REGISTRY; currently only 'work'
+    tagPath: string | null;    // pattern matched (open mode) against agent attribute
+                               // paths, e.g. 'skill:arcana', 'skill:*', 'skill:**';
+                               // null = any agent
+  };
+}
+
+interface Condition extends ConditionTemplate {
+  id: string;                  // uid; keys progress accrual and DOM interpolation
+  progress: number;            // current value; satisfied when >= target
 }
 
 interface InventoryItem {
@@ -341,4 +405,6 @@ interface InventoryItem {
 type TagRegistry = { [key: string]: TagRegistry }; // recursive keys-only tree
 ```
 
-> **Migration note:** `normalizeState` handles several schema changes from older saves: (1) `qty` → `quantity` on `InventoryItem` and `Task.results.items`/`agents`; (2) `session.timeStep` coerced from legacy string to `number`; (3) `workProgress` keys — old saves used `segments[1]` alone (e.g. `'skill'`) while the current format uses the full sub-path (e.g. `'skill:arcana'`); progress is reset for any task whose `work` tags have 3+ segments since the old short keys are ambiguous. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected.
+> **Migration note:** `normalizeState` handles several schema changes from older saves: (1) `qty` → `quantity` on `InventoryItem` and `Task.results.items`/`agents`; (2) `session.timeStep` coerced from legacy string to `number`; (3) legacy `task.work` tags + `task.workProgress` buckets → `task.conditions` via `migrateLegacyWork` — `work=5` → tagPath `null`, `work:skill=8` → `'skill'`, `work:skill:arcana=10` → `'skill:arcana'`, with progress carried over from the matching bucket key; the deprecated `work` namespace is also pruned from stored tag registries. The storage key was bumped to `dnd-hirelings-state-v4`; `loadState` falls back to the v3 key. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected.
+
+> ⚠️ **Naming:** `session.workRate` and `session.skillBonus` predate the conditions system; the field names are kept for save compatibility. `workRate` is the base per-tick-day rate of every `'work'` tracker, and `skillBonus` multiplies the value of *any* matched tag link (not just skills).

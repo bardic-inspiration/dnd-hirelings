@@ -3,6 +3,7 @@
 // the modal shell, storage hook, and file I/O are all type-agnostic.
 
 import { STORAGE_KEYS } from '../state/storage.js';
+import { normalizeConditionTemplate, migrateLegacyWorkTemplates } from '../logic/conditions.js';
 import AgentPreview from '../components/Modals/previews/AgentPreview.jsx';
 import TaskPreview from '../components/Modals/previews/TaskPreview.jsx';
 import ItemPreview from '../components/Modals/previews/ItemPreview.jsx';
@@ -48,12 +49,16 @@ export const LIBRARY_CONFIGS = {
     storageKey: STORAGE_KEYS.PRESETS('tasks'),
     bundledUrl: '/presets/task_presets.json',
     panelClass: 'library-panel',
-    makeBlank: () => ({ name: 'NEW TASK', description: '', requirements: [], work: [], attributes: [] }),
+    makeBlank: () => ({ name: 'NEW TASK', description: '', requirements: [], conditions: [], attributes: [] }),
     normalize: (raw) => ({
       name:         requireName(raw),
       description:  str(raw?.description),
       requirements: tags(raw?.requirements),
-      work:         tags(raw?.work),
+      // Presets store condition templates (no id/progress). Legacy preset files
+      // carry `work` tag arrays instead; migrate them on load.
+      conditions:   Array.isArray(raw?.conditions)
+        ? raw.conditions.map(normalizeConditionTemplate)
+        : migrateLegacyWorkTemplates(tags(raw?.work)),
       attributes:   tags(raw?.attributes),
     }),
     rowIcon: () => '',

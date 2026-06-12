@@ -2,34 +2,20 @@ import { parseTag, buildTag } from './tags.js';
 import { uid, now } from '../utils.js';
 
 /**
- * Returns the parsed work requirement tags for a task.
- * Filters to `work:*` tags with a positive numeric value.
- * Falls back to a single generic work entry `[{ segments: ['work'], value: null }]`
- * when the task has no valid work tags — so every task always has at least one bucket.
+ * Returns true when the task should complete at the end of a tick.
+ * Each condition is checked independently — overshooting one cannot satisfy a
+ * deficit in another. A task with zero conditions carries an implied
+ * "clock advanced" condition: it completes whenever `clockAdvanced` is true
+ * (i.e. at least one eligible agent worked it this tick).
  *
  * @param {Task} task
- * @returns {{ segments: string[], value: string|null }[]} Parsed work tags
- */
-export function getWorkRequirements(task) {
-  const all = (task.work || [])
-    .map(tag => parseTag(tag))
-    .filter(parsed => parsed.segments[0] === 'work' && parsed.value !== null && parseFloat(parsed.value) > 0);
-  return all.length > 0 ? all : [{ segments: ['work'], value: null }];
-}
-
-/**
- * Returns true when every work bucket has reached its individual target.
- * Each requirement is checked independently — overshooting one bucket cannot
- * satisfy a deficit in another.
- *
- * @param {Task} task
+ * @param {boolean} [clockAdvanced] - True when an eligible agent worked the task this tick
  * @returns {boolean}
  */
-export function checkTaskComplete(task) {
-  return getWorkRequirements(task).every(req => {
-    const key = req.segments.slice(1).join(':');
-    return (task.workProgress?.[key] ?? 0) >= parseFloat(req.value ?? 1);
-  });
+export function checkTaskComplete(task, clockAdvanced = false) {
+  const conditions = task.conditions || [];
+  if (conditions.length === 0) return clockAdvanced;
+  return conditions.every(condition => condition.progress >= condition.target);
 }
 
 /**

@@ -1,7 +1,7 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { agentsAssignedTo } from '../../logic/agents.js';
-import { getWorkRequirements } from '../../logic/tasks.js';
+import { resetConditions } from '../../logic/conditions.js';
 import { parseTag, formatTagLabel } from '../../logic/tags.js';
 import EditableSpan from '../EditableSpan.jsx';
 import ProgressSection from './TaskSections/ProgressSection.jsx';
@@ -9,11 +9,13 @@ import RequirementsSection from './TaskSections/RequirementsSection.jsx';
 import ResultsSection from './TaskSections/ResultsSection.jsx';
 
 function TaskProgressBar({ task }) {
-  const reqs = getWorkRequirements(task);
-  const totalRequired = reqs.reduce((s, e) => s + parseFloat(e.value ?? 1), 0);
+  const conditions = task.conditions || [];
+  const totalRequired = conditions.reduce((sum, condition) => sum + condition.target, 0);
+  // Each condition is capped at its own target so overshoot in one cannot
+  // inflate the overall bar.
   const totalProgress = task.isComplete
     ? totalRequired
-    : reqs.reduce((s, e) => s + Math.min(parseFloat(e.value ?? 1), task.workProgress?.[e.segments.slice(1).join(':')] ?? 0), 0);
+    : conditions.reduce((sum, condition) => sum + Math.min(condition.target, condition.progress), 0);
   const pct = totalRequired > 0 ? Math.min(100, (totalProgress / totalRequired) * 100) : 0;
   return (
     <div className="task-progress">
@@ -76,7 +78,7 @@ export default function TaskCard({ task }) {
   const handleComplete = (e) => {
     e.stopPropagation();
     if (task.isComplete) {
-      dispatch({ type: 'TASK_UPDATE', id: task.id, changes: { isComplete: false, workProgress: {} } });
+      dispatch({ type: 'TASK_UPDATE', id: task.id, changes: { isComplete: false, conditions: resetConditions(task.conditions) } });
     } else {
       dispatch({ type: 'TASK_SET_COMPLETE', id: task.id, isComplete: true });
     }

@@ -3,6 +3,7 @@ import { normalizeState, DEFAULT_STATE, DEFAULT_RESULTS } from './storage.js';
 import { applyTaskComplete } from '../logic/tasks.js';
 import { mergeAttribute, buildTag, parseTag } from '../logic/tags.js';
 import { addTagToRegistry, addPath, deleteNode, renameNode } from '../logic/tagRegistry.js';
+import { conditionFromTemplate } from '../logic/conditions.js';
 import { collectAllHeldItems, mergeItemQty } from '../logic/agents.js';
 
 // Registers any newly authored tag structures into the live tag registry. Returns
@@ -16,7 +17,7 @@ const registerTags = (state, ...tags) => {
   return reg === state.tagRegistry ? state : { ...state, tagRegistry: reg };
 };
 
-const TASK_TAG_FIELDS = new Set(['requirements', 'work', 'attributes']);
+const TASK_TAG_FIELDS = new Set(['requirements', 'attributes']);
 
 const DEFAULT_AGENT = {
   name: 'NEW HIRELING',
@@ -51,16 +52,17 @@ const DEFAULT_ITEM = {
 const defined = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
 
 // Whitelist the fields a preset may contribute to a new board object. Runtime
-// fields (id, createdAt, activities, workProgress, isComplete, results) and
-// library bookkeeping (source) are never taken from a preset — the create
-// actions re-stamp those after spreading the picked fields.
+// fields (id, createdAt, activities, isComplete, results) and library
+// bookkeeping (source) are never taken from a preset — the create actions
+// re-stamp those after spreading the picked fields. Preset conditions are
+// templates; TASK_CREATE stamps them into live instances separately.
 const pickAgentFields = (preset) => defined({
   name: preset.name, icon: preset.icon, rate: preset.rate, rateUnit: preset.rateUnit,
   description: preset.description, attributes: preset.attributes,
 });
 const pickTaskFields = (preset) => defined({
   name: preset.name, description: preset.description,
-  requirements: preset.requirements, work: preset.work, attributes: preset.attributes,
+  requirements: preset.requirements, attributes: preset.attributes,
 });
 const pickItemFields = (preset) => defined({
   name: preset.name, icon: preset.icon, quantity: preset.quantity, value: preset.value,
@@ -224,11 +226,10 @@ export function reducer(state, action) {
           name: 'NEW TASK',
           description: '',
           requirements: [],
-          work: [],
           attributes: [],
           ...(action.preset ? pickTaskFields(action.preset) : null),
           id: uid(),
-          workProgress: {},
+          conditions: (action.preset?.conditions ?? []).map(conditionFromTemplate),
           results: { ...DEFAULT_RESULTS, items: [], agents: [] },
           isComplete: false,
           createdAt: now(),
@@ -250,7 +251,14 @@ export function reducer(state, action) {
     case 'TASK_DUPLICATE': {
       const orig = state.tasks.find(task => task.id === action.id);
       if (!orig) return state;
-      const copy = { ...JSON.parse(JSON.stringify(orig)), id: uid(), workProgress: {}, isComplete: false, createdAt: now() };
+      const copy = {
+        ...JSON.parse(JSON.stringify(orig)),
+        id: uid(),
+        // Re-stamp conditions: fresh ids, zero progress.
+        conditions: (orig.conditions || []).map(conditionFromTemplate),
+        isComplete: false,
+        createdAt: now(),
+      };
       return { ...state, tasks: [...state.tasks, copy] };
     }
 
@@ -291,6 +299,42 @@ export function reducer(state, action) {
         }),
       };
     }
+
+    case 'TASK_CONDITION_ADD': {
+      const condition = conditionFromTemplate(action.template);
+      const next = {
+        ...state,
+        tasks: state.tasks.map(task => task.id !== action.id ? task : {
+          ...task,
+          conditions: [...(task.conditions || []), condition],
+        }),
+      };
+      // A plain tracker tagPath is a valid tag string; register it so the
+      // registry's usage counts and deletion warnings cover condition links.
+      // Pattern paths (wildcards/escapes) are skipped — `*` is not a valid
+      // registry key, and a pattern names a match, not a structure node.
+      const tagPath = condition.tracker.tagPath;
+      return tagPath && !/[\\*]/.test(tagPath) ? registerTags(next, tagPath) : next;
+    }
+
+    case 'TASK_CONDITION_UPDATE':
+      return {
+        ...state,
+        tasks: state.tasks.map(task => task.id !== action.id ? task : {
+          ...task,
+          conditions: (task.conditions || []).map(condition =>
+            condition.id !== action.conditionId ? condition : { ...condition, ...action.changes }),
+        }),
+      };
+
+    case 'TASK_CONDITION_REMOVE':
+      return {
+        ...state,
+        tasks: state.tasks.map(task => task.id !== action.id ? task : {
+          ...task,
+          conditions: (task.conditions || []).filter(condition => condition.id !== action.conditionId),
+        }),
+      };
 
     case 'TASK_UPDATE_RESULTS':
       return {
