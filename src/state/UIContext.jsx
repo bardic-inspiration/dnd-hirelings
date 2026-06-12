@@ -6,20 +6,29 @@ const UIContext = createContext(null);
  * Provides ephemeral UI state to the component tree: modal open/close state,
  * selection state, and playing flag. Nothing here is persisted.
  *
+ * Tag registry modal props (`openTagRegistry(props)` — all fields optional):
+ * - `target`: `{ type: 'agent'|'task'|'item', id }` board entity APPLY assigns to
+ * - `mode`: `'tag'` (default) or `'condition'` (APPLY builds a condition template)
+ * - `onApply`: `(tagString|template) => void` — library preset drafts take the
+ *   applied value instead of a dispatch; also elevates the modal above the library
+ * - `initialModifier`: preselects the modifier dropdown (e.g. `'req'`)
+ *
+ * `pendingApply` holds a tag/condition awaiting a board-entity click (selection
+ * mode, hosted by App.jsx): `null | { kind: 'tag', tag } | { kind: 'condition', template }`.
+ *
  * @param {{ children: React.ReactNode }} props
  */
 export function UIProvider({ children }) {
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [expandedTasks, setExpandedTasks]   = useState(new Set());
   const [playing, setPlaying]               = useState(false);
-  const [tagBuilderProps, setTagBuilderProps] = useState(null);
-  const [conditionBuilderProps, setConditionBuilderProps] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [configProps, setConfigProps]       = useState(null);
   const [portraitsProps, setPortraitsProps] = useState(null);
   const [itemIconsProps, setItemIconsProps] = useState(null);
   const [libraryProps, setLibraryProps]     = useState(null);
   const [tagRegistryProps, setTagRegistryProps] = useState(null);
+  const [pendingApply, setPendingApply]     = useState(null);
 
   const toggleExpanded = useCallback((id) => {
     setExpandedTasks(prev => {
@@ -28,12 +37,6 @@ export function UIProvider({ children }) {
       return next;
     });
   }, []);
-
-  const openTagBuilder  = useCallback((props) => setTagBuilderProps(props), []);
-  const closeTagBuilder = useCallback(() => setTagBuilderProps(null), []);
-
-  const openConditionBuilder  = useCallback((props) => setConditionBuilderProps(props), []);
-  const closeConditionBuilder = useCallback(() => setConditionBuilderProps(null), []);
 
   const openConfig  = useCallback(() => setConfigProps({}), []);
   const closeConfig = useCallback(() => setConfigProps(null), []);
@@ -47,7 +50,7 @@ export function UIProvider({ children }) {
   const openLibrary  = useCallback((type) => setLibraryProps({ type }), []);
   const closeLibrary = useCallback(() => setLibraryProps(null), []);
 
-  const openTagRegistry  = useCallback(() => setTagRegistryProps({}), []);
+  const openTagRegistry  = useCallback((props) => setTagRegistryProps(props ?? {}), []);
   const closeTagRegistry = useCallback(() => setTagRegistryProps(null), []);
 
   return (
@@ -55,14 +58,13 @@ export function UIProvider({ children }) {
       selectedTaskId, setSelectedTaskId,
       expandedTasks, toggleExpanded,
       playing, setPlaying,
-      tagBuilderProps, openTagBuilder, closeTagBuilder,
-      conditionBuilderProps, openConditionBuilder, closeConditionBuilder,
       selectedItemId, setSelectedItemId,
       configProps, openConfig, closeConfig,
       portraitsProps, openPortraits, closePortraits,
       itemIconsProps, openItemIcons, closeItemIcons,
       libraryProps, openLibrary, closeLibrary,
       tagRegistryProps, openTagRegistry, closeTagRegistry,
+      pendingApply, setPendingApply,
     }}>
       {children}
     </UIContext.Provider>
