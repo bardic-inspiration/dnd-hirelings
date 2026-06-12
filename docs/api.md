@@ -29,12 +29,6 @@ Ephemeral UI state. Not persisted. All fields below are part of the returned obj
 | `toggleExpanded` | `(id: string) => void` | Toggle task card expansion |
 | `playing` | `boolean` | Whether the game clock is running |
 | `setPlaying` | `(v: boolean) => void` | Set playing state (prefer `usePlayClock` start/stop) |
-| `tagBuilderProps` | `TagBuilderProps \| null` | Non-null when TagBuilderModal is open |
-| `openTagBuilder` | `(props: TagBuilderProps) => void` | Open the tag builder modal |
-| `closeTagBuilder` | `() => void` | Close the tag builder modal |
-| `conditionBuilderProps` | `{ onSave } \| null` | Non-null when ConditionBuilderModal is open |
-| `openConditionBuilder` | `(props: { onSave: (template: ConditionTemplate) => void }) => void` | Open the condition builder modal |
-| `closeConditionBuilder` | `() => void` | Close the condition builder modal |
 | `portraitsProps` | `{ onSelect } \| null` | Non-null when PortraitsModal is open |
 | `openPortraits` | `(onSelect: (url: string) => void) => void` | Open portrait picker |
 | `closePortraits` | `() => void` | Close portrait picker |
@@ -47,9 +41,20 @@ Ephemeral UI state. Not persisted. All fields below are part of the returned obj
 | `configProps` | `{} \| null` | Non-null when ConfigModal is open |
 | `openConfig` | `() => void` | Open config modal |
 | `closeConfig` | `() => void` | Close config modal |
-| `tagRegistryProps` | `{} \| null` | Non-null when TagRegistryModal is open |
-| `openTagRegistry` | `() => void` | Open tag registry modal |
+| `tagRegistryProps` | `TagRegistryProps \| null` | Non-null when TagRegistryModal is open |
+| `openTagRegistry` | `(props?: TagRegistryProps) => void` | Open tag registry modal (no props = global browse/define mode) |
 | `closeTagRegistry` | `() => void` | Close tag registry modal |
+| `pendingApply` | `{ kind: 'tag', tag } \| { kind: 'condition', template } \| null` | Tag/condition awaiting a board-entity click (selection mode, hosted by App.jsx) |
+| `setPendingApply` | `(value) => void` | Arm or clear selection mode |
+
+```ts
+interface TagRegistryProps {       // all fields optional
+  target?: { type: 'agent'|'task'|'item', id: string };  // board entity APPLY assigns to
+  mode?: 'tag' | 'condition';      // 'condition': APPLY builds a ConditionTemplate
+  onApply?: (tagString | template) => void;  // library preset drafts; elevates overlay
+  initialModifier?: string;        // preselect the modifier dropdown (e.g. 'req')
+}
+```
 
 > **Modal state pattern:** All modals use the same nullable-object idiom — `*Props` is `null` when closed and a (possibly empty) object when open, paired with `open*`/`close*` callbacks. Props travel with the open signal.
 
@@ -82,7 +87,6 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 | `AGENT_UPDATE` | `{ id, changes: Partial<Agent> }` | Patch agent fields |
 | `AGENT_DELETE` | `{ id }` | Delete agent; returns held items to inventory |
 | `AGENT_DUPLICATE` | `{ id }` | Deep-copy agent; clears activities and timestamps |
-| `AGENT_ADD_ATTRIBUTE` | `{ id, tag: string }` | Add/replace attribute tag (deduplicates by path) |
 | `AGENT_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index |
 | `AGENT_ADD_ACTIVITY` | `{ id, tag: string }` | Add activity tag (task assignment or item grant) |
 | `AGENT_REMOVE_ACTIVITY` | `{ id, tag: string }` | Remove exact activity tag |
@@ -100,8 +104,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 | `TASK_DELETE` | `{ id }` | Delete task; removes all agent assignments |
 | `TASK_DUPLICATE` | `{ id }` | Deep-copy task; resets progress and completion |
 | `TASK_SET_COMPLETE` | `{ id, isComplete: boolean }` | Complete (runs `applyTaskComplete`) or un-complete a task |
-| `TASK_ADD_TAG` | `{ id, field: 'requirements'\|'attributes', tag: string }` | Append tag to task field |
-| `TASK_REMOVE_TAG` | `{ id, field, index: number }` | Remove tag by index from task field |
+| `TASK_REMOVE_TAG` | `{ id, field: 'requirements'\|'attributes', index: number }` | Remove tag by index from task field |
 | `TASK_CONDITION_ADD` | `{ id, template: ConditionTemplate }` | Append condition (stamped with fresh id, zero progress); registers a non-null `tracker.tagPath` into the tag registry |
 | `TASK_CONDITION_UPDATE` | `{ id, conditionId, changes: Partial<Condition> }` | Patch a condition (click-to-edit progress/target) |
 | `TASK_CONDITION_REMOVE` | `{ id, conditionId }` | Remove a condition by id |
@@ -114,8 +117,13 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 | `INVENTORY_ADD` | `{ preset?: ItemPreset }` | Add item from blank or preset |
 | `INVENTORY_UPDATE_ITEM` | `{ id, changes: Partial<InventoryItem> }` | Patch item; renaming triggers quantity merge if name collides |
 | `INVENTORY_REMOVE_ITEM` | `{ id }` | Delete item from inventory |
-| `INVENTORY_ADD_ATTRIBUTE` | `{ id, tag: string }` | Add/replace attribute tag on item |
 | `INVENTORY_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index from item |
+
+### Tags
+
+| Action | Fields | Description |
+|--------|--------|-------------|
+| `TAG_APPLY` | `{ target: { type: 'agent'\|'task'\|'item', id }, tag: string }` | Apply a tag to any board entity; the single assignment path for the registry's APPLY button and selection mode. Tasks route by modifier (`routeTaskTag`: `req`/`block` → `requirements`, else `attributes`) and append; agents/items dedupe-merge into `attributes` (`mergeAttribute`). Registers the tag's path |
 
 ### Tag Registry
 
@@ -193,6 +201,7 @@ mergeItemQty(activities: string[], name: string, delta: number): string[]
 ### `src/logic/tasks.js`
 
 ```js
+routeTaskTag(tagString: string): 'requirements' | 'attributes'  // by the modifier's MODIFIER_REGISTRY taskField
 checkTaskComplete(task: Task, clockAdvanced?: boolean): boolean
 applyResults(task: Task, inventory: InventoryItem[], agents: Agent[]): { newInventory, newAgents, bankDelta }
 applyTaskComplete(taskId: string, tasks: Task[], agents: Agent[], inventory: InventoryItem[]): { newTasks, newAgents, newInventory, bankDelta }
@@ -206,6 +215,7 @@ TRACKER_REGISTRY: { [kind: string]: (condition, context) => number }
 computeConditionContribution(condition: Condition, context: { effectiveAttributes, session, stepDays }): number
 defaultConditionName(tagPath: string|null): string
 createConditionTemplate(input: { name?, target?, tagPath?, kind? }): ConditionTemplate
+conditionTemplateFromDraft(draft: string): ConditionTemplate  // 'path[=target]', last-'=' split (escape-safe)
 normalizeConditionTemplate(raw: object): ConditionTemplate
 conditionFromTemplate(template: ConditionTemplate|Condition): Condition  // fresh id, zero progress
 normalizeCondition(raw: object): Condition
@@ -254,6 +264,8 @@ addTagToRegistry(registry: TagRegistry, tagString: string): TagRegistry
 addPath(registry: TagRegistry, segments: string[]): TagRegistry
 deleteNode(registry: TagRegistry, segments: string[]): TagRegistry
 renameNode(registry: TagRegistry, segments: string[], newKey: string): TagRegistry
+pathExists(registry: TagRegistry, segments: string[]): boolean
+patternMatchesRegistry(registry: TagRegistry, patternPath: string): boolean  // open-mode match vs any node path
 flattenRegistry(registry: TagRegistry, expanded: Set<string>): RegistryRow[]
 tagRegistrySave(registry: TagRegistry, sessionId: string): Promise<void>
 tagRegistryLoad(file: File): Promise<TagRegistry>
