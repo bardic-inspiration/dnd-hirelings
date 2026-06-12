@@ -309,9 +309,12 @@ export function reducer(state, action) {
           conditions: [...(task.conditions || []), condition],
         }),
       };
-      // A tracker's tagPath is a valid tag string; register it so the registry's
-      // usage counts and deletion warnings cover condition links.
-      return condition.tracker.tagPath ? registerTags(next, condition.tracker.tagPath) : next;
+      // A plain tracker tagPath is a valid tag string; register it so the
+      // registry's usage counts and deletion warnings cover condition links.
+      // Pattern paths (wildcards/escapes) are skipped — `*` is not a valid
+      // registry key, and a pattern names a match, not a structure node.
+      const tagPath = condition.tracker.tagPath;
+      return tagPath && !/[\\*]/.test(tagPath) ? registerTags(next, tagPath) : next;
     }
 
     case 'TASK_CONDITION_UPDATE':

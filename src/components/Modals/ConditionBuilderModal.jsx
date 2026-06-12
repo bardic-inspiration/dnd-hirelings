@@ -1,20 +1,27 @@
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal.jsx';
 import { createConditionTemplate, defaultConditionName } from '../../logic/conditions.js';
+import { parsePattern, formatPatternLabel } from '../../logic/tagMatching.js';
 
-// Each preset prefills the TAG LINK field; the path stays editable so a category
-// like 'skill' can be extended to a specific path like 'skill:arcana'.
+// Each preset prefills the TAG LINK field; the pattern stays editable, so the
+// `*` in 'skill:*' can be replaced with a specific name ('skill:arcana') or
+// widened to '**' for a whole subtree.
 const PRESETS = [
-  { label: 'General (any agent)', tagPath: ''      },
-  { label: 'Skill',               tagPath: 'skill' },
-  { label: 'Tool',                tagPath: 'tool'  },
-  { label: 'Trait',               tagPath: 'trait' },
+  { label: 'General (any agent)', tagPath: ''        },
+  { label: 'Any skill',           tagPath: 'skill:*' },
+  { label: 'Any tool',            tagPath: 'tool:*'  },
+  { label: 'Any trait',           tagPath: 'trait:*' },
 ];
 
 /**
- * Modal form for authoring a condition template: a tag-registry link path,
- * a display name, and a required positive target. Mirrors the TagBuilderModal
- * shell but outputs a structured `ConditionTemplate` object, not a tag string.
+ * Modal form for authoring a condition template: a tag-link pattern, a display
+ * name, and a required positive target. Mirrors the TagBuilderModal shell but
+ * outputs a structured `ConditionTemplate` object, not a tag string.
+ *
+ * The tag link accepts the full pattern grammar from `logic/tagMatching.js`
+ * (`*` one-segment pass, `**` any run, `\*` literal asterisk); when the
+ * pattern contains wildcards or escapes, the preview shows the engine's
+ * interpretation (`skill:‹any›`) instead of the raw text.
  *
  * @param {{ onSave: (template: ConditionTemplate) => void, onClose: () => void }} props
  * Side effects: calls `onSave` with the sanitized template, then `onClose`.
@@ -38,8 +45,16 @@ export default function ConditionBuilderModal({ onSave, onClose }) {
     return createConditionTemplate({ name: nameVal, target, tagPath });
   }
 
-  const preview = `${nameVal.trim() || namePlaceholder} =${targetVal.trim() || '?'}`
-    + (tagPath ? ` ← ${tagPath}` : ' ← any agent');
+  // Show the raw pattern unless it carries wildcards or escapes — then show the
+  // engine's interpretation so the player sees what will actually match.
+  const linkLabel = (() => {
+    if (!tagPath) return 'any agent';
+    const interpreted = formatPatternLabel(tagPath);
+    const isPlainPath = parsePattern(tagPath).every(part => part.kind === 'literal') && interpreted === tagPath;
+    return isPlainPath ? tagPath : interpreted;
+  })();
+
+  const preview = `${nameVal.trim() || namePlaceholder} =${targetVal.trim() || '?'} ← ${linkLabel}`;
 
   function handlePresetChange(e) {
     const index = Number(e.target.value);
@@ -81,7 +96,7 @@ export default function ConditionBuilderModal({ onSave, onClose }) {
             <label className="condition-builder-label">TAG LINK</label>
             <input
               className="condition-builder-field"
-              placeholder="e.g. skill:arcana — empty = any agent"
+              placeholder="skill:arcana · skill:* · empty = any agent"
               spellCheck={false}
               value={pathVal}
               onChange={e => setPathVal(e.target.value)}

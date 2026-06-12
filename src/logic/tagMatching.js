@@ -175,6 +175,21 @@ export const MATCH_MODE_REGISTRY = {
 };
 
 /**
+ * Renders a pattern path as a human-readable interpretation: literal segments
+ * appear as their unescaped text, `*` as `‹any›`, `**` as `‹any…›`. Shows the
+ * pattern as the engine will read it (escapes resolved), so `skill:\*` renders
+ * as `skill:*` only when the asterisk is literal text.
+ *
+ * @param {string|string[]} patternPath
+ * @returns {string} Colon-joined interpretation (empty string for an empty pattern)
+ */
+export function formatPatternLabel(patternPath) {
+  return parsePattern(patternPath)
+    .map(part => part.kind === 'single' ? '‹any›' : part.kind === 'multi' ? '‹any…›' : part.value)
+    .join(':');
+}
+
+/**
  * Matches a pattern path against a tag's segment path using the given mode.
  * Comparison is case-insensitive. Unknown modes match nothing. An empty
  * pattern only matches an empty path (exact/open) or anything at depth 0

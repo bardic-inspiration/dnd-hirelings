@@ -154,6 +154,7 @@ formatTagLabel(parsed: ParsedTag): { label: string, params: string }
 MATCH_MODE_REGISTRY: { [mode: string]: (pattern, segments, options?) => boolean }
 matchTagPath(patternPath: string|string[], tagSegments: string[], options?: { mode?: 'exact'|'numbered'|'open', depth?: number }): boolean
 parsePattern(patternPath: string|string[]): { kind: 'literal'|'single'|'multi', value?: string }[]
+formatPatternLabel(patternPath: string|string[]): string
 escapePatternSegment(text: string): string
 SINGLE_WILDCARD, MULTI_WILDCARD, ESCAPE_CHARACTER  // '*', '**', '\'
 ```
@@ -161,9 +162,11 @@ SINGLE_WILDCARD, MULTI_WILDCARD, ESCAPE_CHARACTER  // '*', '**', '\'
 Pattern-vs-tag matching engine with pluggable modes (`MATCH_MODE_REGISTRY` is
 the extension point, mirroring `TRACKER_REGISTRY`):
 
-- `exact` — same segment count, pairwise match (default; used by condition tag links)
+- `exact` — same segment count, pairwise match (the default mode)
 - `numbered` — first `depth` segments pairwise; default depth = pattern length (prefix semantics)
-- `open` — glob alignment: `*` passes exactly one segment, `**` passes zero or more
+- `open` — glob alignment: `*` passes exactly one segment, `**` passes zero or more (used by condition tag links; identical to exact for `**`-free patterns)
+
+`formatPatternLabel` renders a pattern as the engine reads it (`'skill:*'` → `skill:‹any›`) for preview UI.
 
 Wildcards and escapes exist only on the pattern side; tag segments are always
 literal text. `\*`, `\:`, `\\` escape literal asterisks, colons, and backslashes
@@ -378,8 +381,9 @@ interface ConditionTemplate {  // preset / builder form (no runtime fields)
   target: number;              // required progress total; > 0 (boolean = 1)
   tracker: {
     kind: string;              // key into TRACKER_REGISTRY; currently only 'work'
-    tagPath: string | null;    // pattern matched (exact mode) against agent attribute
-                               // paths, e.g. 'skill:arcana' or 'skill:*'; null = any agent
+    tagPath: string | null;    // pattern matched (open mode) against agent attribute
+                               // paths, e.g. 'skill:arcana', 'skill:*', 'skill:**';
+                               // null = any agent
   };
 }
 

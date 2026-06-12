@@ -6,15 +6,15 @@
 // without touching the clock loop.
 
 import { parseTag } from './tags.js';
-import { matchTagPath } from './tagMatching.js';
+import { matchTagPath, parsePattern } from './tagMatching.js';
 import { uid } from '../utils.js';
 
 /**
  * @typedef {object} ConditionTracker
  * @property {string} kind - Tracker kind; key into `TRACKER_REGISTRY` (currently only `'work'`)
- * @property {string|null} tagPath - Pattern path matched (exact mode) against agent
- *   attribute tags via `logic/tagMatching.js` (e.g. `'skill:arcana'`, `'skill:*'`),
- *   or `null` to accept any assigned agent
+ * @property {string|null} tagPath - Pattern path matched (open mode) against agent
+ *   attribute tags via `logic/tagMatching.js` (e.g. `'skill:arcana'`, `'skill:*'`,
+ *   `'skill:**'`), or `null` to accept any assigned agent
  */
 
 /**
@@ -29,12 +29,12 @@ import { uid } from '../utils.js';
 /**
  * `'work'` tracker: per-tick contribution of one assigned agent to a condition.
  *
- * The tag link is matched in the engine's `'exact'` mode (`logic/tagMatching.js`):
- * the pattern must align with an agent attribute's full segment path, pairwise
- * (modifier tags excluded). `tagPath: 'skill'` matches only a literal
- * `skill=value` tag — `skill:arcana=3` does NOT satisfy it. As a pattern, the
- * link may use `*` segment passes (`'skill:*'` matches any specific skill);
- * other match modes are wired in the engine for future tracker options.
+ * The tag link is matched in the engine's `'open'` mode (`logic/tagMatching.js`)
+ * against an agent attribute's full segment path (modifier tags excluded).
+ * Without wildcards this is exact alignment: `tagPath: 'skill'` matches only a
+ * literal `skill=value` tag — `skill:arcana=3` does NOT satisfy it. Wildcards
+ * widen the link explicitly: `'skill:*'` matches any specific skill,
+ * `'skill:**'` the whole skill subtree, `'**:potato'` any path ending in potato.
  *
  * Rates:
  * - `tagPath: null` → base rate `workRate * stepDays` (any agent contributes)
@@ -54,7 +54,7 @@ function workContribution(condition, { effectiveAttributes, session, stepDays })
 
   const match = effectiveAttributes
     .map(tag => parseTag(tag))
-    .find(parsed => !parsed.modifier && matchTagPath(tagPath, parsed.segments, { mode: 'exact' }));
+    .find(parsed => !parsed.modifier && matchTagPath(tagPath, parsed.segments, { mode: 'open' }));
   if (!match) return 0;
 
   const value = parseFloat(match.value);
@@ -88,17 +88,26 @@ export function computeConditionContribution(condition, context) {
 }
 
 /**
- * Derives a display name from a tag path: the last segment, uppercased, with
- * underscores/hyphens rendered as spaces. A null path falls back to `'WORK'`.
+ * Derives a display name from a tag-link pattern, wildcard-aware:
+ * - ends in a literal segment → that segment (`'skill:arcana'` → `'ARCANA'`,
+ *   `'skill:**:fire'` → `'FIRE'`)
+ * - ends in a wildcard → `'ANY '` + last literal (`'skill:*'` → `'ANY SKILL'`)
+ * - no literal segments (`'*'`, `'**'`) → `'ANY'`
+ * - null/empty path → `'WORK'`
+ * Underscores/hyphens render as spaces; output is uppercase.
  *
  * @param {string|null} tagPath
  * @returns {string}
  */
 export function defaultConditionName(tagPath) {
   if (!tagPath) return 'WORK';
-  const segments = tagPath.split(':').filter(Boolean);
-  const last = segments[segments.length - 1] ?? '';
-  return (last.replace(/[_-]/g, ' ') || 'WORK').toUpperCase();
+  const parts = parsePattern(tagPath);
+  if (!parts.length) return 'WORK';
+  const pretty = (text) => text.replace(/[_-]/g, ' ').toUpperCase();
+  const literals = parts.filter(part => part.kind === 'literal' && part.value);
+  if (!literals.length) return 'ANY';
+  const lastLiteral = pretty(literals[literals.length - 1].value);
+  return parts[parts.length - 1].kind === 'literal' ? lastLiteral : `ANY ${lastLiteral}`;
 }
 
 /**

@@ -39,7 +39,7 @@ Per-tick accrual dispatches through `TRACKER_REGISTRY` in `src/logic/conditions.
 
 The only current kind, `'work'`, gates and modulates by `tracker.tagPath`:
 
-- **Matching is exact** (the engine's `exact` mode — see Tag-Path Match Modes below). `tagPath: 'skill:arcana'` matches only an agent attribute whose full segment path is `skill:arcana` — a `tagPath: 'skill'` is *not* satisfied by `skill:arcana` tags, only by a literal `skill` tag. As a pattern, the link may pass single segments with `*` (`'skill:*'` matches any specific skill). Modifier-bearing tags (`req,…`) never match.
+- **Matching is exact unless the pattern says otherwise** (the engine's `open` mode — see Tag-Path Match Modes below). A wildcard-free `tagPath: 'skill:arcana'` matches only an agent attribute whose full segment path is `skill:arcana` — a `tagPath: 'skill'` is *not* satisfied by `skill:arcana` tags, only by a literal `skill` tag. Wildcards widen the link explicitly: `'skill:*'` matches any specific skill, `'skill:**'` the whole skill subtree. Modifier-bearing tags (`req,…`) never match.
 - A matched tag **with** a numeric value contributes `(workRate + value * skillBonus) * stepDays` — this applies to any value-bearing tag, not just skills. A matched tag **without** a value contributes the base `workRate * stepDays` (the legacy work system treated a valueless skill as value 1; conditions do not).
 - No match → the agent contributes **0** to that condition (and flashes if it contributed to nothing on the task).
 - `tagPath: null` → every assigned agent contributes the base rate.
@@ -54,7 +54,7 @@ Completion is evaluated only inside `advanceTime` (plus the manual ✓ button) �
 
 ## Tag-Path Match Modes
 
-`src/logic/tagMatching.js` is the engine for comparing a **pattern** path against a tag's segment path. Modes live in `MATCH_MODE_REGISTRY` (the extension point, like `TRACKER_REGISTRY`); only `exact` is exercised today (condition tag links), but all modes are wired and tested for future systems.
+`src/logic/tagMatching.js` is the engine for comparing a **pattern** path against a tag's segment path. Modes live in `MATCH_MODE_REGISTRY` (the extension point, like `TRACKER_REGISTRY`). Condition tag links match in `open` mode — which is behaviorally identical to `exact` for `**`-free patterns, so wildcard-free links still require full-path alignment.
 
 - `exact` — same segment count, every segment matches pairwise.
 - `numbered` — only the first `depth` segments are compared; the default depth is the pattern's length, which makes it prefix matching.
