@@ -6,6 +6,7 @@
 
 import yaml from 'js-yaml';
 import { TAG_REGISTRY, parseTag } from './tags.js';
+import { matchTagPath } from './tagMatching.js';
 
 // A valid tag segment / registry key: lowercase letters, digits, '-' or '_'.
 const SEGMENT_RE = /^[a-z0-9_-]+$/;
@@ -217,6 +218,49 @@ export function renameNode(registry, segments, newKey) {
   delete cur[oldKey];
   cur[key] = children; // preserve subtree under the new key
   return root;
+}
+
+/**
+ * Returns true when the full segment path exists as a node in the registry.
+ * Segments are normalized (lowercased/trimmed) before walking; an empty path
+ * is never "present".
+ *
+ * @param {TagRegistry} registry
+ * @param {string[]} segments
+ * @returns {boolean}
+ */
+export function pathExists(registry, segments) {
+  const segs = normSegs(segments);
+  if (!segs.length) return false;
+  let cur = registry;
+  for (const seg of segs) {
+    if (!cur || typeof cur !== 'object' || !Object.prototype.hasOwnProperty.call(cur, seg)) return false;
+    cur = cur[seg];
+  }
+  return true;
+}
+
+/**
+ * Returns true when a pattern path (wildcards/escapes allowed — see
+ * `logic/tagMatching.js`) matches at least one node path in the registry,
+ * using the engine's `open` mode. This is the validity check for applying a
+ * pattern as a condition tag link: a pattern that matches nothing in the
+ * registry can never match an agent tag built from it.
+ *
+ * @param {TagRegistry} registry
+ * @param {string} patternPath - Colon-joined pattern (e.g. `'skill:*'`)
+ * @returns {boolean}
+ */
+export function patternMatchesRegistry(registry, patternPath) {
+  const walk = (node, segments) => {
+    for (const [key, child] of Object.entries(node)) {
+      const here = [...segments, key];
+      if (matchTagPath(patternPath, here, { mode: 'open' })) return true;
+      if (child && typeof child === 'object' && walk(child, here)) return true;
+    }
+    return false;
+  };
+  return registry && typeof registry === 'object' ? walk(registry, []) : false;
 }
 
 // --- Tree view flattening ---

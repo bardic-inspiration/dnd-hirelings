@@ -1,8 +1,10 @@
 // Relational meta-prefixes. Modifier is the segment before the ',' separator.
-// Kept flat — modifiers are always a single token.
+// Kept flat — modifiers are always a single token. `taskField` names the task
+// list a tag carrying the modifier routes into (see logic/tasks.js routeTaskTag);
+// modifiers without it route to `attributes`.
 export const MODIFIER_REGISTRY = {
-  req:   { prefix: 'Req',   description: 'Counterpart must carry this' },
-  block: { prefix: 'Block', description: 'Counterpart must not carry this' },
+  req:   { prefix: 'Req',   description: 'Counterpart must carry this',     taskField: 'requirements' },
+  block: { prefix: 'Block', description: 'Counterpart must not carry this', taskField: 'requirements' },
   bonus: { prefix: 'Bonus', description: 'Adds value to matching agent tag when equipped' },
 };
 
