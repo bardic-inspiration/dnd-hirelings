@@ -3,6 +3,7 @@ import Modal from './Modal.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
 import { parseTag } from '../../logic/tags.js';
+import { parsePattern, matchTagPath } from '../../logic/tagMatching.js';
 import { tagRegistrySave, tagRegistryLoad, flattenRegistry, tagsInUse, countTagsInUse } from '../../logic/tagRegistry.js';
 
 // Walks a count tree (from countTagsInUse) down a segment path to its node, or
@@ -47,11 +48,17 @@ export default function TagRegistryModal() {
     [registry, state.agents, state.tasks, state.inventory]
   );
 
+  // True when the draft carries pattern syntax (wildcards or escapes). Pattern
+  // drafts are search-only: the ghost suggestion stays quiet and Enter will not
+  // add a path — '*' is not a valid registry key, and a pattern names a match,
+  // not a structure node.
+  const isPattern = /[\\*]/.test(draft);
+
   // Ghost suggestion: an existing key from the CURRENT tier (the node at the path
   // before the last delimiter) that starts with the in-progress segment. Returns
   // only the remaining suffix to render after the typed text.
   const suggestion = useMemo(() => {
-    if (draft.includes('=')) return '';
+    if (draft.includes('=') || isPattern) return '';
     const parts = draftParts(draft);
     const inProgress = parts[parts.length - 1];
     if (!inProgress) return '';
@@ -62,20 +69,46 @@ export default function TagRegistryModal() {
     }
     const match = Object.keys(node).sort().find(k => k.startsWith(inProgress) && k !== inProgress);
     return match ? match.slice(inProgress.length) : '';
-  }, [draft, registry]);
+  }, [draft, registry, isPattern]);
 
-  // Length of the leading substring of a tree key that matches the current input:
-  // a complete segment matches the whole key, the in-progress segment matches as a
-  // prefix. 0 = no match. Only this portion is highlighted in the tree.
+  // Wildcard-aware, path-aware search highlighting. The draft (modifier and
+  // value stripped) is read as a pattern through the tagMatching engine, with
+  // an implicit leading '**' so the search starts anywhere in the tree:
+  // - completed segments must align with the row's path (`*` and `**` work,
+  //   `\*` is a literal asterisk) — a row whose path ends on any leading slice
+  //   of them is a confirmed step of the search and highlights fully;
+  // - the in-progress segment highlights keys it prefixes at the next tier
+  //   (or whole keys, when it is itself a wildcard).
+  // Returns the number of leading characters of the row's key to highlight; 0 = no match.
   const matchLen = useMemo(() => {
     const parts = draftParts(draft);
-    const inProgress = parts[parts.length - 1];
-    const complete = new Set(parts.slice(0, -1).filter(Boolean));
-    if (!complete.size && !inProgress) return () => 0;
-    return (key) => {
-      const k = key.toLowerCase();
-      if (complete.has(k)) return key.length;
-      if (inProgress && k.startsWith(inProgress)) return inProgress.length;
+    const inProgressRaw = parts[parts.length - 1];
+    const complete = parts.slice(0, -1).filter(Boolean);
+    if (!complete.length && !inProgressRaw) return () => 0;
+
+    // Parsed alone so escapes are honored: '\*' stays a literal, not a wildcard.
+    const inProgress = inProgressRaw ? parsePattern([inProgressRaw])[0] : null;
+    // Leading slices with no literal segment anchor to nothing under the
+    // implicit '**' and would match every row; the shortest useful slice is
+    // the one that reaches the first literal.
+    const firstLiteral = parsePattern(complete).findIndex(part => part.kind === 'literal');
+    const anywhere = (patternSegments, segments) =>
+      matchTagPath(['**', ...patternSegments], segments, { mode: 'open' });
+
+    return (row) => {
+      if (firstLiteral >= 0) {
+        for (let used = complete.length; used > firstLiteral; used--) {
+          if (anywhere(complete.slice(0, used), row.segments)) return row.key.length;
+        }
+      }
+      if (!inProgress) return 0;
+      if (inProgress.kind !== 'literal') {
+        return anywhere([...complete, inProgressRaw], row.segments) ? row.key.length : 0;
+      }
+      const ancestors = row.segments.slice(0, -1);
+      if (anywhere(complete, ancestors) && row.key.toLowerCase().startsWith(inProgress.value)) {
+        return inProgress.value.length;
+      }
       return 0;
     };
   }, [draft]);
@@ -89,6 +122,7 @@ export default function TagRegistryModal() {
   const handleDelete = (segments) => dispatch({ type: 'TAGREG_DELETE_NODE', segments });
 
   const handleAdd = () => {
+    if (isPattern) return; // search-only draft; wildcards are not registry keys
     const segments = parseTag(draft.trim()).segments; // modifier + value dropped
     if (!segments.length) return;
     dispatch({ type: 'TAGREG_ADD_PATH', segments });
@@ -146,7 +180,7 @@ export default function TagRegistryModal() {
           {rows.length === 0
             ? <div className="empty">REGISTRY EMPTY</div>
             : rows.map(row => {
-              const n = matchLen(row.key);
+              const n = matchLen(row);
               const cnode = nodeAt(counts, row.segments);
               const count = cnode ? (row.hasChildren && !row.isOpen ? cnode.total : cnode.count) : 0;
               return (
@@ -186,7 +220,7 @@ export default function TagRegistryModal() {
             <input
               className="tagreg-input"
               type="text"
-              placeholder="BUILD A TAG   e.g.   item:weapon:martial"
+              placeholder="BUILD A TAG   e.g.  item:weapon:martial   ·   SEARCH   e.g.  skill:*  ·  **:fire"
               value={draft}
               spellCheck={false}
               onChange={e => setDraft(e.target.value)}

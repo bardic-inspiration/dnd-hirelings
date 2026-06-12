@@ -56,6 +56,8 @@ Completion is evaluated only inside `advanceTime` (plus the manual ✓ button) �
 
 `src/logic/tagMatching.js` is the engine for comparing a **pattern** path against a tag's segment path. Modes live in `MATCH_MODE_REGISTRY` (the extension point, like `TRACKER_REGISTRY`). Condition tag links match in `open` mode — which is behaviorally identical to `exact` for `**`-free patterns, so wildcard-free links still require full-path alignment.
 
+The Tag Registry modal's search highlighting also runs on this engine: the builder input doubles as a pattern search with an implicit leading `**` (so `skill:*` highlights the children of any `skill` node, `**:fire` any key named `fire`). Pattern drafts are search-only — the ghost autocomplete stays quiet and Enter will not add the path, because `*` is not a valid registry key.
+
 - `exact` — same segment count, every segment matches pairwise.
 - `numbered` — only the first `depth` segments are compared; the default depth is the pattern's length, which makes it prefix matching.
 - `open` — glob alignment: `*` passes exactly one segment; `**` passes any run of segments. Suffix (`**:potato`) and contains (`**:vegetable:**`) matching fall out of this mode.
