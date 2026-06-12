@@ -6,7 +6,7 @@ Non-obvious behaviors, known edge cases, and things that will surprise a develop
 
 ## Tag Grammar is the Core Abstraction
 
-The entire data model for agent abilities, task requirements, item bonuses, work types, and equipment is encoded in tag strings. If you touch anything that reads or writes attributes/activities/requirements/work arrays, you must go through `parseTag` / `buildTag` — never manipulate these strings with raw string operations.
+The entire data model for agent abilities, task requirements, item bonuses, and equipment is encoded in tag strings. If you touch anything that reads or writes attributes/activities/requirements arrays, you must go through `parseTag` / `buildTag` — never manipulate these strings with raw string operations. (Task progress is the exception: a condition's `tracker.tagPath` is a tag *path* that references the registry, not a stored tag — see Conditions below.)
 
 The grammar:
 
@@ -31,13 +31,24 @@ Several functions (`validateAssignment`, `isAttributeActive`) merge both arrays 
 
 ---
 
-## Work Progress Keys
+## Conditions
 
-Task work progress is stored in `task.workProgress` as `{ [key]: number }` where `key` is the full sub-path of the work tag — everything after the leading `work` segment, joined by `:`. For a `work:skill:arcana=10` tag, the key is `'skill:arcana'`; for `work:skill=10` (any skill), the key is `'skill'`; for a bare `work=10` tag, the key is `''`.
+Task progress lives in `task.conditions` — structured objects, **not** tags (the legacy `work:*` tag namespace is gone, and `normalizeState` prunes it from stored tag registries). Each condition tracks its own `progress` toward a `target`; a task completes only when *every* condition is satisfied. Conditions are keyed by `id`, and two conditions track independently — overshooting one cannot satisfy a deficit in another.
 
-This means two requirements like `work:skill:arcana=5` and `work:skill:stealth=5` write to separate `workProgress` buckets and each track independently — satisfying arcana alone will not advance stealth.
+Per-tick accrual dispatches through `TRACKER_REGISTRY` in `src/logic/conditions.js` by `tracker.kind`. This is the extension point for future progress logic (event-driven, rule-based); the clock loop never special-cases a kind.
 
-`normalizeState` resets `workProgress` to `{}` for any task that has 3-segment work tags, because old saved data used the short key (`'skill'`) and cannot be reliably remapped to the specific new keys.
+The only current kind, `'work'`, gates and modulates by `tracker.tagPath`:
+
+- **Matching is exact.** `tagPath: 'skill:arcana'` matches only an agent attribute whose full segment path is `skill:arcana` — a `tagPath: 'skill'` is *not* satisfied by `skill:arcana` tags, only by a literal `skill` tag. Modifier-bearing tags (`req,…`) never match.
+- A matched tag **with** a numeric value contributes `(workRate + value * skillBonus) * stepDays` — this applies to any value-bearing tag, not just skills. A matched tag **without** a value contributes the base `workRate * stepDays` (the legacy work system treated a valueless skill as value 1; conditions do not).
+- No match → the agent contributes **0** to that condition (and flashes if it contributed to nothing on the task).
+- `tagPath: null` → every assigned agent contributes the base rate.
+
+A task with **zero conditions** carries an implied "clock advanced" condition: it completes at the end of any tick in which at least one eligible agent worked it. It never completes on its own.
+
+Completion is evaluated only inside `advanceTime` (plus the manual ✓ button) — manually editing a condition's progress to ≥ target completes the task on the *next tick*, not instantly.
+
+> ⚠️ **Needs clarification:** an agent can carry at most one attribute per exact path (`mergeAttribute` dedupes by path), so multi-match resolution is currently moot; if effective attributes ever stack duplicates (e.g. from equipment bonuses), `workContribution`'s `.find` takes the first.
 
 ---
 
@@ -56,7 +67,8 @@ The year/day clock display and task progress bars in `ProgressSection` are updat
 This means:
 - The elements must exist in the DOM when the RAF fires (they do, because they render before play starts).
 - React will overwrite these styles on the next full render. Progress bars use inline `style.width` set by both React (on tick) and the RAF loop (between ticks); the RAF interpolates toward the tick's already-applied value, so no flicker occurs in practice.
-- `updateClockDisplayDOM` guards against writing to focused inputs: `if (document.activeElement !== el) el.textContent = val`. Do not remove this guard.
+- Condition rows are addressed by `[data-task-id][data-condition-id]` selectors on `.condition-item-bar-fill` and `.condition-item-progress`.
+- `updateClockDisplayDOM` guards against writing to focused elements: `if (document.activeElement !== el) el.textContent = val`. The condition progress number is a click-to-edit `EditableSpan`, so this guard is what keeps the RAF loop from clobbering an edit in progress. Do not remove it.
 
 ---
 

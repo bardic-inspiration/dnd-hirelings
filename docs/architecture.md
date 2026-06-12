@@ -73,6 +73,10 @@ Examples:
 
 Tags are stored as raw strings in arrays on each object. `parseTag()` / `buildTag()` in `src/logic/tags.js` are the canonical codec. All matching and merging goes through these functions. The tag registry (`state.tagRegistry`) is a keys-only tree that defines the valid tag structure — it influences autocomplete and the tree editor but does not gate tag creation.
 
+### Task Conditions
+
+Task progress is **not** tag-encoded. Each task carries `conditions: Condition[]` — structured progress subcategories with their own `target` and `progress`, all of which must be satisfied for the task to complete. A condition relates to the tag system through `tracker.tagPath`, an exact tag-registry path matched against agents' effective attributes to gate and modulate their per-tick contribution. Trackers are modular: `TRACKER_REGISTRY` in `src/logic/conditions.js` maps each `tracker.kind` to a contribution function, so future event- or rule-driven progress logic plugs in without touching the clock loop. See `docs/gotchas.md` → Conditions for the exact-match and rate semantics.
+
 ### Redux-style State Management
 
 `GameContext` wraps `useReducer(reducer, null, loadState)`. Every game mutation is an action dispatched through `useGame().dispatch`. The reducer in `src/state/reducer.js` handles 30+ action types and is the only place that writes new state. After every state change, a `useEffect` in `GameProvider` persists to localStorage.
@@ -97,7 +101,7 @@ Classes follow a loose kebab-case convention but mix two structural patterns wit
 
 **Flat compound names** (most common): `.agent-card`, `.task-card`, `.item-row`, `.tag-list` — parent and child share a prefix but no separator signals the relationship.
 
-**Implicit BEM-like hierarchy**: `.vital-bar-fill--hp`, `.vital-bar-fill--xp`, `.work-item-bar-fill` — double hyphens appear for some modifiers but not others; double underscores for sub-elements are absent.
+**Implicit BEM-like hierarchy**: `.vital-bar-fill--hp`, `.vital-bar-fill--xp`, `.condition-item-bar-fill` — double hyphens appear for some modifiers but not others; double underscores for sub-elements are absent.
 
 **Bare modifier classes**: `.active`, `.expanded`, `.selected`, `.depleted`, `.empty-state` — applied alongside block classes but not namespaced to a block, so their meaning depends on context.
 
