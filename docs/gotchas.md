@@ -39,7 +39,7 @@ Per-tick accrual dispatches through `TRACKER_REGISTRY` in `src/logic/conditions.
 
 The only current kind, `'work'`, gates and modulates by `tracker.tagPath`:
 
-- **Matching is exact.** `tagPath: 'skill:arcana'` matches only an agent attribute whose full segment path is `skill:arcana` — a `tagPath: 'skill'` is *not* satisfied by `skill:arcana` tags, only by a literal `skill` tag. Modifier-bearing tags (`req,…`) never match.
+- **Matching is exact** (the engine's `exact` mode — see Tag-Path Match Modes below). `tagPath: 'skill:arcana'` matches only an agent attribute whose full segment path is `skill:arcana` — a `tagPath: 'skill'` is *not* satisfied by `skill:arcana` tags, only by a literal `skill` tag. As a pattern, the link may pass single segments with `*` (`'skill:*'` matches any specific skill). Modifier-bearing tags (`req,…`) never match.
 - A matched tag **with** a numeric value contributes `(workRate + value * skillBonus) * stepDays` — this applies to any value-bearing tag, not just skills. A matched tag **without** a value contributes the base `workRate * stepDays` (the legacy work system treated a valueless skill as value 1; conditions do not).
 - No match → the agent contributes **0** to that condition (and flashes if it contributed to nothing on the task).
 - `tagPath: null` → every assigned agent contributes the base rate.
@@ -49,6 +49,25 @@ A task with **zero conditions** carries an implied "clock advanced" condition: i
 Completion is evaluated only inside `advanceTime` (plus the manual ✓ button) — manually editing a condition's progress to ≥ target completes the task on the *next tick*, not instantly.
 
 > ⚠️ **Needs clarification:** an agent can carry at most one attribute per exact path (`mergeAttribute` dedupes by path), so multi-match resolution is currently moot; if effective attributes ever stack duplicates (e.g. from equipment bonuses), `workContribution`'s `.find` takes the first.
+
+---
+
+## Tag-Path Match Modes
+
+`src/logic/tagMatching.js` is the engine for comparing a **pattern** path against a tag's segment path. Modes live in `MATCH_MODE_REGISTRY` (the extension point, like `TRACKER_REGISTRY`); only `exact` is exercised today (condition tag links), but all modes are wired and tested for future systems.
+
+- `exact` — same segment count, every segment matches pairwise.
+- `numbered` — only the first `depth` segments are compared; the default depth is the pattern's length, which makes it prefix matching.
+- `open` — glob alignment: `*` passes exactly one segment; `**` passes any run of segments. Suffix (`**:potato`) and contains (`**:vegetable:**`) matching fall out of this mode.
+
+The asymmetry rule is the part that will surprise you: **wildcards and escapes exist only on the pattern side.** Tag segments are always literal text, so an agent tag that happens to contain an asterisk (user-derived names make this possible) is never misread as a wildcard. In a pattern, `\*` is a literal asterisk, `\:` a literal colon kept inside its segment, `\\` a literal backslash; `escapePatternSegment()` builds a safe literal segment from arbitrary text. Wildcards are recognized from the raw segment *before* unescaping, so `\*` can never be promoted to a pass.
+
+Two deliberate semantics to know:
+
+- `**` matches **zero or more** segments (glob convention): `tag:**:potato` also matches `tag:potato`. Require at least one segment with `tag:*:**:potato`.
+- In the pairwise modes (`exact`, `numbered`) a `**` cannot expand and degrades to a single-segment pass.
+
+`tagMatches` in `src/logic/tags.js` (requirement/assignment validation) predates this engine and stays **literal-only** on purpose: requirement tags embed arbitrary user text (item names), so they must never wildcard implicitly.
 
 ---
 

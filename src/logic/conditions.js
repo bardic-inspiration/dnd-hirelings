@@ -6,13 +6,15 @@
 // without touching the clock loop.
 
 import { parseTag } from './tags.js';
+import { matchTagPath } from './tagMatching.js';
 import { uid } from '../utils.js';
 
 /**
  * @typedef {object} ConditionTracker
  * @property {string} kind - Tracker kind; key into `TRACKER_REGISTRY` (currently only `'work'`)
- * @property {string|null} tagPath - Exact registry path matched against agent attribute
- *   tags (e.g. `'skill:arcana'`), or `null` to accept any assigned agent
+ * @property {string|null} tagPath - Pattern path matched (exact mode) against agent
+ *   attribute tags via `logic/tagMatching.js` (e.g. `'skill:arcana'`, `'skill:*'`),
+ *   or `null` to accept any assigned agent
  */
 
 /**
@@ -27,9 +29,12 @@ import { uid } from '../utils.js';
 /**
  * `'work'` tracker: per-tick contribution of one assigned agent to a condition.
  *
- * Matching is exact: the condition's `tagPath` must equal an agent attribute's
- * full segment path (modifier tags excluded). `tagPath: 'skill'` matches only a
- * literal `skill=value` tag — `skill:arcana=3` does NOT satisfy it.
+ * The tag link is matched in the engine's `'exact'` mode (`logic/tagMatching.js`):
+ * the pattern must align with an agent attribute's full segment path, pairwise
+ * (modifier tags excluded). `tagPath: 'skill'` matches only a literal
+ * `skill=value` tag — `skill:arcana=3` does NOT satisfy it. As a pattern, the
+ * link may use `*` segment passes (`'skill:*'` matches any specific skill);
+ * other match modes are wired in the engine for future tracker options.
  *
  * Rates:
  * - `tagPath: null` → base rate `workRate * stepDays` (any agent contributes)
@@ -49,7 +54,7 @@ function workContribution(condition, { effectiveAttributes, session, stepDays })
 
   const match = effectiveAttributes
     .map(tag => parseTag(tag))
-    .find(parsed => !parsed.modifier && parsed.segments.join(':').toLowerCase() === tagPath);
+    .find(parsed => !parsed.modifier && matchTagPath(tagPath, parsed.segments, { mode: 'exact' }));
   if (!match) return 0;
 
   const value = parseFloat(match.value);

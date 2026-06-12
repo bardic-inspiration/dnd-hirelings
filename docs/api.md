@@ -148,6 +148,28 @@ mergeAttribute(attrs: string[], tag: string): string[]
 formatTagLabel(parsed: ParsedTag): { label: string, params: string }
 ```
 
+### `src/logic/tagMatching.js`
+
+```js
+MATCH_MODE_REGISTRY: { [mode: string]: (pattern, segments, options?) => boolean }
+matchTagPath(patternPath: string|string[], tagSegments: string[], options?: { mode?: 'exact'|'numbered'|'open', depth?: number }): boolean
+parsePattern(patternPath: string|string[]): { kind: 'literal'|'single'|'multi', value?: string }[]
+escapePatternSegment(text: string): string
+SINGLE_WILDCARD, MULTI_WILDCARD, ESCAPE_CHARACTER  // '*', '**', '\'
+```
+
+Pattern-vs-tag matching engine with pluggable modes (`MATCH_MODE_REGISTRY` is
+the extension point, mirroring `TRACKER_REGISTRY`):
+
+- `exact` — same segment count, pairwise match (default; used by condition tag links)
+- `numbered` — first `depth` segments pairwise; default depth = pattern length (prefix semantics)
+- `open` — glob alignment: `*` passes exactly one segment, `**` passes zero or more
+
+Wildcards and escapes exist only on the pattern side; tag segments are always
+literal text. `\*`, `\:`, `\\` escape literal asterisks, colons, and backslashes
+in patterns; `escapePatternSegment` builds safe literal segments from arbitrary
+text. See `docs/gotchas.md` → Tag-Path Match Modes.
+
 ### `src/logic/agents.js`
 
 ```js
@@ -356,8 +378,8 @@ interface ConditionTemplate {  // preset / builder form (no runtime fields)
   target: number;              // required progress total; > 0 (boolean = 1)
   tracker: {
     kind: string;              // key into TRACKER_REGISTRY; currently only 'work'
-    tagPath: string | null;    // exact tag path matched against agent attributes,
-                               // e.g. 'skill:arcana'; null = any assigned agent
+    tagPath: string | null;    // pattern matched (exact mode) against agent attribute
+                               // paths, e.g. 'skill:arcana' or 'skill:*'; null = any agent
   };
 }
 
