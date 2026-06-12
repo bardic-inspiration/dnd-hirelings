@@ -24,7 +24,7 @@ export function usePlayClock() {
 
   const stateRef   = useRef(state);
   const playingRef = useRef(playing);
-  const tickInfoRef = useRef({ lastTickWallTime: 0, tickIntervalMs: 1000, taskWorkPerTick: {} });
+  const tickInfoRef = useRef({ lastTickWallTime: 0, tickIntervalMs: 1000, taskProgressPerTick: {} });
   const intervalRef = useRef(null);
   const rafRef      = useRef(null);
 
@@ -34,8 +34,8 @@ export function usePlayClock() {
   const tick = useCallback(() => {
     const result = advanceTime(stateRef.current);
     stateRef.current = result.newState;
-    tickInfoRef.current.lastTickWallTime = Date.now();
-    tickInfoRef.current.taskWorkPerTick  = result.taskWorkPerTick;
+    tickInfoRef.current.lastTickWallTime    = Date.now();
+    tickInfoRef.current.taskProgressPerTick = result.taskProgressPerTick;
     dispatch({ type: 'APPLY_TICK', newState: result.newState });
     result.flashAgentIds.forEach(flashAgentCard);
   }, [dispatch]);
@@ -65,7 +65,7 @@ export function usePlayClock() {
   const advance = useCallback(() => {
     const result = advanceTime(stateRef.current);
     stateRef.current = result.newState;
-    tickInfoRef.current.taskWorkPerTick = result.taskWorkPerTick;
+    tickInfoRef.current.taskProgressPerTick = result.taskProgressPerTick;
     dispatch({ type: 'APPLY_TICK', newState: result.newState });
     result.flashAgentIds.forEach(flashAgentCard);
   }, [dispatch]);

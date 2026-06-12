@@ -1,14 +1,18 @@
-import { MODIFIER_REGISTRY, parseTag } from '../logic/tags.js';
+import { MODIFIER_REGISTRY } from '../logic/tags.js';
 import { seedTagRegistry } from '../logic/tagRegistry.js';
+import { normalizeCondition, migrateLegacyWork } from '../logic/conditions.js';
 
 /**
  * Central registry of every localStorage key the app reads or writes.
  * Versioning strategy: all keys carry a version suffix; bump the suffix when
  * the stored format changes (not on every release). Migration code must be added
  * alongside any suffix bump.
+ * v4: `task.work`/`task.workProgress` replaced by `task.conditions`. `loadState`
+ * falls back to the v3 key; `normalizeState` migrates the legacy fields.
  */
 export const STORAGE_KEYS = {
-  STATE:   'dnd-hirelings-state-v3',
+  STATE:        'dnd-hirelings-state-v4',
+  STATE_LEGACY: 'dnd-hirelings-state-v3',
   PALETTE: 'dnd-hirelings-palette-v1',
   /** @param {string} type - 'agents' | 'tasks' | 'items' */
   PRESETS: (type) => `dnd-hirelings-presets-${type}-v1`,
@@ -97,10 +101,9 @@ function migrateTag(tag) {
  * - Corrupt or missing `tagRegistry` (falls back to `seedTagRegistry()`)
  * - `qty` → `quantity` field rename on inventory items and task result items
  * - `timeStep` coerced to a number (legacy string values are parsed); out-of-range clamped
- * - `workProgress` keys migrated: old format used `segments[1]` alone (e.g. `'skill'`); new
- *   format uses the full sub-path (`segments.slice(1).join(':')`, e.g. `'skill:arcana'`).
- *   Progress is reset for any task that has 3-segment work tags, since old short keys are
- *   ambiguous across distinct specific-skill requirements.
+ * - Legacy `task.work` tags + `task.workProgress` buckets migrated to `task.conditions`
+ *   via `migrateLegacyWork` (v3 → v4); the deprecated `work` namespace is pruned from
+ *   stored tag registries
  *
  * @param {object} raw - Potentially stale or partial state from localStorage or a file
  * @returns {GameState}
@@ -128,26 +131,26 @@ export function normalizeState(raw) {
     attributes:  Array.isArray(item.attributes) ? item.attributes.map(migrateTag) : [],
   }));
   state.tasks = (raw.tasks || []).map(task => {
-    const work = Array.isArray(task.work) ? task.work.filter(Boolean).map(migrateTag) : [];
-    // Old workProgress used segments[1] alone as keys (e.g. 'skill'). New format uses the
-    // full sub-path (e.g. 'skill:arcana'). Reset progress for tasks with 3-segment work tags
-    // where the old short key is ambiguous across multiple specific requirements.
-    const hasSpecificWork = work.some(tag => parseTag(tag).segments.length >= 3);
+    const { work, workProgress, ...rest } = task;
     return {
-      ...task,
+      ...rest,
       requirements: Array.isArray(task.requirements) ? task.requirements.filter(Boolean).map(migrateTag) : [],
-      work,
       attributes:   Array.isArray(task.attributes)   ? task.attributes.filter(Boolean).map(migrateTag)   : [],
       description:  task.description  ?? '',
       isComplete:   task.isComplete   ?? false,
       createdAt:    task.createdAt    ?? Date.now(),
-      workProgress: hasSpecificWork ? {} : (task.workProgress ?? {}),
+      conditions:   Array.isArray(task.conditions)
+        ? task.conditions.map(normalizeCondition)
+        : migrateLegacyWork(Array.isArray(work) ? work.filter(Boolean).map(migrateTag) : [], workProgress),
       results:      normalizeResults(task.results),
     };
   });
   // `tagLibrary` is the pre-rename field name; read it as a fallback so sessions
   // saved before the rename keep their registry.
   state.tagRegistry = sanitizeRegistry(raw.tagRegistry ?? raw.tagLibrary) ?? seedTagRegistry();
+  // The `work` namespace was replaced by the conditions system; prune it from
+  // stored registries so deprecated work tags can't be re-authored.
+  delete state.tagRegistry.work;
   const s = raw.session || {};
   // `timeStep` is stored as a number (days per tick). Legacy sessions persisted it
   // as a string, so coerce here; clamp out-of-range or non-numeric values to 1.
@@ -167,13 +170,15 @@ export function normalizeState(raw) {
 
 /**
  * Loads and normalizes state from localStorage.
- * Returns `DEFAULT_STATE` on first run or if the stored value is corrupt.
+ * Falls back to the legacy v3 key (migrated by `normalizeState`) so existing
+ * saves survive the v4 bump. Returns `DEFAULT_STATE` on first run or if the
+ * stored value is corrupt.
  *
  * @returns {GameState}
  */
 export function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.STATE);
+    const raw = localStorage.getItem(STORAGE_KEYS.STATE) ?? localStorage.getItem(STORAGE_KEYS.STATE_LEGACY);
     if (!raw) return DEFAULT_STATE;
     return normalizeState(JSON.parse(raw));
   } catch {

@@ -13,6 +13,7 @@ export function UIProvider({ children }) {
   const [expandedTasks, setExpandedTasks]   = useState(new Set());
   const [playing, setPlaying]               = useState(false);
   const [tagBuilderProps, setTagBuilderProps] = useState(null);
+  const [conditionBuilderProps, setConditionBuilderProps] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [configProps, setConfigProps]       = useState(null);
   const [portraitsProps, setPortraitsProps] = useState(null);
@@ -30,6 +31,9 @@ export function UIProvider({ children }) {
 
   const openTagBuilder  = useCallback((props) => setTagBuilderProps(props), []);
   const closeTagBuilder = useCallback(() => setTagBuilderProps(null), []);
+
+  const openConditionBuilder  = useCallback((props) => setConditionBuilderProps(props), []);
+  const closeConditionBuilder = useCallback(() => setConditionBuilderProps(null), []);
 
   const openConfig  = useCallback(() => setConfigProps({}), []);
   const closeConfig = useCallback(() => setConfigProps(null), []);
@@ -52,6 +56,7 @@ export function UIProvider({ children }) {
       expandedTasks, toggleExpanded,
       playing, setPlaying,
       tagBuilderProps, openTagBuilder, closeTagBuilder,
+      conditionBuilderProps, openConditionBuilder, closeConditionBuilder,
       selectedItemId, setSelectedItemId,
       configProps, openConfig, closeConfig,
       portraitsProps, openPortraits, closePortraits,

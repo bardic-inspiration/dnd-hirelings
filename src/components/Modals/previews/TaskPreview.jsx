@@ -2,7 +2,7 @@ import { useUI } from '../../../state/UIContext.jsx';
 import { parseTag, formatTagLabel } from '../../../logic/tags.js';
 import EditableSpan from '../../EditableSpan.jsx';
 
-// One editable tag list (requirements / work / attributes). Reuses the task-card
+// One editable tag list (requirements / attributes). Reuses the task-card
 // section/tag classes but writes to the draft via onChange.
 function TagListSection({ label, addLabel, context, field, tags, onChange }) {
   const { openTagBuilder } = useUI();
@@ -28,6 +28,36 @@ function TagListSection({ label, addLabel, context, field, tags, onChange }) {
         })}
       </div>
       <button className="tag-add" onClick={handleAdd}>{addLabel}</button>
+    </div>
+  );
+}
+
+// Editable list of the draft's condition templates. Templates carry no id or
+// progress (those are stamped at task creation), so rows key by index and
+// removal filters by index.
+function ConditionTemplateSection({ conditions, onChange }) {
+  const { openConditionBuilder } = useUI();
+
+  const handleAdd = () => openConditionBuilder({
+    onSave: (template) => onChange({ conditions: [...conditions, template] }),
+  });
+
+  return (
+    <div className="task-section">
+      <div className="tag-label">CONDITIONS</div>
+      <div className="task-tag-list">
+        {!conditions.length && <div className="task-tag-list-empty">—</div>}
+        {conditions.map((template, i) => (
+          <div key={i} className="tag-list-item">
+            <span className="tag-content">
+              <strong>{template.name}</strong> ={template.target}
+              <span className="dim"> · {template.tracker?.tagPath ?? 'any agent'}</span>
+            </span>
+            <span className="x" onClick={() => onChange({ conditions: conditions.filter((_, j) => j !== i) })}>×</span>
+          </div>
+        ))}
+      </div>
+      <button className="tag-add" onClick={handleAdd}>+ CONDITION</button>
     </div>
   );
 }
@@ -60,10 +90,7 @@ export default function TaskPreview({ draft, onChange }) {
           label="REQUIREMENTS" addLabel="+ REQ" context="requirement"
           field="requirements" tags={draft.requirements} onChange={onChange}
         />
-        <TagListSection
-          label="WORK" addLabel="+ WORK" context="work"
-          field="work" tags={draft.work} onChange={onChange}
-        />
+        <ConditionTemplateSection conditions={draft.conditions || []} onChange={onChange} />
         <TagListSection
           label="ATTRIBUTES" addLabel="+ TAG" context="attribute"
           field="attributes" tags={draft.attributes} onChange={onChange}

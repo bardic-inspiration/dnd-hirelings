@@ -21,7 +21,6 @@ export const TAG_REGISTRY = {
     stealth: {}, survival: {},
   },
   tool: {}, trait: {}, class: {}, race: {}, level: {}, item: {},
-  work: { skill: {} },
   equip: { weapon: {}, armor: {}, offhand: {}, ring: {}, head: {}, feet: {} },
 };
 

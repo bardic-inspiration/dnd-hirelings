@@ -1,79 +1,99 @@
 import { useGame } from '../../../state/GameContext.jsx';
 import { useUI } from '../../../state/UIContext.jsx';
-import { parseTag } from '../../../logic/tags.js';
+import EditableSpan from '../../EditableSpan.jsx';
 
-function WorkRow({ label, taskId, workKey, target, progress, onRemove }) {
-  const done = progress >= target;
-  const pct  = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
+/**
+ * One condition row: name, interpolated progress bar, click-to-edit progress
+ * and target numbers, and a remove control. The bar fill and progress number
+ * carry `data-task-id` / `data-condition-id` so the RAF loop in
+ * `updateClockDisplayDOM` can interpolate them between ticks.
+ *
+ * @param {{ taskId: string, condition: Condition,
+ *           onUpdate: (changes: object) => void, onRemove: () => void }} props
+ */
+function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
+  const done = condition.progress >= condition.target;
+  const pct  = condition.target > 0 ? Math.min(100, (condition.progress / condition.target) * 100) : 0;
+
+  const commitProgress = (raw) => {
+    const value = parseFloat(raw);
+    if (Number.isFinite(value) && value >= 0) onUpdate({ progress: value });
+  };
+  const commitTarget = (raw) => {
+    const value = parseFloat(raw);
+    if (Number.isFinite(value) && value > 0) onUpdate({ target: value });
+  };
+
   return (
-    <div className={`work-item${done ? ' work-item--done' : ''}`}>
-      <span className="work-item-skill">{label}</span>
-      <div className="work-item-bottom">
-        <div className="work-item-bar">
+    <div className={`condition-item${done ? ' condition-item--done' : ''}`}>
+      <span className="condition-item-name" title={condition.tracker.tagPath ?? 'any agent'}>
+        {condition.name}
+      </span>
+      <div className="condition-item-bottom">
+        <div className="condition-item-bar">
           <div
-            className="work-item-bar-fill"
+            className="condition-item-bar-fill"
             data-task-id={taskId}
-            data-work-key={workKey}
+            data-condition-id={condition.id}
             style={{ width: `${pct.toFixed(1)}%` }}
           />
         </div>
-        <span
-          className="work-item-value"
-          data-task-id={taskId}
-          data-work-key={workKey}
-        >{Math.floor(Math.min(progress, target))} / {target}</span>
-        {onRemove && <span className="x" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>}
+        <span className="condition-item-value">
+          <EditableSpan
+            className="condition-item-progress"
+            data-task-id={taskId}
+            data-condition-id={condition.id}
+            value={String(Math.floor(Math.min(condition.progress, condition.target)))}
+            onCommit={commitProgress}
+          />
+          {' / '}
+          <EditableSpan
+            className="condition-item-target"
+            value={String(condition.target)}
+            onCommit={commitTarget}
+          />
+        </span>
+        <span className="x" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
       </div>
     </div>
   );
 }
 
+/**
+ * Task-card section listing the task's conditions. A task with no conditions
+ * shows the standard empty state and completes after one worked tick (the
+ * implied "clock advanced" condition). `+ CONDITION` opens the condition
+ * builder; saving dispatches `TASK_CONDITION_ADD`.
+ *
+ * @param {{ task: Task }} props
+ */
 export default function ProgressSection({ task }) {
   const { dispatch } = useGame();
-  const { openTagBuilder } = useUI();
-  const workProgressMap = task.workProgress ?? {};
-  const workEntries = (task.work || []).map((tagStr, index) => ({ parsed: parseTag(tagStr), index }));
+  const { openConditionBuilder } = useUI();
+  const conditions = task.conditions || [];
 
-  const handleAdd = () => openTagBuilder({
-    context: 'work',
-    onSave: (tag) => dispatch({ type: 'TASK_ADD_TAG', id: task.id, field: 'work', tag }),
+  const handleAdd = () => openConditionBuilder({
+    onSave: (template) => dispatch({ type: 'TASK_CONDITION_ADD', id: task.id, template }),
   });
 
   return (
     <div className="task-section">
-      <div className="tag-label">PROGRESS</div>
-      <div className="work-list">
-        {workEntries.length === 0 ? (
-          <WorkRow
-            label="GENERAL"
+      <div className="tag-label">CONDITIONS</div>
+      <div className="condition-list">
+        {!conditions.length && (
+          <div className="task-tag-list-empty" title="Completes after one worked tick">—</div>
+        )}
+        {conditions.map(condition => (
+          <ConditionRow
+            key={condition.id}
             taskId={task.id}
-            workKey=""
-            target={1}
-            progress={workProgressMap[''] ?? 0}
-            onRemove={null}
+            condition={condition}
+            onUpdate={(changes) => dispatch({ type: 'TASK_CONDITION_UPDATE', id: task.id, conditionId: condition.id, changes })}
+            onRemove={() => dispatch({ type: 'TASK_CONDITION_REMOVE', id: task.id, conditionId: condition.id })}
           />
-        ) : workEntries.map(({ parsed, index }) => {
-          const workKey = parsed.segments.slice(1).join(':');
-          const subtypeSegs = parsed.segments.slice(1);
-          const label = subtypeSegs.length >= 2
-            ? `${subtypeSegs[0].toUpperCase()}: ${subtypeSegs[subtypeSegs.length - 1].toUpperCase()}`
-            : subtypeSegs.length === 1
-              ? subtypeSegs[0].toUpperCase()
-              : parsed.segments[0].toUpperCase();
-          return (
-            <WorkRow
-              key={index}
-              label={label}
-              taskId={task.id}
-              workKey={workKey}
-              target={parseFloat(parsed.value ?? 1)}
-              progress={workProgressMap[workKey] ?? 0}
-              onRemove={() => dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'work', index })}
-            />
-          );
-        })}
+        ))}
       </div>
-      <button className="tag-add" onClick={e => { e.stopPropagation(); handleAdd(); }}>+ WORK</button>
+      <button className="tag-add" onClick={e => { e.stopPropagation(); handleAdd(); }}>+ CONDITION</button>
     </div>
   );
 }

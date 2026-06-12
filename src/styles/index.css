@@ -6,7 +6,7 @@
 
    Class naming convention (flat compound):
    - Block:        .block            e.g. .agent-card, .task-card
-   - Sub-element:  .block-element    e.g. .agent-name, .work-item-bar
+   - Sub-element:  .block-element    e.g. .agent-name, .condition-item-bar
    - State:        .block--state     e.g. .task-card--expanded
                    (double-hyphen modifier; applied as a second class
                    in JSX, never a bare unnamespaced state class)
@@ -782,7 +782,7 @@ body {
 .config-row input:focus { border-color: var(--highlight); }
 
 /* ============================================================
-   TASK SECTIONS (work / require / reward / tag catch-all)
+   TASK SECTIONS (conditions / require / reward / tag catch-all)
    ============================================================ */
 .task-section {
   display: flex;
@@ -790,13 +790,13 @@ body {
   gap: 5px;
 }
 
-.work-list {
+.condition-list {
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
-.work-item {
+.condition-item {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -807,22 +807,22 @@ body {
   font-size: var(--fs-xs);
 }
 
-.work-item--done { opacity: 0.4; }
+.condition-item--done { opacity: 0.4; }
 
-.work-item-skill {
+.condition-item-name {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--highlight);
 }
 
-.work-item-bottom {
+.condition-item-bottom {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.work-item-bar {
+.condition-item-bar {
   flex: 1;
   height: 4px;
   background: var(--border);
@@ -830,18 +830,34 @@ body {
   overflow: hidden;
 }
 
-.work-item-bar-fill {
+.condition-item-bar-fill {
   height: 100%;
   background: var(--highlight);
   transition: width 0.4s ease;
 }
 
-.work-item-value {
+.condition-item-value {
   font-family: ui-monospace, "Courier New", monospace;
   color: var(--dim);
   flex-shrink: 0;
   min-width: 52px;
   text-align: right;
+}
+
+/* Click-to-edit numbers inside the value readout. */
+.condition-item-progress,
+.condition-item-target {
+  cursor: text;
+  border-radius: var(--radius-sm);
+  padding: 0 1px;
+  outline: none;
+}
+
+.condition-item-progress:focus,
+.condition-item-target:focus {
+  background: var(--dimmer);
+  color: var(--fg);
+  box-shadow: 0 0 0 1px var(--highlight);
 }
 
 .task-tag-list {
@@ -888,9 +904,10 @@ body {
 }
 
 /* ============================================================
-   TAG BUILDER FORM (modal)
+   TAG / CONDITION BUILDER FORMS (modals)
    ============================================================ */
-.tag-builder-overlay {
+.tag-builder-overlay,
+.condition-builder-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
@@ -900,7 +917,8 @@ body {
   z-index: 200;
 }
 
-.tag-builder-card {
+.tag-builder-card,
+.condition-builder-card {
   background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
   border: var(--line) solid var(--border);
   border-radius: var(--radius-lg);
@@ -913,7 +931,8 @@ body {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
 }
 
-.tag-builder-title {
+.tag-builder-title,
+.condition-builder-title {
   font-size: var(--fs-sm);
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -923,19 +942,22 @@ body {
   padding-bottom: 8px;
 }
 
-.tag-builder-fields {
+.tag-builder-fields,
+.condition-builder-fields {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.tag-builder-row {
+.tag-builder-row,
+.condition-builder-row {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-.tag-builder-label {
+.tag-builder-label,
+.condition-builder-label {
   font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -944,7 +966,8 @@ body {
   flex: 0 0 60px;
 }
 
-.tag-builder-field {
+.tag-builder-field,
+.condition-builder-field {
   flex: 1;
   background: var(--dimmer);
   border: var(--line) solid var(--border);
@@ -957,9 +980,11 @@ body {
   transition: border-color 0.1s;
 }
 
-.tag-builder-field:focus { border-color: var(--highlight); }
+.tag-builder-field:focus,
+.condition-builder-field:focus { border-color: var(--highlight); }
 
-select.tag-builder-field {
+select.tag-builder-field,
+select.condition-builder-field {
   appearance: none;
   cursor: pointer;
   padding-right: 24px;
@@ -969,12 +994,14 @@ select.tag-builder-field {
   background-size: 16px;
 }
 
-.tag-builder-field--error {
+.tag-builder-field--error,
+.condition-builder-field--error {
   border-color: var(--warn);
   background: color-mix(in srgb, var(--warn) 8%, var(--dimmer));
 }
 
-.tag-builder-preview {
+.tag-builder-preview,
+.condition-builder-preview {
   flex: 1;
   font-family: ui-monospace, "Courier New", monospace;
   font-size: var(--fs-xs);
@@ -984,14 +1011,16 @@ select.tag-builder-field {
   padding: 2px 0;
 }
 
-.tag-builder-buttons {
+.tag-builder-buttons,
+.condition-builder-buttons {
   display: flex;
   gap: 8px;
   margin-top: 4px;
   justify-content: flex-end;
 }
 
-.tag-builder-buttons .ctrl {
+.tag-builder-buttons .ctrl,
+.condition-builder-buttons .ctrl {
   font-size: var(--fs-xs);
   padding: 4px 12px;
 }
