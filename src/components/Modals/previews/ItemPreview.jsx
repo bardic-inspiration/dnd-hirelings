@@ -10,7 +10,7 @@ export default function ItemPreview({ draft, onChange }) {
   const { openItemIcons, openTagRegistry } = useUI();
 
   return (
-    <div className="item-row expanded library-preview-card">
+    <div className="item-row item-row--expanded library-preview-card">
       <div className="item-head">
         <div
           className="item-icon"
@@ -51,12 +51,12 @@ export default function ItemPreview({ draft, onChange }) {
         <div className="tag-label">ATTRIBUTES</div>
         <div className="tag-list">
           {!draft.attributes.length && <span className="empty-inline">—</span>}
-          {draft.attributes.map((tag, index) => {
+          {draft.attributes.map((tag, i) => {
             const { label, params } = formatTagLabel(parseTag(tag));
             return (
-              <span key={index} className="tag">
+              <span key={i} className="tag">
                 {label}{params}
-                <span className="x" title="Remove" onClick={() => onChange({ attributes: draft.attributes.filter((_, attrIndex) => attrIndex !== index) })}>×</span>
+                <span className="x" title="Remove" onClick={() => onChange({ attributes: draft.attributes.filter((_, attrIndex) => attrIndex !== i) })}>×</span>
               </span>
             );
           })}
