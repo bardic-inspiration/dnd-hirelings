@@ -15,13 +15,14 @@ export default function BankPanel() {
   const adjust = (delta) =>
     dispatch({ type: 'SESSION_UPDATE', payload: { bank: Math.round((bank + delta) * 100) / 100 } });
 
-  // Sell one unit of the selected item: bank += value, quantity -= 1. Depleted items
-  // stay in the list (grayed) rather than being removed.
+  // Sell one unit of the selected item via the unified place-item path: bank +=
+  // value, quantity -= 1. Depleted items stay in the list (grayed) rather than
+  // being removed. Selection persists while stock remains, matching give.
   const canSell = selectedItem && selectedItem.quantity > 0;
   const sellSelected = () => {
     if (!canSell) return;
-    adjust(selectedItem.value || 0);
-    dispatch({ type: 'INVENTORY_UPDATE_ITEM', id: selectedItem.id, changes: { quantity: selectedItem.quantity - 1 } });
+    dispatch({ type: 'ITEM_PLACE', target: { type: 'bank' }, itemId: selectedItem.id });
+    if (selectedItem.quantity <= 1) setSelectedItemId(null);
   };
 
   const { onPointerDown } = usePressHoldDrag({

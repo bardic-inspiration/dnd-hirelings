@@ -89,7 +89,6 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 | `AGENT_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index |
 | `AGENT_ADD_ACTIVITY` | `{ id, tag: string }` | Add activity tag (task assignment or item grant) |
 | `AGENT_REMOVE_ACTIVITY` | `{ id, tag: string }` | Remove exact activity tag |
-| `AGENT_GIVE_ITEM` | `{ id, itemName: string, quantity: number }` | Move quantity of item from inventory to agent's bag |
 | `AGENT_RETURN_ITEM` | `{ id, itemName: string }` | Move all of item from agent's bag back to inventory |
 | `AGENT_EQUIP_ITEM` | `{ id, itemName: string, slot: string }` | Move item from bag to equipped slot |
 | `AGENT_UNEQUIP_ITEM` | `{ id, slot: string, itemName: string }` | Move item from equipped slot back to bag |
@@ -117,6 +116,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 | `INVENTORY_UPDATE_ITEM` | `{ id, changes: Partial<InventoryItem> }` | Patch item; renaming triggers quantity merge if name collides |
 | `INVENTORY_REMOVE_ITEM` | `{ id }` | Delete item from inventory |
 | `INVENTORY_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index from item |
+| `ITEM_PLACE` | `{ target: { type: 'agent'\|'bank', id? }, itemId: string, quantity?: number }` | Draw `quantity` (default 1, clamped to stock) of a selected item from inventory and route it: `agent` gives into the agent's bag (`mergeItemQty`); `bank` sells it (value × qty → gold). The single click-highlight-assign path shared by give (AgentCard) and sell (BankPanel). Depleted items stay in the list (grayed) |
 
 ### Tags
 
