@@ -1369,7 +1369,7 @@ body {
    the bodies that the dashboard cards keep collapsed. */
 .library-preview-card { cursor: default; }
 .library-preview-card .task-body,
-.library-preview-card .item-body { display: flex; }
+.library-preview-card .item-body { display: flex; flex-direction: column; }
 
 /* ============================================================
    TAG REGISTRY
