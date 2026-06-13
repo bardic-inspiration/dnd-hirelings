@@ -130,6 +130,22 @@ export function createConditionTemplate({ name, target, tagPath, kind = 'work' }
 }
 
 /**
+ * Builds a condition template from a registry-modal draft string of the form
+ * `path[=target]` (e.g. `'skill:arcana=30'`, `'skill:*'`). Only the LAST `=`
+ * splits off the target — the path part may carry pattern escapes (`\:`, `\*`),
+ * so it must not round-trip through `parseTag`. Name and target defaults come
+ * from `createConditionTemplate` (target 1, name via `defaultConditionName`).
+ *
+ * @param {string} draft
+ * @returns {ConditionTemplate}
+ */
+export function conditionTemplateFromDraft(draft) {
+  const text = String(draft ?? '').trim();
+  const match = text.match(/^(.*?)(?:=([^=]*))?$/s);
+  return createConditionTemplate({ tagPath: match[1], target: match[2] });
+}
+
+/**
  * Guards a raw condition template from storage or a preset file.
  * Any malformed field falls back to its `createConditionTemplate` default.
  *

@@ -125,7 +125,7 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
           LOAD
           <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleLoad} />
         </label>
-        <button className="ctrl" onClick={openTagRegistry}>TAG REGISTRY</button>
+        <button className="ctrl" onClick={() => openTagRegistry()}>TAG REGISTRY</button>
         <button className="ctrl" onClick={openConfig}>SETTINGS</button>
       </div>
     </nav>

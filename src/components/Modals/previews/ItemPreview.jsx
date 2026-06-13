@@ -7,7 +7,7 @@ import DragNumber from '../../Dashboard/DragNumber.jsx';
 // onChange. Items will gain richer fields later; the layout is built to absorb
 // that the same way ItemRow's body does.
 export default function ItemPreview({ draft, onChange }) {
-  const { openItemIcons, openTagBuilder } = useUI();
+  const { openItemIcons, openTagRegistry } = useUI();
 
   return (
     <div className="item-row expanded library-preview-card">
@@ -60,9 +60,8 @@ export default function ItemPreview({ draft, onChange }) {
               </span>
             );
           })}
-          <button className="tag-add" title="Add attribute" onClick={() => openTagBuilder({
-            context: 'attribute',
-            onSave: (tag) => onChange({ attributes: mergeAttribute(draft.attributes, tag) }),
+          <button className="tag-add" title="Add attribute" onClick={() => openTagRegistry({
+            onApply: (tag) => onChange({ attributes: mergeAttribute(draft.attributes, tag) }),
           })}>+</button>
         </div>
       </div>

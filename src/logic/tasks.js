@@ -1,5 +1,19 @@
-import { parseTag, buildTag } from './tags.js';
+import { parseTag, buildTag, MODIFIER_REGISTRY } from './tags.js';
 import { uid, now } from '../utils.js';
+
+/**
+ * Routes a tag string to the task list that stores it. Routing is the task's
+ * own concern — applicators (tag registry APPLY, selection mode) just hand the
+ * task a tag. Modifiers whose `MODIFIER_REGISTRY` entry declares a `taskField`
+ * go there (`req`/`block` → `'requirements'`); everything else → `'attributes'`.
+ *
+ * @param {string} tagString
+ * @returns {'requirements'|'attributes'}
+ */
+export function routeTaskTag(tagString) {
+  const modifier = parseTag(tagString).modifier;
+  return MODIFIER_REGISTRY[modifier]?.taskField ?? 'attributes';
+}
 
 /**
  * Returns true when the task should complete at the end of a tick.

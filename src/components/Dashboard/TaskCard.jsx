@@ -28,15 +28,15 @@ function TaskProgressBar({ task }) {
   );
 }
 
+// Hosts the card's single `+ TAG` shortcut to the tag registry. The applied
+// tag routes by its own modifier (TAG_APPLY → routeTaskTag), so a `req`-
+// modified tag built here still lands in the requirements list above.
 function AttributesSection({ task }) {
   const { dispatch } = useGame();
-  const { openTagBuilder } = useUI();
+  const { openTagRegistry } = useUI();
   const attrs = task.attributes || [];
 
-  const handleAdd = () => openTagBuilder({
-    context: 'attribute',
-    onSave: (tag) => dispatch({ type: 'TASK_ADD_TAG', id: task.id, field: 'attributes', tag }),
-  });
+  const handleAdd = () => openTagRegistry({ target: { type: 'task', id: task.id } });
 
   return (
     <div className="task-section">

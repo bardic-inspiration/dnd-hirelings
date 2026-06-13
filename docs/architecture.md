@@ -7,7 +7,7 @@ Guild Manager is a client-side SPA with no backend. All state lives in the brows
 ```
 src/
 ├── main.jsx          # React bootstrap; mounts providers
-├── App.jsx           # Root shell; owns modal rendering and global click handler
+├── App.jsx           # Root shell; owns modal rendering, global click handler, tag-apply selection mode
 ├── utils.js          # uid(), now() — no dependencies
 ├── state/            # React context providers, reducer, storage
 ├── logic/            # Pure business logic (no React imports)
@@ -82,6 +82,8 @@ Task progress is **not** tag-encoded. Each task carries `conditions: Condition[]
 `GameContext` wraps `useReducer(reducer, null, loadState)`. Every game mutation is an action dispatched through `useGame().dispatch`. The reducer in `src/state/reducer.js` handles 30+ action types and is the only place that writes new state. After every state change, a `useEffect` in `GameProvider` persists to localStorage.
 
 The reducer also auto-registers new tag paths into `state.tagRegistry` whenever an agent or task tag is authored (via `registerTags()`), keeping the registry in sync with authored content without requiring explicit registry management.
+
+The Tag Registry modal is the single authoring/assignment surface for tags and condition templates: browsing, structure editing (ADD), assignment to board entities and library drafts (APPLY via `TAG_APPLY` / `TASK_CONDITION_ADD` / `onApply`), and pattern-linked conditions. Opened with no target, APPLY arms a **selection mode** hosted by App.jsx — the next board-entity click receives the pending tag or condition (`pendingApply` in UIContext).
 
 ### Real-time Interpolated Display
 

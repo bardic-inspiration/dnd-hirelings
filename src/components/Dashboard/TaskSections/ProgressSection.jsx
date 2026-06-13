@@ -1,12 +1,14 @@
 import { useGame } from '../../../state/GameContext.jsx';
 import { useUI } from '../../../state/UIContext.jsx';
+import { defaultConditionName } from '../../../logic/conditions.js';
 import EditableSpan from '../../EditableSpan.jsx';
 
 /**
- * One condition row: name, interpolated progress bar, click-to-edit progress
- * and target numbers, and a remove control. The bar fill and progress number
- * carry `data-task-id` / `data-condition-id` so the RAF loop in
- * `updateClockDisplayDOM` can interpolate them between ticks.
+ * One condition row: click-to-edit name, interpolated progress bar,
+ * click-to-edit progress and target numbers, and a remove control. A blank
+ * name commit falls back to `defaultConditionName(tagPath)`. The bar fill and
+ * progress number carry `data-task-id` / `data-condition-id` so the RAF loop
+ * in `updateClockDisplayDOM` can interpolate them between ticks.
  *
  * @param {{ taskId: string, condition: Condition,
  *           onUpdate: (changes: object) => void, onRemove: () => void }} props
@@ -23,12 +25,18 @@ function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
     const value = parseFloat(raw);
     if (Number.isFinite(value) && value > 0) onUpdate({ target: value });
   };
+  const commitName = (raw) => {
+    onUpdate({ name: raw.trim() || defaultConditionName(condition.tracker.tagPath) });
+  };
 
   return (
     <div className={`condition-item${done ? ' condition-item--done' : ''}`}>
-      <span className="condition-item-name" title={condition.tracker.tagPath ?? 'any agent'}>
-        {condition.name}
-      </span>
+      <EditableSpan
+        className="condition-item-name"
+        title={condition.tracker.tagPath ?? 'any agent'}
+        value={condition.name}
+        onCommit={commitName}
+      />
       <div className="condition-item-bottom">
         <div className="condition-item-bar">
           <div
@@ -62,19 +70,17 @@ function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
 /**
  * Task-card section listing the task's conditions. A task with no conditions
  * shows the standard empty state and completes after one worked tick (the
- * implied "clock advanced" condition). `+ CONDITION` opens the condition
- * builder; saving dispatches `TASK_CONDITION_ADD`.
+ * implied "clock advanced" condition). `+ CONDITION` opens the tag registry
+ * in condition mode targeting this task; APPLY dispatches `TASK_CONDITION_ADD`.
  *
  * @param {{ task: Task }} props
  */
 export default function ProgressSection({ task }) {
   const { dispatch } = useGame();
-  const { openConditionBuilder } = useUI();
+  const { openTagRegistry } = useUI();
   const conditions = task.conditions || [];
 
-  const handleAdd = () => openConditionBuilder({
-    onSave: (template) => dispatch({ type: 'TASK_CONDITION_ADD', id: task.id, template }),
-  });
+  const handleAdd = () => openTagRegistry({ target: { type: 'task', id: task.id }, mode: 'condition' });
 
   return (
     <div className="task-section">

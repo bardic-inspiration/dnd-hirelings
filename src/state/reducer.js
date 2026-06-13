@@ -1,6 +1,6 @@
 import { uid, now } from '../utils.js';
 import { normalizeState, DEFAULT_STATE, DEFAULT_RESULTS } from './storage.js';
-import { applyTaskComplete } from '../logic/tasks.js';
+import { applyTaskComplete, routeTaskTag } from '../logic/tasks.js';
 import { mergeAttribute, buildTag, parseTag } from '../logic/tags.js';
 import { addTagToRegistry, addPath, deleteNode, renameNode } from '../logic/tagRegistry.js';
 import { conditionFromTemplate } from '../logic/conditions.js';
@@ -125,15 +125,6 @@ export function reducer(state, action) {
       const copy = { ...JSON.parse(JSON.stringify(orig)), id: uid(), activities: [], createdAt: now(), lastAssigned: null };
       return { ...state, agents: [...state.agents, copy] };
     }
-
-    case 'AGENT_ADD_ATTRIBUTE':
-      return registerTags({
-        ...state,
-        agents: state.agents.map(agent => agent.id !== action.id ? agent : {
-          ...agent,
-          attributes: mergeAttribute(agent.attributes, action.tag),
-        }),
-      }, action.tag);
 
     case 'AGENT_REMOVE_ATTRIBUTE':
       return {
@@ -279,15 +270,6 @@ export function reducer(state, action) {
       };
     }
 
-    case 'TASK_ADD_TAG': {
-      const { field } = action;
-      if (!TASK_TAG_FIELDS.has(field)) return state;
-      return registerTags({
-        ...state,
-        tasks: state.tasks.map(task => task.id !== action.id ? task : { ...task, [field]: [...(task[field] || []), action.tag] }),
-      }, action.tag);
-    }
-
     case 'TASK_REMOVE_TAG': {
       const { field } = action;
       if (!TASK_TAG_FIELDS.has(field)) return state;
@@ -362,15 +344,6 @@ export function reducer(state, action) {
     case 'INVENTORY_REMOVE_ITEM':
       return { ...state, inventory: state.inventory.filter(item => item.id !== action.id) };
 
-    case 'INVENTORY_ADD_ATTRIBUTE':
-      return registerTags({
-        ...state,
-        inventory: state.inventory.map(item => item.id !== action.id ? item : {
-          ...item,
-          attributes: mergeAttribute(item.attributes, action.tag),
-        }),
-      }, action.tag);
-
     case 'INVENTORY_REMOVE_ATTRIBUTE':
       return {
         ...state,
@@ -379,6 +352,45 @@ export function reducer(state, action) {
           attributes: item.attributes.filter((_, index) => index !== action.index),
         }),
       };
+
+    /* ---------- Tags ---------- */
+    // Applies a tag to any board entity; the single assignment path for the tag
+    // registry's APPLY button and selection mode. Routing into a field is the
+    // entity's concern: tasks sort by modifier via `routeTaskTag` (`req`/`block`
+    // → requirements) and APPEND; agents/items always take attributes and
+    // dedupe-merge by path (`mergeAttribute`) — the historical asymmetry between
+    // task tag lists and attribute lists is preserved deliberately.
+    case 'TAG_APPLY': {
+      const { target, tag } = action;
+      let next = state;
+      if (target.type === 'agent') {
+        next = {
+          ...state,
+          agents: state.agents.map(agent => agent.id !== target.id ? agent : {
+            ...agent,
+            attributes: mergeAttribute(agent.attributes, tag),
+          }),
+        };
+      } else if (target.type === 'item') {
+        next = {
+          ...state,
+          inventory: state.inventory.map(item => item.id !== target.id ? item : {
+            ...item,
+            attributes: mergeAttribute(item.attributes, tag),
+          }),
+        };
+      } else if (target.type === 'task') {
+        const field = routeTaskTag(tag);
+        next = {
+          ...state,
+          tasks: state.tasks.map(task => task.id !== target.id ? task : {
+            ...task,
+            [field]: [...(task[field] || []), tag],
+          }),
+        };
+      }
+      return next === state ? state : registerTags(next, tag);
+    }
 
     /* ---------- Tag Registry ---------- */
     case 'TAGREG_ADD_PATH':
