@@ -26,7 +26,10 @@ export default function App() {
       if (!e.target.closest('.task-card') && !e.target.closest('.agent-card')) {
         setSelectedTaskId(null);
       }
-      if (!e.target.closest('.item-row') && !e.target.closest('.bank-panel')) {
+      // Agent cards are give-targets while an item is selected, so clicking one
+      // gives without clearing the selection — letting you give to several agents
+      // in a row. Selection clears only on a true clickout (or when stock runs out).
+      if (!e.target.closest('.item-row') && !e.target.closest('.bank-panel') && !e.target.closest('.agent-card')) {
         setSelectedItemId(null);
       }
     };

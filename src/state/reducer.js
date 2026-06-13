@@ -156,17 +156,30 @@ export function reducer(state, action) {
         }),
       };
 
-    case 'AGENT_GIVE_ITEM': {
-      const { id, itemName, quantity } = action;
-      const src = state.inventory.find(item => item.name.trim().toLowerCase() === itemName.trim().toLowerCase());
-      if (!src || src.quantity < quantity) return state;
-      const inventory = src.quantity === quantity
-        ? state.inventory.filter(item => item !== src)
-        : state.inventory.map(item => item === src ? { ...item, quantity: item.quantity - quantity } : item);
-      const agents = state.agents.map(agent => agent.id !== id ? agent : {
-        ...agent, activities: mergeItemQty(agent.activities, src.name, quantity),
-      });
-      return { ...state, inventory, agents };
+    case 'ITEM_PLACE': {
+      // Unified "place item somewhere" path: a selected inventory item is pulled
+      // from stock and routed by target type. `bank` sells (value → gold) and
+      // `agent` gives (item → bag); both share the same draw-from-inventory step,
+      // mirroring TAG_APPLY's single assignment path. Drawing more than is in
+      // stock is clamped, so an over-large right-click quantity gives all of it.
+      const { target, itemId } = action;
+      const src = state.inventory.find(item => item.id === itemId);
+      if (!src || src.quantity <= 0) return state;
+      const quantity = Math.min(Math.max(1, action.quantity ?? 1), src.quantity);
+      // Depleted items stay in the list (grayed) rather than being removed.
+      const inventory = state.inventory.map(item =>
+        item === src ? { ...item, quantity: item.quantity - quantity } : item);
+      if (target.type === 'agent') {
+        const agents = state.agents.map(agent => agent.id !== target.id ? agent : {
+          ...agent, activities: mergeItemQty(agent.activities, src.name, quantity),
+        });
+        return { ...state, inventory, agents };
+      }
+      if (target.type === 'bank') {
+        const bankDelta = (src.value || 0) * quantity;
+        return { ...state, inventory, session: { ...state.session, bank: (state.session.bank ?? 0) + bankDelta } };
+      }
+      return state;
     }
 
     case 'AGENT_RETURN_ITEM': {

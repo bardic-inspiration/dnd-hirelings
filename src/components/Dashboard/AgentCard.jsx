@@ -39,35 +39,40 @@ const INLINE_INPUT_STYLE = {
 
 export default function AgentCard({ agent }) {
   const { state, dispatch } = useGame();
-  const { selectedTaskId, openTagRegistry, openPortraits } = useUI();
+  const { selectedTaskId, selectedItemId, setSelectedItemId, openTagRegistry, openPortraits } = useUI();
 
-  const [giveOpen, setGiveOpen]     = useState(false);
-  const [giveItemName, setGiveItemName] = useState('');
+  const [giveQtyOpen, setGiveQtyOpen] = useState(false);
   const [giveQty, setGiveQty]       = useState(1);
   const [equipTarget, setEquipTarget] = useState(null);
   const [equipSlot, setEquipSlot]   = useState('');
 
   const selectedTask = selectedTaskId ? state.tasks.find(task => task.id === selectedTaskId) : null;
-  const assignClass = selectedTask
-    ? (validateAssignment(agent, selectedTask) ? ' agent-card--assignable' : ' agent-card--not-assignable')
-    : '';
+  const selectedItem = selectedItemId ? state.inventory.find(item => item.id === selectedItemId) : null;
+  // The qty input only shows when an item is selected; clearing the selection
+  // (e.g. depleting stock or clicking out) implicitly dismisses it.
+  const giveQtyVisible = giveQtyOpen && selectedItem;
+  // A selected item turns every card into a give-target; that mode takes priority
+  // over task-assignment highlighting (you can't select a task and item at once).
+  const assignClass = selectedItem
+    ? ' agent-card--give-target'
+    : selectedTask
+      ? (validateAssignment(agent, selectedTask) ? ' agent-card--assignable' : ' agent-card--not-assignable')
+      : '';
 
   const personalItems   = getPersonalItems(agent.activities);
   const equippedItems   = getEquippedItems(agent.activities);
-  const availableInventory = state.inventory.filter(item => item.quantity > 0);
   const dyn = computeDynamicAttributes(agent, state.inventory);
 
-  const openGive = (e) => {
-    e.stopPropagation();
-    setGiveItemName(availableInventory[0]?.name ?? '');
-    setGiveQty(1);
-    setGiveOpen(true);
-  };
-  const handleGive = (e) => {
-    e.stopPropagation();
-    if (!giveItemName || giveQty < 1) return;
-    dispatch({ type: 'AGENT_GIVE_ITEM', id: agent.id, itemName: giveItemName, quantity: giveQty });
-    setGiveOpen(false);
+  // Give `quantity` units of the selected item to this agent (clamped to stock by
+  // the reducer). Used by left-click (1) and the right-click quantity input. The
+  // selection persists so you can give to several agents, clearing only once the
+  // stack is depleted (mirrors the sell flow in BankPanel).
+  const giveSelected = (quantity) => {
+    if (!selectedItem) return;
+    const given = Math.min(Math.max(1, quantity), selectedItem.quantity);
+    dispatch({ type: 'ITEM_PLACE', target: { type: 'agent', id: agent.id }, itemId: selectedItem.id, quantity: given });
+    setGiveQtyOpen(false);
+    if (given >= selectedItem.quantity) setSelectedItemId(null);
   };
   const openEquip = (e, name) => {
     e.stopPropagation();
@@ -82,12 +87,23 @@ export default function AgentCard({ agent }) {
   };
 
   const handleCardClick = () => {
+    // Give mode (an inventory item is selected) takes priority: left-click gives 1.
+    if (selectedItem) { giveSelected(1); return; }
     const result = tryAssignTask(agent, selectedTaskId, state.tasks);
     if (result === 'invalid') {
       flashAgentCard(agent.id);
     } else if (result === 'assigned') {
       dispatch({ type: 'AGENT_ADD_ACTIVITY', id: agent.id, tag: `task:${selectedTaskId}` });
     }
+  };
+
+  // In give mode, right-click opens an inline quantity input instead of the
+  // browser context menu; otherwise the context menu is left untouched.
+  const handleCardContextMenu = (e) => {
+    if (!selectedItem) return;
+    e.preventDefault();
+    setGiveQty(1);
+    setGiveQtyOpen(true);
   };
 
   const handleIconClick = (e) => {
@@ -110,6 +126,7 @@ export default function AgentCard({ agent }) {
       className={`agent-card${assignClass}`}
       data-id={agent.id}
       onClick={handleCardClick}
+      onContextMenu={handleCardContextMenu}
     >
       <EditableSpan
         className="agent-name"
@@ -196,11 +213,12 @@ export default function AgentCard({ agent }) {
         </div>
       </div>
 
-      {/* Bag */}
+      {/* Bag — select an inventory item, then left-click the card to give 1 or
+          right-click to give a chosen quantity. */}
       <div className="tag-section">
         <div className="tag-label">BAG</div>
         <div className="tag-list">
-          {personalItems.length === 0 && !giveOpen && <span className="empty-inline">—</span>}
+          {personalItems.length === 0 && !giveQtyVisible && <span className="empty-inline">—</span>}
           {personalItems.map(({ name, quantity, tag }) => (
             <span key={tag} className="tag">
               {name}
@@ -209,18 +227,22 @@ export default function AgentCard({ agent }) {
               <span className="x" title="Return to inventory" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_RETURN_ITEM', id: agent.id, itemName: name }); }}>↩</span>
             </span>
           ))}
-          {!giveOpen && availableInventory.length > 0 && (
-            <button className="tag-add" onClick={openGive}>+GIVE</button>
-          )}
         </div>
-        {giveOpen && (
+        {giveQtyVisible && (
           <div className="tag-list" onClick={e => e.stopPropagation()}>
-            <select value={giveItemName} onChange={e => setGiveItemName(e.target.value)} style={INLINE_INPUT_STYLE}>
-              {availableInventory.map(item => <option key={item.id} value={item.name}>{item.name} ({item.quantity})</option>)}
-            </select>
-            <input type="number" min={1} max={availableInventory.find(item => item.name === giveItemName)?.quantity ?? 1} value={giveQty} onChange={e => setGiveQty(Math.max(1, Number(e.target.value)))} style={{ ...INLINE_INPUT_STYLE, width: '48px' }} />
-            <button className="ctrl" onClick={handleGive}>GIVE</button>
-            <button className="ctrl" onClick={e => { e.stopPropagation(); setGiveOpen(false); }}>✕</button>
+            <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>GIVE {selectedItem.name}:</span>
+            <input
+              type="number"
+              autoFocus
+              min={1}
+              max={selectedItem.quantity}
+              value={giveQty}
+              onChange={e => setGiveQty(Math.max(1, Number(e.target.value)))}
+              onKeyDown={e => { if (e.key === 'Enter') giveSelected(giveQty); if (e.key === 'Escape') { e.stopPropagation(); setGiveQtyOpen(false); } }}
+              style={{ ...INLINE_INPUT_STYLE, width: '48px' }}
+            />
+            <button className="ctrl" onClick={() => giveSelected(giveQty)}>GIVE</button>
+            <button className="ctrl" onClick={e => { e.stopPropagation(); setGiveQtyOpen(false); }}>✕</button>
           </div>
         )}
         {equipTarget && (

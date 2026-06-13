@@ -361,6 +361,15 @@ body {
   pointer-events: none;
 }
 
+/* Give-target: a card armed to receive the selected inventory item. Left-click
+   gives 1, right-click prompts a quantity. Mirrors --assignable, with a copy
+   cursor to signal the drop. */
+.agent-card--give-target {
+  border-color: var(--highlight);
+  background: linear-gradient(145deg, var(--highlight-bg) 0%, color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent) 70%);
+  cursor: copy;
+}
+
 .agent-name {
   font-size: var(--fs-base);
   font-weight: 700;
@@ -368,7 +377,8 @@ body {
   color: var(--fg);
   line-height: 1.2;
 }
-.agent-card--assignable .agent-name { color: var(--highlight); }
+.agent-card--assignable .agent-name,
+.agent-card--give-target .agent-name { color: var(--highlight); }
 
 .agent-icon {
   width: 100%;
