@@ -12,6 +12,35 @@ import { downloadFile } from './download.js';
 export const MAX_LOG_ROWS = 50000;
 
 /**
+ * Default `session.logging` configuration.
+ *
+ * A deliberately minimal stub: only the two most basic switches are wired today
+ * (`advanceTime` honors `enabled` and `maxRows`). Interval, granularity, and
+ * per-category controls are planned alongside the upcoming time-system refactor
+ * and the YAML configuration system, and are intentionally NOT included here yet.
+ *
+ * @type {{ enabled: boolean, maxRows: number }}
+ */
+export const DEFAULT_LOGGING_CONFIG = { enabled: true, maxRows: MAX_LOG_ROWS };
+
+/**
+ * Guards a raw `session.logging` object from storage or an imported file.
+ * Missing/malformed fields fall back to `DEFAULT_LOGGING_CONFIG`; unknown keys
+ * are dropped so the stub stays minimal until the config system lands.
+ *
+ * @param {object} raw
+ * @returns {{ enabled: boolean, maxRows: number }}
+ */
+export function normalizeLoggingConfig(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+  const maxRows = Number(source.maxRows);
+  return {
+    enabled: source.enabled !== false,
+    maxRows: Number.isFinite(maxRows) && maxRows > 0 ? Math.floor(maxRows) : MAX_LOG_ROWS,
+  };
+}
+
+/**
  * CSV column order — the single source of truth shared by `serializeEventLog`
  * and `parseEventLog`. `data` is always last (it holds a JSON blob).
  * @type {string[]}

@@ -296,7 +296,9 @@ loadStateFromFile(file: File): Promise<GameState>
 
 ```js
 EVENT_LOG_COLUMNS: string[]          // CSV column order (single source of truth)
-MAX_LOG_ROWS: number                 // FIFO cap on the live log (50000)
+MAX_LOG_ROWS: number                 // default FIFO cap on the live log (50000)
+DEFAULT_LOGGING_CONFIG: { enabled: boolean, maxRows: number }   // session.logging defaults
+normalizeLoggingConfig(raw: object): { enabled: boolean, maxRows: number }
 makeWorkEvent({ seq, clock, day, agent, task, condition, delta, progress }): EventLogEntry
 makeCompleteEvent({ seq, clock, day, task }): EventLogEntry
 normalizeEvent(raw: object): EventLogEntry | null   // null if missing taskId
@@ -379,6 +381,10 @@ interface GameState {
     rateMultiplier: number; // ticks-per-second multiplier
     workRate: number;     // base progress units per tick-day
     skillBonus: number;   // multiplier applied to a matched tag link's value
+    logging: {            // event-log config — minimal stub (see note below)
+      enabled: boolean;   // when false, advanceTime emits no event rows
+      maxRows: number;    // FIFO retention cap for state.eventLog
+    };
   };
   agents: Agent[];
   tasks: Task[];

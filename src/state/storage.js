@@ -1,7 +1,7 @@
 import { MODIFIER_REGISTRY } from '../logic/tags.js';
 import { seedTagRegistry } from '../logic/tagRegistry.js';
 import { normalizeCondition, migrateLegacyWork } from '../logic/conditions.js';
-import { normalizeEvent } from '../logic/eventLog.js';
+import { normalizeEvent, normalizeLoggingConfig, DEFAULT_LOGGING_CONFIG } from '../logic/eventLog.js';
 
 /**
  * Central registry of every localStorage key the app reads or writes.
@@ -31,7 +31,8 @@ export const DEFAULT_STATE = {
     bank: 100,
     rateMultiplier: 1,
     workRate: 1,
-    skillBonus: 1
+    skillBonus: 1,
+    logging: { ...DEFAULT_LOGGING_CONFIG },
   },
   agents: [],
   tasks: [],
@@ -108,6 +109,8 @@ function migrateTag(tag) {
  *   stored tag registries
  * - Missing `eventLog` (saves predating the event-log feature) defaults to `[]`; rows
  *   are guarded via `normalizeEvent` and any lacking a `taskId` are dropped
+ * - `session.logging` is guarded via `normalizeLoggingConfig` (defaults to
+ *   `DEFAULT_LOGGING_CONFIG`); a minimal stub today (`enabled`, `maxRows`)
  *
  * @param {object} raw - Potentially stale or partial state from localStorage or a file
  * @returns {GameState}
@@ -168,6 +171,7 @@ export function normalizeState(raw) {
     skillBonus:     s.skillBonus     ?? 1,
     bank:           s.bank           ?? 100,
     title:          s.title          ?? 'GUILD MANAGER',
+    logging:        normalizeLoggingConfig(s.logging),
   };
   // Event log defaults to empty for saves that predate the feature; rows are
   // guarded and any missing a taskId are dropped.
