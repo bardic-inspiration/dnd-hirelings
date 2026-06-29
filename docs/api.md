@@ -137,8 +137,9 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `APPLY_TICK` | `{ newState: GameState }` | Replace state with a pre-computed tick result |
+| `APPLY_TICK` | `{ newState: GameState }` | Replace state with a pre-computed tick result (includes the appended `eventLog`) |
 | `REPLACE_STATE` | `{ newState: object }` | Load external state; runs through `normalizeState()` |
+| `EVENTLOG_CLEAR` | — | Empty the event log (`eventLog: []`) |
 | `RESET` | — | Reset to `DEFAULT_STATE` |
 
 ---
@@ -236,6 +237,10 @@ advanceTime(state: GameState): { newState: GameState, flashAgentIds: string[], t
 updateClockDisplayDOM(state: GameState, tickInfo: TickInfo): void
 ```
 
+`advanceTime` also appends to `newState.eventLog`: one `work_contribution` entry per
+(agent, condition, game day) and one `task_complete` entry per task finishing this tick
+(a multi-day tick is split into one row per day). See `eventLog.js`.
+
 ### `src/logic/dynamicAttributes.js`
 
 ```js
@@ -270,11 +275,36 @@ tagRegistrySave(registry: TagRegistry, sessionId: string): Promise<void>
 tagRegistryLoad(file: File): Promise<TagRegistry>
 ```
 
+### `src/logic/download.js`
+
+```js
+downloadFile(contents: string | Blob, suggestedName: string,
+             options?: { mime?: string, pickerTypes?: object[] }): Promise<void>
+```
+
+Shared file-write helper: native Save As dialog (File System Access API) with an
+`<a>.download` fallback. Used by `session.js`, `eventLog.js`, etc.
+
 ### `src/logic/session.js`
 
 ```js
 saveStateToFile(state: GameState): Promise<void>
 loadStateFromFile(file: File): Promise<GameState>
+```
+
+### `src/logic/eventLog.js`
+
+```js
+EVENT_LOG_COLUMNS: string[]          // CSV column order (single source of truth)
+MAX_LOG_ROWS: number                 // FIFO cap on the live log (50000)
+makeWorkEvent({ seq, clock, day, agent, task, condition, delta, progress }): EventLogEntry
+makeCompleteEvent({ seq, clock, day, task }): EventLogEntry
+normalizeEvent(raw: object): EventLogEntry | null   // null if missing taskId
+capEventLog(eventLog: EventLogEntry[], maxRows?: number): EventLogEntry[]
+serializeEventLog(eventLog: EventLogEntry[]): string                // → CSV
+parseEventLog(csvText: string): EventLogEntry[]                     // ← CSV
+saveEventLogToFile(eventLog: EventLogEntry[], sessionId: string): Promise<void>
+loadEventLogFromFile(file: File): Promise<EventLogEntry[]>
 ```
 
 ### `src/logic/presets.js`
@@ -354,6 +384,7 @@ interface GameState {
   tasks: Task[];
   inventory: InventoryItem[];
   tagRegistry: TagRegistry; // nested keys-only tree
+  eventLog: EventLogEntry[]; // append-only per-day progress log (FIFO-capped)
 }
 
 interface Agent {
@@ -414,8 +445,26 @@ interface InventoryItem {
 }
 
 type TagRegistry = { [key: string]: TagRegistry }; // recursive keys-only tree
+
+interface EventLogEntry {
+  seq: number;          // monotonic id assigned at append (stable across FIFO trim)
+  eventType: string;    // 'work_contribution' | 'task_complete'
+  clock: number;        // in-game minutes this row represents (a day boundary)
+  day: number;          // floor(clock / 1440), denormalized for readability
+  agentId: string;      // contributing agent ('' for task_complete)
+  agentName: string;
+  taskId: string;
+  taskName: string;
+  conditionId: string;  // target condition ('' for task_complete)
+  conditionName: string;
+  delta: number;        // progress added this day to this condition (0 for completion)
+  progress: number;     // resulting condition.progress snapshot (0 for completion)
+  target: number;       // condition.target, denormalized (0 for completion)
+  data: object;         // extension payload — work: {} ;
+                        // task_complete: { isComplete, attributes, results }
+}
 ```
 
-> **Migration note:** `normalizeState` handles several schema changes from older saves: (1) `qty` → `quantity` on `InventoryItem` and `Task.results.items`/`agents`; (2) `session.timeStep` coerced from legacy string to `number`; (3) legacy `task.work` tags + `task.workProgress` buckets → `task.conditions` via `migrateLegacyWork` — `work=5` → tagPath `null`, `work:skill=8` → `'skill'`, `work:skill:arcana=10` → `'skill:arcana'`, with progress carried over from the matching bucket key; the deprecated `work` namespace is also pruned from stored tag registries. The storage key was bumped to `dnd-hirelings-state-v4`; `loadState` falls back to the v3 key. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected.
+> **Migration note:** `normalizeState` handles several schema changes from older saves: (1) `qty` → `quantity` on `InventoryItem` and `Task.results.items`/`agents`; (2) `session.timeStep` coerced from legacy string to `number`; (3) legacy `task.work` tags + `task.workProgress` buckets → `task.conditions` via `migrateLegacyWork` — `work=5` → tagPath `null`, `work:skill=8` → `'skill'`, `work:skill:arcana=10` → `'skill:arcana'`, with progress carried over from the matching bucket key; the deprecated `work` namespace is also pruned from stored tag registries. The storage key was bumped to `dnd-hirelings-state-v4`; `loadState` falls back to the v3 key. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected. (4) `eventLog` is defaulted to `[]` for saves that predate the event-log feature; rows are guarded via `normalizeEvent` and any lacking a `taskId` are dropped. This is a backward-compatible additive field, so the storage key is **not** bumped.
 
 > ⚠️ **Naming:** `session.workRate` and `session.skillBonus` predate the conditions system; the field names are kept for save compatibility. `workRate` is the base per-tick-day rate of every `'work'` tracker, and `skillBonus` multiplies the value of *any* matched tag link (not just skills).

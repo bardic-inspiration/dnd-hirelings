@@ -1,6 +1,7 @@
 import { MODIFIER_REGISTRY } from '../logic/tags.js';
 import { seedTagRegistry } from '../logic/tagRegistry.js';
 import { normalizeCondition, migrateLegacyWork } from '../logic/conditions.js';
+import { normalizeEvent } from '../logic/eventLog.js';
 
 /**
  * Central registry of every localStorage key the app reads or writes.
@@ -36,6 +37,7 @@ export const DEFAULT_STATE = {
   tasks: [],
   inventory: [],
   tagRegistry: seedTagRegistry(),
+  eventLog: [],
 };
 
 // Guards a raw tagRegistry from storage/import: keeps only a pure object-of-objects
@@ -104,6 +106,8 @@ function migrateTag(tag) {
  * - Legacy `task.work` tags + `task.workProgress` buckets migrated to `task.conditions`
  *   via `migrateLegacyWork` (v3 → v4); the deprecated `work` namespace is pruned from
  *   stored tag registries
+ * - Missing `eventLog` (saves predating the event-log feature) defaults to `[]`; rows
+ *   are guarded via `normalizeEvent` and any lacking a `taskId` are dropped
  *
  * @param {object} raw - Potentially stale or partial state from localStorage or a file
  * @returns {GameState}
@@ -165,6 +169,11 @@ export function normalizeState(raw) {
     bank:           s.bank           ?? 100,
     title:          s.title          ?? 'GUILD MANAGER',
   };
+  // Event log defaults to empty for saves that predate the feature; rows are
+  // guarded and any missing a taskId are dropped.
+  state.eventLog = Array.isArray(raw.eventLog)
+    ? raw.eventLog.map(normalizeEvent).filter(Boolean)
+    : [];
   return state;
 }
 
