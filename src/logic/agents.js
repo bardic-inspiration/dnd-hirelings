@@ -105,7 +105,7 @@ export function tryAssignTask(agent, selectedTaskId, tasks) {
 /**
  * Returns true if the activity tag represents something currently in-progress.
  * For `task:<id>` activities, checks that the task exists and is not complete.
- * Non-task activities (items, equipment) are always considered active.
+ * Non-task activities (items, bound items) are always considered active.
  *
  * @param {string} activityTag
  * @param {Task[]} tasks
@@ -159,8 +159,8 @@ export function agentsAssignedTo(taskId, agents) {
 }
 
 /**
- * Returns items carried in the agent's bag (excludes equipped items).
- * Reads `item:<name>=<qty>` activity tags only; `equip:*` tags are excluded.
+ * Returns items carried in the agent's bag (excludes bound items).
+ * Reads `item:<name>=<qty>` activity tags only; `bind:*` tags are excluded.
  *
  * @param {string[]} activities
  * @returns {{ name: string, quantity: number, tag: string }[]}
@@ -175,26 +175,45 @@ export function getPersonalItems(activities) {
 }
 
 /**
- * Returns items the agent has equipped, parsed from `equip:<slot>:item:<name>` activity tags.
+ * Returns items the agent has bound, parsed from `bind:[<slot>:]item:<name>` activity tags.
+ *
+ * Slot is optional: `bind:item:<name>` yields `slot: null`, while
+ * `bind:<slot>:item:<name>` yields the slot name.
  *
  * @param {string[]} activities
- * @returns {{ slot: string, name: string, tag: string }[]}
+ * @returns {{ slot: string|null, name: string, tag: string }[]}
  */
-export function getEquippedItems(activities) {
+export function getBoundItems(activities) {
   return activities
-    .filter(tag => {
-      const parsed = parseTag(tag);
-      return parsed.segments[0] === 'equip' && parsed.segments[2] === 'item' && parsed.segments.length >= 4;
+    .map(tag => ({ tag, parsed: parseTag(tag) }))
+    .filter(({ parsed }) => {
+      if (parsed.segments[0] !== 'bind') return false;
+      // `bind:item:<name>` (no slot) or `bind:<slot>:item:<name>` (slotted).
+      return (parsed.segments[1] === 'item' && parsed.segments.length >= 3)
+        || (parsed.segments[2] === 'item' && parsed.segments.length >= 4);
     })
-    .map(tag => {
-      const parsed = parseTag(tag);
-      return { slot: parsed.segments[1], name: parsed.segments[3], tag };
-    });
+    .map(({ tag, parsed }) => parsed.segments[1] === 'item'
+      ? { slot: null, name: parsed.segments[2], tag }
+      : { slot: parsed.segments[1], name: parsed.segments[3], tag });
 }
 
 /**
- * Returns a `{ name → totalQty }` map for everything the agent holds (bag + equipped slots).
- * Equipped items each count as 1 unit regardless of any qty value.
+ * Whether the agent defines a slot schema that constrains binding.
+ *
+ * Stub: per-agent slot schemas are not implemented yet, so this is always false.
+ * The bind flow branches on it so slot-aware binding can be added later without
+ * touching call sites.
+ *
+ * @param {Agent} agent
+ * @returns {boolean}
+ */
+export function hasSlotSchema(agent) {
+  return false;
+}
+
+/**
+ * Returns a `{ name → totalQty }` map for everything the agent holds (bag + bound slots).
+ * Bound items each count as 1 unit regardless of any qty value.
  * Used by `AGENT_DELETE` to return items to inventory.
  *
  * @param {string[]} activities
@@ -205,7 +224,7 @@ export function collectAllHeldItems(activities) {
   for (const { name, quantity } of getPersonalItems(activities)) {
     totals[name] = (totals[name] || 0) + quantity;
   }
-  for (const { name } of getEquippedItems(activities)) {
+  for (const { name } of getBoundItems(activities)) {
     totals[name] = (totals[name] || 0) + 1;
   }
   return totals;
@@ -213,24 +232,24 @@ export function collectAllHeldItems(activities) {
 
 /**
  * Returns the agent's effective attribute list, applying additive `bonus,*` values
- * from all currently equipped items.
+ * from all currently bound items.
  *
- * For each equipped item in inventory, `bonus,<path>=<n>` tags are summed by path key
+ * For each bound item in inventory, `bonus,<path>=<n>` tags are summed by path key
  * and added to the matching agent attribute value. If no agent attribute exists for a
  * bonus path, the bonus is injected as a new tag so downstream consumers (e.g. work
  * computation) can find it.
  *
  * @param {string[]} agentAttributes - Agent's `attributes` array
- * @param {string[]} activities - Agent's `activities` array (used to find equipped items)
+ * @param {string[]} activities - Agent's `activities` array (used to find bound items)
  * @param {InventoryItem[]} inventory - Full inventory (used to read item `attributes`)
  * @returns {string[]} New attribute array with bonuses applied
  */
 export function getEffectiveAttributes(agentAttributes, activities, inventory) {
-  const equipped = getEquippedItems(activities);
-  if (!equipped.length) return agentAttributes;
+  const bound = getBoundItems(activities);
+  if (!bound.length) return agentAttributes;
 
   const bonusMap = {}; // { 'ability:str': 2, 'skill:arcana': 1, ... }
-  for (const { name } of equipped) {
+  for (const { name } of bound) {
     const item = inventory.find(item => item.name.toLowerCase() === name.toLowerCase());
     if (!item) continue;
     for (const tag of (item.attributes ?? [])) {

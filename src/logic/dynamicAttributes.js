@@ -30,8 +30,8 @@ function xpForLevel(lvl) {
 /**
  * Derives all computed stats for an agent from their raw data.
  *
- * Applies equipment bonuses via `getEffectiveAttributes` before computing stats,
- * so equipped items that grant ability bonuses are reflected in AC, HP, etc.
+ * Applies bound-item bonuses via `getEffectiveAttributes` before computing stats,
+ * so bound items that grant ability bonuses are reflected in AC, HP, etc.
  *
  * Formulas:
  * - Level: `floor(0.5 * (1 + sqrt(1 + xp / 125)))`, min 1
@@ -42,7 +42,7 @@ function xpForLevel(lvl) {
  * - Proficiency: `2 + floor((level - 1) / 4)`
  *
  * @param {Agent} agent - `agent.hp === null` means "at full health"
- * @param {InventoryItem[]} [inventory] - Used to resolve `bonus,*` tags on equipped items
+ * @param {InventoryItem[]} [inventory] - Used to resolve `bonus,*` tags on bound items
  * @returns {{ xp: number, level: number, xpProgress: number, proficiency: number, ac: number, hp: number, hpMax: number }}
  */
 export function computeDynamicAttributes(agent, inventory = []) {

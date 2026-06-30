@@ -311,7 +311,7 @@ export function flattenRegistry(registry, expanded) {
 // --- Usage counts ---
 
 // Collects every tag string currently applied across the game state: authored
-// attribute tags, dynamic activity tags (task assignments, carried & equipped
+// attribute tags, dynamic activity tags (task assignments, carried & bound
 // items), AND condition tag links (a tracker's `tagPath` is a valid tag string),
 // so usage counts and deletion warnings reflect all live references. Order is
 // irrelevant — the caller only counts occurrences.
