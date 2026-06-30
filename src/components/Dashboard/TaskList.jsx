@@ -15,9 +15,9 @@ export default function TaskList() {
         {sorted.map(task => <TaskCard key={task.id} task={task} />)}
         <button
           className="add-card add-task"
-          onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_CREATE' }); }}
-          onContextMenu={e => { e.preventDefault(); e.stopPropagation(); openLibrary('task'); }}
-          title="Click to add. Right click for the library."
+          onClick={e => { e.stopPropagation(); openLibrary('task'); }}
+          onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'TASK_CREATE' }); }}
+          title="Click for the library. Right click to add."
         >+ TASK</button>
       </div>
     </div>
