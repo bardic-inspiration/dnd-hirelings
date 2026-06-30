@@ -674,6 +674,36 @@ body {
   animation: flash-error 0.65s ease-out forwards;
 }
 
+/* Agent card header — mirrors .task-header */
+.agent-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* Collapse/expand toggle — mirrors .task-toggle */
+.agent-toggle {
+  font-size: var(--fs-base);
+  font-weight: 400;
+  color: var(--dim);
+  cursor: pointer;
+  padding: 0 3px;
+  user-select: none;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-family: inherit;
+  transition: color 0.1s;
+}
+.agent-toggle:hover { color: var(--fg); }
+
+/* Collapsed cards strip — second grid per column, sized to content */
+.card-grid--collapsed {
+  flex: 0 0 auto;
+  border-top: var(--line) solid var(--border);
+}
+
 /* ============================================================
    ADD BUTTONS
    Each add button mirrors the geometry of the object it creates,

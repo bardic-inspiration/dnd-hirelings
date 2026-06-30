@@ -15,11 +15,15 @@ const UIContext = createContext(null);
  * `pendingApply` holds a tag/condition awaiting a board-entity click (selection
  * mode, hosted by App.jsx): `null | { kind: 'tag', tag } | { kind: 'condition', template }`.
  *
+ * `collapsedAgents` is a Set of agent IDs the user has explicitly collapsed.
+ * Agents default to expanded; only collapsed cards enter the Set.
+ *
  * @param {{ children: React.ReactNode }} props
  */
 export function UIProvider({ children }) {
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [expandedTasks, setExpandedTasks]   = useState(new Set());
+  const [collapsedAgents, setCollapsedAgents] = useState(new Set());
   const [playing, setPlaying]               = useState(false);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [configProps, setConfigProps]       = useState(null);
@@ -31,6 +35,14 @@ export function UIProvider({ children }) {
 
   const toggleExpanded = useCallback((id) => {
     setExpandedTasks(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAgentCollapsed = useCallback((id) => {
+    setCollapsedAgents(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
@@ -56,6 +68,7 @@ export function UIProvider({ children }) {
     <UIContext.Provider value={{
       selectedTaskId, setSelectedTaskId,
       expandedTasks, toggleExpanded,
+      collapsedAgents, toggleAgentCollapsed,
       playing, setPlaying,
       selectedItemId, setSelectedItemId,
       configProps, openConfig, closeConfig,
