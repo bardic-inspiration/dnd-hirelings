@@ -2,6 +2,7 @@ import { formatClockParts } from './time.js';
 import { getCurrentTask, getEffectiveAttributes } from './agents.js';
 import { checkTaskComplete, computeBlockedTaskIds, applyTaskComplete } from './tasks.js';
 import { computeConditionContribution } from './conditions.js';
+import { makeWorkEvent, makeCompleteEvent, capEventLog, MAX_LOG_ROWS } from './eventLog.js';
 
 /**
  * Returns the number of in-game minutes that one tick advances the clock.
@@ -42,6 +43,12 @@ export function getPlayIntervalMs(session) {
  * Completion is evaluated for every task at the end of every tick, so manually
  * edited condition progress also completes on the next tick.
  *
+ * When `session.logging.enabled` is not false, appends one `work_contribution`
+ * event per (agent, condition, game day) and one `task_complete` event per task
+ * that finishes this tick to `newState.eventLog` (FIFO-capped at
+ * `session.logging.maxRows`). A multi-day tick is split into one row per day.
+ * Task progress is mutated identically whether or not logging is enabled.
+ *
  * Returns the accumulated per-condition progress rates for the RAF interpolation loop.
  *
  * @param {GameState} state
@@ -55,6 +62,19 @@ export function advanceTime(state) {
 
   const stepMins = getStepMinutes(session);
   const stepDays = stepMins / 1440;
+
+  // Event-log accumulation. `seq` continues from the last retained entry's id so
+  // ids stay monotonic even after FIFO trimming (the live length can lag the
+  // total appended). `dayCount` splits a multi-day tick into per-day rows.
+  // Logging is gated by the `session.logging` stub config (enabled + retention cap).
+  const logging    = session.logging ?? {};
+  const logEnabled = logging.enabled !== false;
+  const maxRows    = Number.isFinite(logging.maxRows) ? logging.maxRows : MAX_LOG_ROWS;
+  const newEvents = [];
+  const lastEntry = state.eventLog?.[state.eventLog.length - 1];
+  let seq = (lastEntry && Number.isFinite(lastEntry.seq) ? lastEntry.seq : -1) + 1;
+  const clockBefore = parseFloat(session.clock) || 0;
+  const dayCount = Math.max(1, Math.round(stepDays));
 
   let tasks = state.tasks.map(task => ({
     ...task,
@@ -97,7 +117,22 @@ export function advanceTime(state) {
           for (const condition of task.conditions) {
             const rate = computeConditionContribution(condition, { effectiveAttributes, session: newSession, stepDays });
             if (rate <= 0) continue;
+            const startProgress = condition.progress;
             condition.progress += rate;
+            // When logging is enabled, split the tick's contribution into per-day
+            // rows so the log is day-granular even when timeStep spans several days.
+            // Snapshots derive from startProgress, so progress is mutated once and
+            // is identical whether or not logging is on.
+            if (logEnabled) {
+              const perDay = rate / dayCount;
+              for (let day = 1; day <= dayCount; day++) {
+                const clock = clockBefore + day * 1440;
+                newEvents.push(makeWorkEvent({
+                  seq: seq++, clock, day: Math.floor(clock / 1440),
+                  agent, task, condition, delta: perDay, progress: startProgress + day * perDay,
+                }));
+              }
+            }
             taskProgressPerTick[task.id]              ??= {};
             taskProgressPerTick[task.id][condition.id]  = (taskProgressPerTick[task.id][condition.id] ?? 0) + rate;
             agentContributed = true;
@@ -110,8 +145,14 @@ export function advanceTime(state) {
   }
 
   // Complete finished tasks
+  const completionClock = clockBefore + stepMins;
   for (const task of tasks) {
     if (!task.isComplete && checkTaskComplete(task, tasksWithEligibleAgents.has(task.id))) {
+      if (logEnabled) {
+        newEvents.push(makeCompleteEvent({
+          seq: seq++, clock: completionClock, day: Math.floor(completionClock / 1440), task,
+        }));
+      }
       const result = applyTaskComplete(task.id, tasks, newAgents, inventory);
       tasks     = result.newTasks;
       newAgents = result.newAgents;
@@ -121,9 +162,10 @@ export function advanceTime(state) {
   }
 
   newSession.clock = (parseFloat(newSession.clock) || 0) + stepMins;
+  const eventLog = capEventLog([...(state.eventLog ?? []), ...newEvents], maxRows);
 
   return {
-    newState: { ...state, agents: newAgents, tasks, inventory, session: newSession },
+    newState: { ...state, agents: newAgents, tasks, inventory, session: newSession, eventLog },
     flashAgentIds,
     taskProgressPerTick,
   };

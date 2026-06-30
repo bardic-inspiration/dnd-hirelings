@@ -1,13 +1,14 @@
 // Session persistence: save state to a JSON file (with native "Save As" dialog
 // where supported), and load state from a user-selected JSON file.
 
+import { downloadFile } from './download.js';
+
 const SAVE_TYPES = [{ description: 'Hireling session', accept: { 'application/json': ['.json'] } }];
 
 /**
- * Serializes the full game state to a JSON file via the native Save As dialog
- * (File System Access API). Falls back to a programmatic `<a>.download` on
- * browsers that don't support `showSaveFilePicker`. Silently no-ops if the user
- * cancels the dialog (AbortError).
+ * Serializes the full game state to a JSON file via the shared `downloadFile`
+ * helper (native Save As dialog where supported, `<a>.download` fallback
+ * otherwise).
  *
  * @param {GameState} state
  * @returns {Promise<void>}
@@ -15,28 +16,7 @@ const SAVE_TYPES = [{ description: 'Hireling session', accept: { 'application/js
 export async function saveStateToFile(state) {
   const json = JSON.stringify(state, null, 2);
   const suggestedName = `hirelings-${state.session?.id || 'export'}.json`;
-
-  if (typeof window.showSaveFilePicker === 'function') {
-    try {
-      const handle = await window.showSaveFilePicker({ suggestedName, types: SAVE_TYPES });
-      const writable = await handle.createWritable();
-      await writable.write(json);
-      await writable.close();
-      return;
-    } catch (err) {
-      if (err.name === 'AbortError') return;
-      // Fall through to download fallback on any other failure.
-    }
-  }
-
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = suggestedName;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+  await downloadFile(json, suggestedName, { mime: 'application/json', pickerTypes: SAVE_TYPES });
 }
 
 /**
