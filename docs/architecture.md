@@ -67,7 +67,8 @@ Examples:
   req,skill:arcana=2      modifier tag — task requires Arcana ≥ 2
   block,trait:undead      modifier tag — task blocks undead agents
   bonus,ability:str=2     modifier tag — item grants +2 STR
-  equip:weapon:item:sword activity tag — agent has Sword equipped in weapon slot
+  bind:weapon:item:sword  activity tag — agent has Sword bound in weapon slot
+  bind:item:sword         activity tag — agent has Sword bound (no slot)
   task:abc1234            activity tag — agent assigned to task with this id
 ```
 

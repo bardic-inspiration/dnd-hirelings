@@ -6,7 +6,7 @@ Non-obvious behaviors, known edge cases, and things that will surprise a develop
 
 ## Tag Grammar is the Core Abstraction
 
-The entire data model for agent abilities, task requirements, item bonuses, and equipment is encoded in tag strings. If you touch anything that reads or writes attributes/activities/requirements arrays, you must go through `parseTag` / `buildTag` — never manipulate these strings with raw string operations. (Task progress is the exception: a condition's `tracker.tagPath` is a tag *path* that references the registry, not a stored tag — see Conditions below.)
+The entire data model for agent abilities, task requirements, item bonuses, and bound items is encoded in tag strings. If you touch anything that reads or writes attributes/activities/requirements arrays, you must go through `parseTag` / `buildTag` — never manipulate these strings with raw string operations. (Task progress is the exception: a condition's `tracker.tagPath` is a tag *path* that references the registry, not a stored tag — see Conditions below.)
 
 The grammar:
 
@@ -16,7 +16,7 @@ The grammar:
 
 - The **modifier** (`req`, `block`, `bonus`) is separated from the content path by a comma, not a colon. This tripped up older code that used a colon and is what the migration in `normalizeState` → `migrateTag()` fixes.
 - **Segments** form a path. The full path is the identity key for deduplication (`mergeAttribute` replaces any tag with the same modifier + path).
-- `equip:<slot>:item:<name>` and `task:<id>` tags live in `activities`, not `attributes`. Don't look for them in `attributes`.
+- `bind:[<slot>:]item:<name>` and `task:<id>` tags live in `activities`, not `attributes`. Don't look for them in `attributes`.
 
 ---
 
@@ -25,9 +25,22 @@ The grammar:
 These are two separate arrays on every agent:
 
 - `attributes` — authored properties: skills, abilities, class, race, traits, items the agent permanently "has" in a data sense.
-- `activities` — runtime state: current task assignments (`task:<id>`), items in the bag (`item:<name>=qty`), equipped items (`equip:<slot>:item:<name>`).
+- `activities` — runtime state: current task assignments (`task:<id>`), items in the bag (`item:<name>=qty`), bound items (`bind:[<slot>:]item:<name>`).
 
 Several functions (`validateAssignment`, `isAttributeActive`) merge both arrays together when checking requirements, because a task assignment (`task:<id>`) is itself a matching tag that may satisfy a requirement like `req,task:<id>`.
+
+---
+
+## Assign vs Bind (and Slots)
+
+Two distinct, deliberately separated concepts operate on items:
+
+- **Assign** — an item is allocated *to an agent* (the give / transfer / sell / return flow via `ITEM_PLACE` and `AGENT_RETURN_ITEM`). On an agent card, **left-clicking** a bag item returns it to global inventory and re-selects it, arming the existing allocation flow (other agents become transfer targets, the bank a sell target).
+- **Bind** — an item is bound *to a Slot* inside the agent (`AGENT_BIND_ITEM` / `AGENT_UNBIND_ITEM`, stored as `bind:[<slot>:]item:<name>` activity tags, read by `getBoundItems`). On an agent card, **right-clicking** a bag item binds it; right-clicking a bound chip unbinds it.
+
+**Slot is optional.** `bind:item:<name>` has no slot; `bind:<slot>:item:<name>` is slotted. `getBoundItems` parses both, returning `slot: null` for the former.
+
+> ⚠️ **Needs clarification:** the per-agent **slot schema** that would constrain binding (which slots exist, what each accepts) is **not implemented**. `hasSlotSchema(agent)` is a stub that always returns `false`, so the bind flow currently always takes the no-slot branch (`bind:item:<name>`). When slot schemas land, the `if (hasSlotSchema(agent))` branch in `AgentCard`'s bind handler should prompt for a slot.
 
 ---
 
@@ -48,7 +61,7 @@ A task with **zero conditions** carries an implied "clock advanced" condition: i
 
 Completion is evaluated only inside `advanceTime` (plus the manual ✓ button) — manually editing a condition's progress to ≥ target completes the task on the *next tick*, not instantly.
 
-> ⚠️ **Needs clarification:** an agent can carry at most one attribute per exact path (`mergeAttribute` dedupes by path), so multi-match resolution is currently moot; if effective attributes ever stack duplicates (e.g. from equipment bonuses), `workContribution`'s `.find` takes the first.
+> ⚠️ **Needs clarification:** an agent can carry at most one attribute per exact path (`mergeAttribute` dedupes by path), so multi-match resolution is currently moot; if effective attributes ever stack duplicates (e.g. from bound-item bonuses), `workContribution`'s `.find` takes the first.
 
 ---
 

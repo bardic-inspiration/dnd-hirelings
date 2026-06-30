@@ -12,7 +12,7 @@ Guild Manager lets players create hirelings, assign them tasks, and run a game c
 - **Tasks** — Define jobs with work requirements and gold rewards
 - **Game clock** — Play/pause/step time; the clock assigns work to available agents and resolves completed tasks
 - **Tag system** — Path-based `modifier,type:subtype=value` tags drive agent attributes, task requirements, and rewards
-- **Equipment** — Agents carry items in a personal Bag and equip them to named slots (weapon, armor, off-hand, ring, head, feet); equipped items can grant attribute bonuses via `mod,*` tags
+- **Bind** — Agents carry items in a personal Bag (left-click to allocate: transfer, sell, or return) and bind them to optional Slots (right-click to bind/unbind); bound items can grant attribute bonuses via `bonus,*` tags
 - **Tag Registry** — A live, editable index of every tag structure in your game; auto-registers tags as you author them and supports YAML export/import
 - **Preset library** — Right-click any `+AGENT`, `+TASK`, or `+ITEM` button to open a searchable library with an editable preview; left-click still creates a blank object
 - **UI** — Editable fields, drag-select, color palettes, no page scroll
@@ -27,9 +27,9 @@ Tags follow the form `modifier,path:path=value` where modifier and value are opt
 | With modifier | `req,skill:arcana=4` | Task requires Arcana ≥ 4 |
 | Block modifier | `block,trait:undead` | Task blocks agents with the undead trait |
 | Work tag | `work:skill:arcana=8` | Task costs 8 skill (Arcana) work |
-| Mod modifier | `mod,ability:str=1` | Item grants +1 STR when equipped |
+| Bonus modifier | `bonus,ability:str=1` | Item grants +1 STR when bound |
 
-Registered namespaces: `ability` (STR/DEX/CON/INT/WIS/CHA), `skill` (all 18), `task`, `tool`, `trait`, `class`, `race`, `level`, `item`, `work`, `equip`. Tags outside the registry are valid and displayed as raw text.
+Registered namespaces: `ability` (STR/DEX/CON/INT/WIS/CHA), `skill` (all 18), `task`, `tool`, `trait`, `class`, `race`, `level`, `item`, `work`, `bind`. Tags outside the registry are valid and displayed as raw text.
 
 ## Tag Registry
 

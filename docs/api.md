@@ -90,8 +90,8 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 | `AGENT_ADD_ACTIVITY` | `{ id, tag: string }` | Add activity tag (task assignment or item grant) |
 | `AGENT_REMOVE_ACTIVITY` | `{ id, tag: string }` | Remove exact activity tag |
 | `AGENT_RETURN_ITEM` | `{ id, itemName: string }` | Move all of item from agent's bag back to inventory |
-| `AGENT_EQUIP_ITEM` | `{ id, itemName: string, slot: string }` | Move item from bag to equipped slot |
-| `AGENT_UNEQUIP_ITEM` | `{ id, slot: string, itemName: string }` | Move item from equipped slot back to bag |
+| `AGENT_BIND_ITEM` | `{ id, itemName: string, slot?: string }` | Bind item from bag into the agent; `slot` optional |
+| `AGENT_UNBIND_ITEM` | `{ id, itemName: string, slot?: string }` | Unbind item back to the bag; `slot` optional |
 
 ### Tasks
 
@@ -191,7 +191,8 @@ isActivityActive(activityTag: string, tasks: Task[]): boolean
 isAttributeActive(attrTag: string, agent: Agent, tasks: Task[]): boolean
 agentsAssignedTo(taskId: string, agents: Agent[]): Agent[]
 getPersonalItems(activities: string[]): { name: string, quantity: number, tag: string }[]
-getEquippedItems(activities: string[]): { slot: string, name: string, tag: string }[]
+getBoundItems(activities: string[]): { slot: string|null, name: string, tag: string }[]
+hasSlotSchema(agent: Agent): boolean
 collectAllHeldItems(activities: string[]): { [name: string]: number }
 getEffectiveAttributes(agentAttributes: string[], activities: string[], inventory: InventoryItem[]): string[]
 mergeItemQty(activities: string[], name: string, delta: number): string[]
@@ -366,7 +367,7 @@ interface Agent {
   rateUnit: string;       // display label, e.g. 'GP/DAY'
   description: string;
   attributes: string[];   // tag strings (skills, abilities, traits…)
-  activities: string[];   // task:<id>, item:<name>=<qty>, equip:<slot>:item:<name>
+  activities: string[];   // task:<id>, item:<name>=<qty>, bind:[<slot>:]item:<name>
   xp: number;
   hp: number | null;      // null = use computed hpMax
 }
@@ -410,7 +411,7 @@ interface InventoryItem {
   icon: string;
   description: string;
   value: number;          // gold value per unit (for selling)
-  attributes: string[];   // tag strings; bonus,* tags provide equipment bonuses
+  attributes: string[];   // tag strings; bonus,* tags provide bound-item bonuses
 }
 
 type TagRegistry = { [key: string]: TagRegistry }; // recursive keys-only tree
