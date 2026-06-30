@@ -516,6 +516,9 @@ body {
   border-color: var(--highlight);
   color: var(--highlight);
 }
+/* Interactive chip: left/right-click drives an action (allocate, bind, unbind). */
+.tag--action { cursor: pointer; }
+.tag--action:hover { border-color: var(--highlight); }
 
 .tag .x {
   color: var(--border);
