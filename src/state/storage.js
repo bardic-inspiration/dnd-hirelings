@@ -84,6 +84,9 @@ function migrateTag(tag) {
   if (typeof tag !== 'string') return tag;
   // Strip legacy '#' sigil from pre-path-based format.
   if (tag.startsWith('#')) tag = tag.slice(1);
+  // Rename the legacy `equip:` namespace to `bind:` (equip→bind refactor). Keeps
+  // already-equipped items bound after the upgrade.
+  if (tag.startsWith('equip:')) tag = `bind:${tag.slice('equip:'.length)}`;
   // Migrate modifier:path to modifier,path (comma separator introduced in v4 grammar).
   for (const mod of Object.keys(MODIFIER_REGISTRY)) {
     if (tag.startsWith(`${mod}:`)) return `${mod},${tag.slice(mod.length + 1)}`;
@@ -96,7 +99,7 @@ function migrateTag(tag) {
  *
  * Handles:
  * - Missing fields (filled from `DEFAULT_STATE`)
- * - Legacy tag formats (`#tag` → `tag`, `modifier:path` → `modifier,path`)
+ * - Legacy tag formats (`#tag` → `tag`, `modifier:path` → `modifier,path`, `equip:` → `bind:`)
  * - `tagLibrary` → `tagRegistry` field rename
  * - Corrupt or missing `tagRegistry` (falls back to `seedTagRegistry()`)
  * - `qty` → `quantity` field rename on inventory items and task result items
@@ -151,6 +154,12 @@ export function normalizeState(raw) {
   // The `work` namespace was replaced by the conditions system; prune it from
   // stored registries so deprecated work tags can't be re-authored.
   delete state.tagRegistry.work;
+  // The `equip` namespace was renamed to `bind`; migrate stored registries so the
+  // old slot-name children carry over and no stale `equip` namespace lingers.
+  if (state.tagRegistry.equip) {
+    state.tagRegistry.bind = { ...state.tagRegistry.equip, ...(state.tagRegistry.bind ?? {}) };
+    delete state.tagRegistry.equip;
+  }
   const s = raw.session || {};
   // `timeStep` is stored as a number (days per tick). Legacy sessions persisted it
   // as a string, so coerce here; clamp out-of-range or non-numeric values to 1.
