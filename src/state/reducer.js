@@ -9,7 +9,7 @@ import { collectAllHeldItems, mergeItemQty } from '../logic/agents.js';
 // Registers any newly authored tag structures into the live tag registry. Returns
 // the same state reference when every path already exists, so it never forces an
 // extra render. Removing a tag in game never prunes the registry (only the Tag
-// Registry manager does); dynamic item-instance tags (equip/give) are intentionally
+// Registry manager does); dynamic item-instance tags (bind/give) are intentionally
 // not registered to avoid polluting the skeleton with per-item names.
 const registerTags = (state, ...tags) => {
   let reg = state.tagRegistry;
@@ -200,23 +200,27 @@ export function reducer(state, action) {
       return { ...state, agents, inventory };
     }
 
-    case 'AGENT_EQUIP_ITEM': {
+    case 'AGENT_BIND_ITEM': {
+      // Bind an item from the bag into the agent. `slot` is optional: with a slot
+      // the tag is `bind:<slot>:item:<name>`, without it `bind:item:<name>`.
       const { id, itemName, slot } = action;
+      const segments = slot ? ['bind', slot, 'item', itemName] : ['bind', 'item', itemName];
       const agents = state.agents.map(agent => {
         if (agent.id !== id) return agent;
         const activities = mergeItemQty(agent.activities, itemName, -1);
-        const equipTag = buildTag(['equip', slot, 'item', itemName]);
-        return { ...agent, activities: mergeAttribute(activities, equipTag) };
+        const bindTag = buildTag(segments);
+        return { ...agent, activities: mergeAttribute(activities, bindTag) };
       });
       return { ...state, agents };
     }
 
-    case 'AGENT_UNEQUIP_ITEM': {
+    case 'AGENT_UNBIND_ITEM': {
       const { id, slot, itemName } = action;
+      const segments = slot ? ['bind', slot, 'item', itemName] : ['bind', 'item', itemName];
       const agents = state.agents.map(agent => {
         if (agent.id !== id) return agent;
-        const equipTag = buildTag(['equip', slot, 'item', itemName]);
-        const without = agent.activities.filter(tag => tag !== equipTag);
+        const bindTag = buildTag(segments);
+        const without = agent.activities.filter(tag => tag !== bindTag);
         return { ...agent, activities: mergeItemQty(without, itemName, 1) };
       });
       return { ...state, agents };
