@@ -17,12 +17,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # Install Node 18 (matches the "engines" field in package.json)
-      # and cache npm downloads for faster subsequent runs.
+      # Install Node 20 (matches the "engines" field in package.json;
+      # Vite 8 requires 20.19+) and cache npm downloads for faster runs.
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: npm
 
       # Install exactly the versions in package-lock.json — no drift.
