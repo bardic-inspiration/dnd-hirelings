@@ -5,7 +5,7 @@
 export const MODIFIER_REGISTRY = {
   req:   { prefix: 'Req',   description: 'Counterpart must carry this',     taskField: 'requirements' },
   block: { prefix: 'Block', description: 'Counterpart must not carry this', taskField: 'requirements' },
-  bonus: { prefix: 'Bonus', description: 'Adds value to matching agent tag when equipped' },
+  bonus: { prefix: 'Bonus', description: 'Adds value to matching agent tag when bound' },
 };
 
 // Content path namespace — the keys-only skeleton seeded into a fresh tag library
@@ -23,7 +23,9 @@ export const TAG_REGISTRY = {
     stealth: {}, survival: {},
   },
   tool: {}, trait: {}, class: {}, race: {}, level: {}, item: {},
-  equip: { weapon: {}, armor: {}, offhand: {}, ring: {}, head: {}, feet: {} },
+  // `bind` slots an item into the agent. Slot is optional (`bind:item:<name>`);
+  // these slot-name children seed the namespace as hints for future slot schemas.
+  bind: { weapon: {}, armor: {}, offhand: {}, ring: {}, head: {}, feet: {} },
 };
 
 // Parses a tag string into { modifier, segments, value }.

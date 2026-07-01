@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
-import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getEquippedItems } from '../../logic/agents.js';
+import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, hasSlotSchema } from '../../logic/agents.js';
 import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
 import { parseTag } from '../../logic/tags.js';
 import EditableSpan from '../EditableSpan.jsx';
@@ -44,8 +44,6 @@ export default function AgentCard({ agent }) {
 
   const [giveQtyOpen, setGiveQtyOpen] = useState(false);
   const [giveQty, setGiveQty]       = useState(1);
-  const [equipTarget, setEquipTarget] = useState(null);
-  const [equipSlot, setEquipSlot]   = useState('');
 
   const selectedTask = selectedTaskId ? state.tasks.find(task => task.id === selectedTaskId) : null;
   const selectedItem = selectedItemId ? state.inventory.find(item => item.id === selectedItemId) : null;
@@ -68,7 +66,7 @@ export default function AgentCard({ agent }) {
   };
 
   const personalItems   = getPersonalItems(agent.activities);
-  const equippedItems   = getEquippedItems(agent.activities);
+  const boundItems      = getBoundItems(agent.activities);
   const dyn = computeDynamicAttributes(agent, state.inventory);
 
   // Give `quantity` units of the selected item to this agent (clamped to stock by
@@ -82,16 +80,33 @@ export default function AgentCard({ agent }) {
     setGiveQtyOpen(false);
     if (given >= selectedItem.quantity) setSelectedItemId(null);
   };
-  const openEquip = (e, name) => {
+  // Left-click a bag item: return it to global inventory and select it, arming the
+  // existing allocation flow (agent cards become transfer targets, bank a sell
+  // target, item already back in inventory). The reducer merges the returned stack
+  // into the matching inventory row by name, so select that row by name lookup.
+  const allocateItem = (e, name) => {
     e.stopPropagation();
-    setEquipTarget(name);
-    setEquipSlot('');
+    dispatch({ type: 'AGENT_RETURN_ITEM', id: agent.id, itemName: name });
+    const existing = state.inventory.find(item => item.name.trim().toLowerCase() === name.trim().toLowerCase());
+    if (existing) setSelectedItemId(existing.id);
   };
-  const handleEquip = (e) => {
+  // Right-click a bag item: bind it into the agent.
+  const bindItem = (e, name) => {
+    e.preventDefault();
     e.stopPropagation();
-    if (!equipSlot.trim()) return;
-    dispatch({ type: 'AGENT_EQUIP_ITEM', id: agent.id, itemName: equipTarget, slot: equipSlot.trim().toLowerCase() });
-    setEquipTarget(null);
+    if (hasSlotSchema(agent)) {
+      // TODO: agent has a slot schema — prompt the user to choose a Slot for this
+      // item before binding. Slot schemas are not implemented yet.
+    } else {
+      // No slot schema: bind without a slot.
+      dispatch({ type: 'AGENT_BIND_ITEM', id: agent.id, itemName: name });
+    }
+  };
+  // Right-click a bound item: unbind it back to the bag.
+  const unbindItem = (e, slot, name) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dispatch({ type: 'AGENT_UNBIND_ITEM', id: agent.id, slot, itemName: name });
   };
 
   const handleCardClick = () => {
@@ -202,79 +217,67 @@ export default function AgentCard({ agent }) {
               value={String(agent.rate)}
               onCommit={v => { const n = parseFloat(v); dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rate: isNaN(n) ? 0 : n } }); }}
             />
-            <EditableSpan
-              className="unit"
-              value={agent.rateUnit}
-              onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rateUnit: v } })}
+          ))}
+          <button className="tag-add" title="Add attribute" onClick={e => {
+            e.stopPropagation();
+            openTagRegistry({ target: { type: 'agent', id: agent.id } });
+          }}>+</button>
+        </div>
+      </div>
+
+      {/* Bag — select an inventory item, then left-click the card to give 1 or
+          right-click to give a chosen quantity. */}
+      <div className="tag-section">
+        <div className="tag-label">BAG</div>
+        <div className="tag-list">
+          {personalItems.length === 0 && !giveQtyVisible && <span className="empty-inline">—</span>}
+          {personalItems.map(({ name, quantity, tag }) => (
+            <span
+              key={tag}
+              className="tag tag--action"
+              title="Left-click: allocate · Right-click: bind"
+              onClick={e => allocateItem(e, name)}
+              onContextMenu={e => bindItem(e, name)}
+            >
+              {name}
+              {quantity > 1 && <span className="tag-value"> ×{quantity}</span>}
+            </span>
+          ))}
+        </div>
+        {giveQtyVisible && (
+          <div className="tag-list" onClick={e => e.stopPropagation()}>
+            <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>ASSIGN {selectedItem.name}:</span>
+            <input
+              type="number"
+              autoFocus
+              min={1}
+              max={selectedItem.quantity}
+              value={giveQty}
+              onChange={e => setGiveQty(Math.max(1, Number(e.target.value)))}
+              onKeyDown={e => { if (e.key === 'Enter') giveSelected(giveQty); if (e.key === 'Escape') { e.stopPropagation(); setGiveQtyOpen(false); } }}
+              style={{ ...INLINE_INPUT_STYLE, width: '48px' }}
             />
+            <button className="ctrl" onClick={() => giveSelected(giveQty)}>ASSIGN</button>
+            <button className="ctrl" onClick={e => { e.stopPropagation(); setGiveQtyOpen(false); }}>✕</button>
           </div>
+        )}
+      </div>
 
-          <EditableSpan
-            className="agent-desc"
-            value={agent.description}
-            placeholder="description"
-            onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { description: v } })}
-          />
-
-          {/* Attributes */}
-          <div className="tag-section">
-            <div className="tag-label">ATTRIBUTES</div>
-            <div className="tag-list">
-              {agent.attributes.map((tag, index) => (
-                <TagChip
-                  key={index}
-                  tagStr={tag}
-                  active={isAttributeActive(tag, agent, state.tasks)}
-                  onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
-                />
-              ))}
-              <button className="tag-add" title="Add attribute" onClick={e => {
-                e.stopPropagation();
-                openTagRegistry({ target: { type: 'agent', id: agent.id } });
-              }}>+</button>
-            </div>
-          </div>
-
-          {/* Bag — select an inventory item, then left-click the card to give 1 or
-              right-click to give a chosen quantity. */}
-          <div className="tag-section">
-            <div className="tag-label">BAG</div>
-            <div className="tag-list">
-              {personalItems.length === 0 && !giveQtyVisible && <span className="empty-inline">—</span>}
-              {personalItems.map(({ name, quantity, tag }) => (
-                <span key={tag} className="tag">
-                  {name}
-                  {quantity > 1 && <span className="tag-value"> ×{quantity}</span>}
-                  <span className="x" title="Equip" onClick={e => openEquip(e, name)}>⚔</span>
-                  <span className="x" title="Return to inventory" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_RETURN_ITEM', id: agent.id, itemName: name }); }}>↩</span>
-                </span>
-              ))}
-            </div>
-            {giveQtyVisible && (
-              <div className="tag-list" onClick={e => e.stopPropagation()}>
-                <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>GIVE {selectedItem.name}:</span>
-                <input
-                  type="number"
-                  autoFocus
-                  min={1}
-                  max={selectedItem.quantity}
-                  value={giveQty}
-                  onChange={e => setGiveQty(Math.max(1, Number(e.target.value)))}
-                  onKeyDown={e => { if (e.key === 'Enter') giveSelected(giveQty); if (e.key === 'Escape') { e.stopPropagation(); setGiveQtyOpen(false); } }}
-                  style={{ ...INLINE_INPUT_STYLE, width: '48px' }}
-                />
-                <button className="ctrl" onClick={() => giveSelected(giveQty)}>GIVE</button>
-                <button className="ctrl" onClick={e => { e.stopPropagation(); setGiveQtyOpen(false); }}>✕</button>
-              </div>
-            )}
-            {equipTarget && (
-              <div className="tag-list" onClick={e => e.stopPropagation()}>
-                <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>EQUIP {equipTarget}:</span>
-                <input placeholder="slot" value={equipSlot} onChange={e => setEquipSlot(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleEquip(e); if (e.key === 'Escape') { e.stopPropagation(); setEquipTarget(null); } }} style={{ ...INLINE_INPUT_STYLE, width: '80px' }} />
-                <button className="ctrl" onClick={handleEquip}>OK</button>
-                <button className="ctrl" onClick={e => { e.stopPropagation(); setEquipTarget(null); }}>✕</button>
-              </div>
-            )}
+      {/* Bound — right-click a chip to unbind it back to the bag. */}
+      {boundItems.length > 0 && (
+        <div className="tag-section">
+          <div className="tag-label">BOUND</div>
+          <div className="tag-list">
+            {boundItems.map(({ slot, name, tag }) => (
+              <span
+                key={tag}
+                className="tag tag--active tag--action"
+                title="Right-click: unbind"
+                onContextMenu={e => unbindItem(e, slot, name)}
+              >
+                {slot && <><span className="tag-value">[{slot}]</span>&nbsp;</>}{name}
+              </span>
+            ))}
           </div>
 
           {/* Equipped */}

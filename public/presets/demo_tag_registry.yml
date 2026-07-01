@@ -19,7 +19,7 @@ class:
   sorcerer:
   warlock:
   wizard:
-equip:
+bind:
   armor:
   feet:
   head:
