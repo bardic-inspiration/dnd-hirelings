@@ -15,9 +15,9 @@ export default function InventoryList() {
         {state.inventory.map(item => <ItemRow key={item.id} item={item} />)}
         <button
           className="add-card add-item"
-          onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_ADD' }); }}
-          onContextMenu={e => { e.preventDefault(); e.stopPropagation(); openLibrary('item'); }}
-          title="Click to add. Right click for the library."
+          onClick={e => { e.stopPropagation(); openLibrary('item'); }}
+          onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'INVENTORY_ADD' }); }}
+          title="Click for the library. Right click to add."
         >+ ITEM</button>
       </div>
       <BankPanel />

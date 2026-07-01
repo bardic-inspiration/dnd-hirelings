@@ -14,7 +14,7 @@ Guild Manager lets players create hirelings, assign them tasks, and run a game c
 - **Tag system** — Path-based `modifier,type:subtype=value` tags drive agent attributes, task requirements, and rewards
 - **Bind** — Agents carry items in a personal Bag (left-click to allocate: transfer, sell, or return) and bind them to optional Slots (right-click to bind/unbind); bound items can grant attribute bonuses via `bonus,*` tags
 - **Tag Registry** — A live, editable index of every tag structure in your game; auto-registers tags as you author them and supports YAML export/import
-- **Preset library** — Right-click any `+AGENT`, `+TASK`, or `+ITEM` button to open a searchable library with an editable preview; left-click still creates a blank object
+- **Preset library** — Left-click any `+AGENT`, `+TASK`, or `+ITEM` button to open a searchable library with an editable preview; right-click still creates a blank object
 - **UI** — Editable fields, drag-select, color palettes, no page scroll
 
 ## Tag Grammar

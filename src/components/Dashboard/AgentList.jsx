@@ -43,9 +43,9 @@ export default function AgentList() {
           {idleExpanded.map(a => <AgentCard key={a.id} agent={a} />)}
           <button
             className="add-card add-agent"
-            onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_CREATE' }); }}
-            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); openLibrary('agent'); }}
-            title="Click to add. Right click for the library."
+            onClick={e => { e.stopPropagation(); openLibrary('agent'); }}
+            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'AGENT_CREATE' }); }}
+            title="Click for the library. Right click to add."
           >+ AGENT</button>
         </div>
         {idleCollapsed.length > 0 && (
