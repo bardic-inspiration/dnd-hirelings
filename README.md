@@ -1,6 +1,6 @@
 # Guild Manager
 
-A lightweight single-page dashboard for managing NPC agents and tasks in tabletop RPG campaigns.
+A single-page dashboard for managing NPC agents and tasks in tabletop RPG campaigns.
 
 ## Overview
 
@@ -16,7 +16,7 @@ I'm a n00b learning about web development & design.  I use Claude Code, OpenCode
 
 ## Features
 
-- **Agents** — Create and customize hirelings with skills, rates, descriptions, and portraits
+- **Agents** — Create and customize characters (hirelings, NPCs, not AI agents) with skills, rates, descriptions, and portraits
 - **Tasks** — Define jobs with work requirements and gold rewards
 - **Game clock** — Play/pause/step time; the clock assigns work to available agents and resolves completed tasks
 - **Tag system** — Path-based `modifier,type:subtype=value` tags drive agent attributes, task requirements, and rewards
