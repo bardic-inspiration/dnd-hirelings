@@ -8,7 +8,7 @@ Guild Manager lets players create hirelings, assign them tasks, and run a game c
 
 ## AI Disclosure
 
-I'm a n00b learning about web development & design.  I use Claude Code, OpenCode, maybe a few other things.  This is an educational project for myself.  My goal is to learn how to use the latest tools to produce a high quality webapp.
+I'm a n00b learning about web development & design.  I use Claude Code, OpenCode, maybe a few other things.  This is an educational project for myself.  My goal is to learn coding, experiment with system design, and learn how to use the latest tools to produce a high quality webapp.
 
 | Human | Human & AI | AI |
 |-------|------------|----|
