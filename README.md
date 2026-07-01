@@ -6,6 +6,13 @@ A lightweight single-page dashboard for managing NPC agents and tasks in tableto
 
 Guild Manager lets players create hirelings, assign them tasks, and run a game clock that automatically distributes work and tracks progress. State persists to localStorage between sessions.
 
+## AI Disclosure
+
+I'm a n00b learning about web development & design.  I use Claude Code, OpenCode, maybe a few other things.  This is an educational project for myself.  My goal is to learn how to use the latest tools to produce a high quality webapp.
+
+| Human | Human & AI | AI |
+Design, Write Specs, Edit Code | Code Review, Git Mgmt, Testing | Generate Plans, Generate Code, Flag Issues
+
 ## Features
 
 - **Agents** — Create and customize hirelings with skills, rates, descriptions, and portraits
