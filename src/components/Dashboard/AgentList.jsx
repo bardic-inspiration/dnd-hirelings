@@ -5,7 +5,7 @@ import AgentCard from './AgentCard.jsx';
 
 export default function AgentList() {
   const { state, dispatch } = useGame();
-  const { openLibrary } = useUI();
+  const { openLibrary, collapsedAgents } = useUI();
   const { agents, tasks } = state;
 
   const active = [], idle = [];
@@ -15,14 +15,24 @@ export default function AgentList() {
   active.sort((a, b) => activeTaskCount(b, tasks) - activeTaskCount(a, tasks) || (b.lastAssigned ?? b.createdAt) - (a.lastAssigned ?? a.createdAt));
   idle.sort((a, b) => (b.lastAssigned ?? b.createdAt) - (a.lastAssigned ?? a.createdAt));
 
+  const activeExpanded  = active.filter(a => !collapsedAgents.has(a.id));
+  const activeCollapsed = active.filter(a =>  collapsedAgents.has(a.id));
+  const idleExpanded    = idle.filter(a => !collapsedAgents.has(a.id));
+  const idleCollapsed   = idle.filter(a =>  collapsedAgents.has(a.id));
+
   return (
     <div className="pane" id="agents-pane">
       <div className="column">
         <div className="col-label">ACTIVE</div>
         <div className="card-grid" id="active-agents">
           {!active.length && <div className="empty">—</div>}
-          {active.map(a => <AgentCard key={a.id} agent={a} />)}
+          {activeExpanded.map(a => <AgentCard key={a.id} agent={a} />)}
         </div>
+        {activeCollapsed.length > 0 && (
+          <div className="card-grid card-grid--collapsed">
+            {activeCollapsed.map(a => <AgentCard key={a.id} agent={a} />)}
+          </div>
+        )}
       </div>
       <div className="column">
         <div className="col-label col-label-row">
@@ -30,7 +40,7 @@ export default function AgentList() {
         </div>
         <div className="card-grid" id="idle-agents">
           {!idle.length && <div className="empty">—</div>}
-          {idle.map(a => <AgentCard key={a.id} agent={a} />)}
+          {idleExpanded.map(a => <AgentCard key={a.id} agent={a} />)}
           <button
             className="add-card add-agent"
             onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_CREATE' }); }}
@@ -38,6 +48,11 @@ export default function AgentList() {
             title="Click to add. Right click for the library."
           >+ AGENT</button>
         </div>
+        {idleCollapsed.length > 0 && (
+          <div className="card-grid card-grid--collapsed">
+            {idleCollapsed.map(a => <AgentCard key={a.id} agent={a} />)}
+          </div>
+        )}
       </div>
     </div>
   );

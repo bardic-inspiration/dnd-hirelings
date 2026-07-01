@@ -180,3 +180,16 @@ Setting `hp` to `0` explicitly means the agent is at zero HP, not "use max". Don
 ## Vite Virtual Modules Require Restart After First Install
 
 If `public/assets/portraits/` or `public/assets/items/` do not exist when `vite dev` starts, the `imageManifestPlugin` will return an empty file list and the pickers will show no images. Adding the directories and restarting the dev server (not just HMR) is required to pick up the change. Subsequent file additions within a running session do trigger hot-reload via the `fs.watch` in `configureServer`.
+
+---
+
+## Event Log is Per-Day, Tick-Driven, and Capped
+
+`advanceTime` is the only writer of `state.eventLog`. Consequences:
+
+- **Per-day rows even when `timeStep > 1`.** A multi-day tick is split into `dayCount = round(stepDays)` rows per (agent, condition), each carrying `delta = rate / dayCount`. The per-day deltas sum to the tick's full contribution; the per-row `progress` is the running snapshot, so each row is self-describing.
+- **Only tick-driven progress is logged.** Editing a condition's `progress` by hand (the click-to-edit field) bypasses `advanceTime` and is therefore **not** recorded. Don't expect the log to explain manually-set progress.
+- **The log is FIFO-capped** at `session.logging.maxRows` (default `MAX_LOG_ROWS`). Once trimmed, the oldest rows are gone — any future rollback can only reach back as far as the oldest retained row. `seq` is **not** renumbered on trim, so it stays a stable monotonic id (don't treat it as an array index).
+- **`session.logging` is a minimal stub.** Only `enabled` (master gate — when false, `advanceTime` emits no rows but progress still advances identically) and `maxRows` are wired today. The richer knobs discussed for it (logging interval, entity/temporal granularity, per-category filters) are intentionally deferred to the planned time-system refactor and the YAML configuration system — don't assume they exist yet. There is currently no UI for it (not in `ConfigModal`); it's edited via state/import only.
+
+> ⚠️ **Needs clarification:** Clock **rollback** (restoring prior task-progress state from the log) is intentionally **not** implemented yet — this pass is the logging foundation only. `task_complete` rows capture the task's `attributes` and `results` in `data` as a breadcrumb, but a future rollback must still decide how to reverse completion side effects (bank gold, reward items, spawned agents, agent unassignment) that the log does not currently undo.

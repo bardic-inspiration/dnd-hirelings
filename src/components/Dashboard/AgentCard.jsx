@@ -39,7 +39,8 @@ const INLINE_INPUT_STYLE = {
 
 export default function AgentCard({ agent }) {
   const { state, dispatch } = useGame();
-  const { selectedTaskId, selectedItemId, setSelectedItemId, openTagRegistry, openPortraits } = useUI();
+  const { selectedTaskId, selectedItemId, setSelectedItemId, openTagRegistry, openPortraits,
+          collapsedAgents, toggleAgentCollapsed } = useUI();
 
   const [giveQtyOpen, setGiveQtyOpen] = useState(false);
   const [giveQty, setGiveQty]       = useState(1);
@@ -56,6 +57,13 @@ export default function AgentCard({ agent }) {
     : selectedTask
       ? (validateAssignment(agent, selectedTask) ? ' agent-card--assignable' : ' agent-card--not-assignable')
       : '';
+
+  const isCollapsed = collapsedAgents.has(agent.id);
+
+  const handleToggle = (e) => {
+    e.stopPropagation(); // must not fire task-assign or item-give
+    toggleAgentCollapsed(agent.id);
+  };
 
   const personalItems   = getPersonalItems(agent.activities);
   const boundItems      = getBoundItems(agent.activities);
@@ -143,19 +151,20 @@ export default function AgentCard({ agent }) {
       onClick={handleCardClick}
       onContextMenu={handleCardContextMenu}
     >
-      <EditableSpan
-        className="agent-name"
-        value={agent.name}
-        onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { name: v || 'NEW HIRELING' } })}
-      />
-
-      <div
-        className="agent-icon"
-        title="Click to set image"
-        style={agent.icon ? { backgroundImage: `url("${agent.icon}")` } : {}}
-        onClick={handleIconClick}
-      >
-        {!agent.icon && 'NO IMAGE'}
+      {/* ── ALWAYS VISIBLE ───────────────────────────────────────── */}
+      <div className="agent-card-header">
+        <EditableSpan
+          className="agent-name"
+          value={agent.name}
+          onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { name: v || 'NEW HIRELING' } })}
+        />
+        <button
+          className="agent-toggle"
+          title={isCollapsed ? 'Expand' : 'Collapse'}
+          onClick={handleToggle}
+        >
+          {isCollapsed ? '+' : '−'}
+        </button>
       </div>
 
       <div className="agent-vitals">
@@ -183,42 +192,30 @@ export default function AgentCard({ agent }) {
           />
           <span className="vital-bar-max">LVL {dyn.level}</span>
         </div>
-        <div className="vital-stats-row">
-          <span>AC: {dyn.ac}</span>
-          <span>PB: +{dyn.proficiency}</span>
-        </div>
       </div>
 
-      <div className="agent-rate">
-        <EditableSpan
-          className="value"
-          value={String(agent.rate)}
-          onCommit={v => { const n = parseFloat(v); dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rate: isNaN(n) ? 0 : n } }); }}
-        />
-        <EditableSpan
-          className="unit"
-          value={agent.rateUnit}
-          onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rateUnit: v } })}
-        />
-      </div>
+      {/* ── HIDDEN WHEN COLLAPSED ────────────────────────────────── */}
+      {!isCollapsed && (
+        <>
+          <div className="vital-stats-row">
+            <span>AC: {dyn.ac}</span>
+            <span>PB: +{dyn.proficiency}</span>
+          </div>
 
-      <EditableSpan
-        className="agent-desc"
-        value={agent.description}
-        placeholder="description"
-        onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { description: v } })}
-      />
+          <div
+            className="agent-icon"
+            title="Click to set image"
+            style={agent.icon ? { backgroundImage: `url("${agent.icon}")` } : {}}
+            onClick={handleIconClick}
+          >
+            {!agent.icon && 'NO IMAGE'}
+          </div>
 
-      {/* Attributes */}
-      <div className="tag-section">
-        <div className="tag-label">ATTRIBUTES</div>
-        <div className="tag-list">
-          {agent.attributes.map((tag, index) => (
-            <TagChip
-              key={index}
-              tagStr={tag}
-              active={isAttributeActive(tag, agent, state.tasks)}
-              onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
+          <div className="agent-rate">
+            <EditableSpan
+              className="value"
+              value={String(agent.rate)}
+              onCommit={v => { const n = parseFloat(v); dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rate: isNaN(n) ? 0 : n } }); }}
             />
           ))}
           <button className="tag-add" title="Add attribute" onClick={e => {
@@ -282,37 +279,52 @@ export default function AgentCard({ agent }) {
               </span>
             ))}
           </div>
-        </div>
+
+          {/* Equipped */}
+          {equippedItems.length > 0 && (
+            <div className="tag-section">
+              <div className="tag-label">EQUIPPED</div>
+              <div className="tag-list">
+                {equippedItems.map(({ slot, name, tag }) => (
+                  <span key={tag} className="tag tag--active">
+                    <span className="tag-value">[{slot}]</span>&nbsp;{name}
+                    <span className="x" title="Unequip" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_UNEQUIP_ITEM', id: agent.id, slot, itemName: name }); }}>↩</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tasks */}
+          <div className="tag-section">
+            <div className="tag-label">TASKS</div>
+            <div className="tag-list">
+              {visibleActivities.length === 0 && <span className="empty-inline">—</span>}
+              {visibleActivities.map((tag, index) => {
+                const isCurrent = !foundCurrent;
+                if (isCurrent) foundCurrent = true;
+                return (
+                  <TagChip
+                    key={index}
+                    tagStr={tag}
+                    active={isCurrent}
+                    onRemove={() => dispatch({ type: 'AGENT_REMOVE_ACTIVITY', id: agent.id, tag })}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="tag-section action-row">
+            <button className="delete-btn" title="Duplicate hireling" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_DUPLICATE', id: agent.id }); }}>⎘ COPY</button>
+            <button className="delete-btn" onClick={e => {
+              e.stopPropagation();
+              if (confirm(`Delete hireling "${agent.name}"?`)) dispatch({ type: 'AGENT_DELETE', id: agent.id });
+            }}>× DELETE</button>
+          </div>
+        </>
       )}
-
-      {/* Tasks */}
-      <div className="tag-section">
-        <div className="tag-label">TASKS</div>
-        <div className="tag-list">
-          {visibleActivities.length === 0 && <span className="empty-inline">—</span>}
-          {visibleActivities.map((tag, index) => {
-            const isCurrent = !foundCurrent;
-            if (isCurrent) foundCurrent = true;
-            return (
-              <TagChip
-                key={index}
-                tagStr={tag}
-                active={isCurrent}
-                onRemove={() => dispatch({ type: 'AGENT_REMOVE_ACTIVITY', id: agent.id, tag })}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="tag-section action-row">
-        <button className="delete-btn" title="Duplicate hireling" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_DUPLICATE', id: agent.id }); }}>⎘ COPY</button>
-        <button className="delete-btn" onClick={e => {
-          e.stopPropagation();
-          if (confirm(`Delete hireling "${agent.name}"?`)) dispatch({ type: 'AGENT_DELETE', id: agent.id });
-        }}>× DELETE</button>
-      </div>
     </div>
   );
 }

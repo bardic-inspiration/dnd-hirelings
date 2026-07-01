@@ -5,6 +5,7 @@ import { PALETTES } from '../../constants/palettes.js';
 import { applyPalette, getStoredPalette } from '../../hooks/usePalette.js';
 import { formatClockParts, clockMinutesFromParts, DAYS_PER_YEAR } from '../../logic/time.js';
 import { saveStateToFile, loadStateFromFile } from '../../logic/session.js';
+import { saveEventLogToFile } from '../../logic/eventLog.js';
 import EditableSpan from '../EditableSpan.jsx';
 import HoldButton from './HoldButton.jsx';
 
@@ -38,6 +39,8 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
   };
 
   const handleSave = () => saveStateToFile(state);
+
+  const handleSaveLog = () => saveEventLogToFile(state.eventLog, session.id);
 
   const handleLoad = (e) => {
     const file = e.target.files?.[0];
@@ -125,6 +128,7 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
           LOAD
           <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleLoad} />
         </label>
+        <button className="ctrl" onClick={handleSaveLog} title="Export the per-day progress event log as CSV">LOG</button>
         <button className="ctrl" onClick={() => openTagRegistry()}>TAG REGISTRY</button>
         <button className="ctrl" onClick={openConfig}>SETTINGS</button>
       </div>

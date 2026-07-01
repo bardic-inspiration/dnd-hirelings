@@ -429,6 +429,9 @@ export function reducer(state, action) {
     case 'REPLACE_STATE':
       return normalizeState(action.newState);
 
+    case 'EVENTLOG_CLEAR':
+      return { ...state, eventLog: [] };
+
     case 'RESET':
       return { ...DEFAULT_STATE };
 

@@ -97,6 +97,10 @@ Two persistent selections in UIContext drive the same "pick a source, then click
 
 The game clock advances in discrete ticks (one `setInterval` per play interval). Between ticks, a `requestAnimationFrame` loop in `usePlayClock` calls `updateClockDisplayDOM()`, which directly manipulates the DOM to interpolate the clock year/day display and task progress bars. This bypasses React state for the interpolation so 60fps visuals don't force 60fps re-renders.
 
+### Event Log
+
+`advanceTime` records every contribution to (sub)task progress in `state.eventLog`: one `work_contribution` entry per **(agent, condition, game day)** and one `task_complete` entry per task that finishes the tick (a multi-day tick is split into one row per day). The log is the authoritative, in-state record — a browser SPA can't stream-append to a disk file, so the log lives in state (persisted to localStorage with everything else) and is exported to / imported from CSV on demand via `src/logic/eventLog.js` (`saveEventLogToFile` / `loadEventLogFromFile`, reusing the shared `src/logic/download.js` helper). It is FIFO-capped at `MAX_LOG_ROWS`. The schema is deliberately forward-compatible — an `eventType` column and a free-form `data` payload let later features (a planned clock **rollback** that restores prior progress, and richer event kinds) extend it without a storage migration. Rollback is not yet implemented; `task_complete` rows capture the task's tags and `results` as a breadcrumb for it.
+
 ### Preset System with Source Forking
 
 The library modal merges two preset pools:
@@ -161,7 +165,7 @@ The game loop bypasses this flow for display interpolation:
 
 ```
 setInterval (tick)
-     │  advanceTime(state) → dispatch(APPLY_TICK)
+     │  advanceTime(state) → dispatch(APPLY_TICK)   // newState includes appended eventLog rows
      ▼
 requestAnimationFrame loop
      │  updateClockDisplayDOM() → direct DOM writes
