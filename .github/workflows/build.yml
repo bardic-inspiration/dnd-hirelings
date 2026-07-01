@@ -1,0 +1,35 @@
+name: Build
+
+# Run this workflow on every pull request targeting master, and on
+# direct pushes to master (so a bad merge is caught even if it skips a PR).
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+jobs:
+  build:
+    name: Vite build
+    runs-on: ubuntu-latest
+    steps:
+      # Check out the PR's code into the runner's workspace.
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Install Node 20 (matches the "engines" field in package.json;
+      # Vite 8 requires 20.19+) and cache npm downloads for faster runs.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Install exactly the versions in package-lock.json — no drift.
+      - name: Install dependencies
+        run: npm ci
+
+      # The actual check: if the JSX fails to parse or the build breaks,
+      # this exits non-zero and the workflow is marked failed.
+      - name: Build
+        run: npm run build

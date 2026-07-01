@@ -196,7 +196,7 @@ export default function AgentCard({ agent }) {
 
       {/* ── HIDDEN WHEN COLLAPSED ────────────────────────────────── */}
       {!isCollapsed && (
-        <>
+        <div className="agent-hidden-when-collapsed">
           <div className="vital-stats-row">
             <span>AC: {dyn.ac}</span>
             <span>PB: +{dyn.proficiency}</span>
@@ -217,78 +217,89 @@ export default function AgentCard({ agent }) {
               value={String(agent.rate)}
               onCommit={v => { const n = parseFloat(v); dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rate: isNaN(n) ? 0 : n } }); }}
             />
-          ))}
-          <button className="tag-add" title="Add attribute" onClick={e => {
-            e.stopPropagation();
-            openTagRegistry({ target: { type: 'agent', id: agent.id } });
-          }}>+</button>
-        </div>
-      </div>
-
-      {/* Bag — select an inventory item, then left-click the card to give 1 or
-          right-click to give a chosen quantity. */}
-      <div className="tag-section">
-        <div className="tag-label">BAG</div>
-        <div className="tag-list">
-          {personalItems.length === 0 && !giveQtyVisible && <span className="empty-inline">—</span>}
-          {personalItems.map(({ name, quantity, tag }) => (
-            <span
-              key={tag}
-              className="tag tag--action"
-              title="Left-click: allocate · Right-click: bind"
-              onClick={e => allocateItem(e, name)}
-              onContextMenu={e => bindItem(e, name)}
-            >
-              {name}
-              {quantity > 1 && <span className="tag-value"> ×{quantity}</span>}
-            </span>
-          ))}
-        </div>
-        {giveQtyVisible && (
-          <div className="tag-list" onClick={e => e.stopPropagation()}>
-            <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>ASSIGN {selectedItem.name}:</span>
-            <input
-              type="number"
-              autoFocus
-              min={1}
-              max={selectedItem.quantity}
-              value={giveQty}
-              onChange={e => setGiveQty(Math.max(1, Number(e.target.value)))}
-              onKeyDown={e => { if (e.key === 'Enter') giveSelected(giveQty); if (e.key === 'Escape') { e.stopPropagation(); setGiveQtyOpen(false); } }}
-              style={{ ...INLINE_INPUT_STYLE, width: '48px' }}
+            <EditableSpan
+              className="unit"
+              value={agent.rateUnit}
+              onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rateUnit: v } })}
             />
-            <button className="ctrl" onClick={() => giveSelected(giveQty)}>ASSIGN</button>
-            <button className="ctrl" onClick={e => { e.stopPropagation(); setGiveQtyOpen(false); }}>✕</button>
-          </div>
-        )}
-      </div>
-
-      {/* Bound — right-click a chip to unbind it back to the bag. */}
-      {boundItems.length > 0 && (
-        <div className="tag-section">
-          <div className="tag-label">BOUND</div>
-          <div className="tag-list">
-            {boundItems.map(({ slot, name, tag }) => (
-              <span
-                key={tag}
-                className="tag tag--active tag--action"
-                title="Right-click: unbind"
-                onContextMenu={e => unbindItem(e, slot, name)}
-              >
-                {slot && <><span className="tag-value">[{slot}]</span>&nbsp;</>}{name}
-              </span>
-            ))}
           </div>
 
-          {/* Equipped */}
-          {equippedItems.length > 0 && (
+          <EditableSpan
+            className="agent-desc"
+            value={agent.description}
+            placeholder="description"
+            onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { description: v } })}
+          />
+
+          {/* Attributes */}
+          <div className="tag-section">
+            <div className="tag-label">ATTRIBUTES</div>
+            <div className="tag-list">
+              {agent.attributes.map((tag, index) => (
+                <TagChip
+                  key={index}
+                  tagStr={tag}
+                  active={isAttributeActive(tag, agent, state.tasks)}
+                  onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
+                />
+              ))}
+              <button className="tag-add" title="Add attribute" onClick={e => {
+                e.stopPropagation();
+                openTagRegistry({ target: { type: 'agent', id: agent.id } });
+              }}>+</button>
+            </div>
+          </div>
+
+          {/* Bag — select an inventory item, then left-click the card to give 1 or right-click to give a chosen quantity. */}
+          <div className="tag-section">
+            <div className="tag-label">BAG</div>
+            <div className="tag-list">
+              {personalItems.length === 0 && !giveQtyVisible && <span className="empty-inline">—</span>}
+              {personalItems.map(({ name, quantity, tag }) => (
+                <span
+                  key={tag}
+                  className="tag tag--action"
+                  title="Left-click: allocate · Right-click: bind"
+                  onClick={e => allocateItem(e, name)}
+                  onContextMenu={e => bindItem(e, name)}
+                >
+                  {name}
+                  {quantity > 1 && <span className="tag-value"> ×{quantity}</span>}
+                </span>
+              ))}
+            </div>
+            {giveQtyVisible && (
+              <div className="tag-list" onClick={e => e.stopPropagation()}>
+                <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>ASSIGN {selectedItem.name}:</span>
+                <input
+                  type="number"
+                  autoFocus
+                  min={1}
+                  max={selectedItem.quantity}
+                  value={giveQty}
+                  onChange={e => setGiveQty(Math.max(1, Number(e.target.value)))}
+                  onKeyDown={e => { if (e.key === 'Enter') giveSelected(giveQty); if (e.key === 'Escape') { e.stopPropagation(); setGiveQtyOpen(false); } }}
+                  style={{ ...INLINE_INPUT_STYLE, width: '48px' }}
+                />
+                <button className="ctrl" onClick={() => giveSelected(giveQty)}>ASSIGN</button>
+                <button className="ctrl" onClick={e => { e.stopPropagation(); setGiveQtyOpen(false); }}>✕</button>
+              </div>
+            )}
+          </div>
+
+          {/* Bound — right-click a chip to unbind it back to the bag. */}
+          {boundItems.length > 0 && (
             <div className="tag-section">
-              <div className="tag-label">EQUIPPED</div>
+              <div className="tag-label">BOUND</div>
               <div className="tag-list">
-                {equippedItems.map(({ slot, name, tag }) => (
-                  <span key={tag} className="tag tag--active">
-                    <span className="tag-value">[{slot}]</span>&nbsp;{name}
-                    <span className="x" title="Unequip" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_UNEQUIP_ITEM', id: agent.id, slot, itemName: name }); }}>↩</span>
+                {boundItems.map(({ slot, name, tag }) => (
+                  <span
+                    key={tag}
+                    className="tag tag--active tag--action"
+                    title="Right-click: unbind"
+                    onContextMenu={e => unbindItem(e, slot, name)}
+                  >
+                    {slot && <><span className="tag-value">[{slot}]</span>&nbsp;</>}{name}
                   </span>
                 ))}
               </div>
@@ -323,7 +334,7 @@ export default function AgentCard({ agent }) {
               if (confirm(`Delete hireling "${agent.name}"?`)) dispatch({ type: 'AGENT_DELETE', id: agent.id });
             }}>× DELETE</button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
