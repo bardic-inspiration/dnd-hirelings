@@ -124,8 +124,7 @@ body {
   background: color-mix(in srgb, var(--dimmer) calc(var(--fill-opacity) * 100%), transparent);
 }
 
-.clock-controls,
-.palette-picker {
+.clock-controls {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -228,33 +227,35 @@ body {
 /* ============================================================
    PALETTE PICKER
    ============================================================ */
-.palette-btn {
+.palette-switch {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  width: 52px;
+  flex-shrink: 0;
   background: transparent;
   border: var(--line) solid var(--border);
   border-radius: var(--radius-xs);
-  color: var(--dim);
-  padding: 2px 8px;
+  padding: 2px;
   font-family: inherit;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.1em;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s;
 }
-.palette-btn:hover { border-color: var(--fg); color: var(--fg); }
-.palette-btn--active {
-  border-color: var(--highlight);
-  color: var(--fg);
-}
+.palette-switch:hover { border-color: var(--fg); }
 
-.palette-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.palette-switch-cell {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  font-size: var(--fs-base);
+  color: var(--dim);
+  border-radius: var(--radius-xs);
+  transition: background 0.15s, color 0.15s;
+}
+.palette-switch-cell--filled {
+  background: var(--highlight);
+  color: var(--bg);
 }
 
 /* ============================================================
