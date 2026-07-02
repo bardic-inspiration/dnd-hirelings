@@ -441,6 +441,21 @@ Side-effect hook. Reads the stored palette name, applies it to `:root` CSS custo
 
 Registers the URL list with `AssetProvider` once on mount. No return value.
 
+### `useCharBudget(component: string)` → `{ ref, maxChars }`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ref` | `(element) => void` | Attach to the **container** that constrains the text (e.g. a `.tag-list`) |
+| `maxChars` | `number` | Character budget for text inside that container |
+
+Derives dynamic character budgets for the text display library from the
+container's measured width and computed font size, using the parameters of
+the named `charBudget.components` entry in `config/truncation.yml`
+(`'tag-chip'`, `'tag-row'`, `'text'`). One shared module-level ResizeObserver
+serves all instances; re-renders only when the whole-character budget
+changes. Returns `fallbackChars` until the first usable measurement and keeps
+the last budget while hidden. Throws on an unknown component key.
+
 ---
 
 ## Shared Components
