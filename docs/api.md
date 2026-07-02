@@ -330,12 +330,17 @@ formatGold(value: number, config?: NumberShorthandConfig): string
 
 Table-driven number shorthand (`1.42K`, `56.5K`, `1.25M`, `6.00B`; three
 significant figures). Below the first tier numbers render verbatim; rounding
-that carries a mantissa to 1000 promotes it one tier (`999950` → `1.00M`);
-past the last tier — and for non-finite input — the configured `overflow`
-string (`"NaN"`) renders. `formatGold` keeps the bank's one-decimal display
-below the first tier and switches to shorthand above it. The default table is
-`TRUNCATION_CONFIG.numberShorthand` (from `config/truncation.yml`); pass a
-`config` to extend it (e.g. a `T` tier) without code changes.
+that carries a mantissa to 1000 promotes it one tier (`999950` → `1.00M`).
+Past the last tier, order-of-magnitude notation takes over at the same
+precision when `exponent` is enabled (`7800000000000` → `7.80e12`, i.e.
+7.8 × 10^12 — covers every representable number). The configured `overflow`
+string (`"NaN"`) is the safeguard of last resort: it renders for anything no
+notation can represent — NaN, ±Infinity, non-numbers, failed parses — and
+for past-the-table values when `exponent` is disabled or absent. `formatGold`
+keeps the bank's one-decimal display below the first tier and switches to
+shorthand above it. The default table is `TRUNCATION_CONFIG.numberShorthand`
+(from `config/truncation.yml`); pass a `config` to extend it (e.g. a `T`
+tier or a different exponent symbol) without code changes.
 
 ### `src/logic/truncation.js`
 
@@ -383,7 +388,8 @@ present, font ratios positive, every component entry complete.
 interface TruncationConfig {
   numberShorthand: {
     significantFigures: number;               // display precision (3 → 1.42K)
-    overflow: string;                          // rendered past the last tier ("NaN")
+    exponent?: { enabled: boolean, symbol: string };  // past-the-table notation (7.80e12); absent = disabled
+    overflow: string;                          // safeguard of last resort ("NaN"): non-finite, non-number, exponent disabled
     tiers: { threshold: number, suffix: string }[];   // ascending (1000 "K", 1e6 "M", 1e9 "B")
   };
   placeholders: { prefix: string, segment: string, segments: string, value: string };

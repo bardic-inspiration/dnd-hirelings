@@ -7,17 +7,20 @@ import { TRUNCATION_CONFIG } from '../constants/truncation.js';
  * Formats a number with the table-driven significant-figure shorthand
  * (1.42K, 56.5K, 203K, 1.25M, …, 994B). Numbers below the first tier render
  * as `String(value)`. Rounding that carries a mantissa to 1000 promotes the
- * number one tier (999950 → "1.00M"); carrying past the last tier — and any
- * non-finite input — renders `config.overflow` ("NaN"). Negatives keep their
- * sign. No side effects.
+ * number one tier (999950 → "1.00M"). Past the last tier, order-of-magnitude
+ * notation takes over when `config.exponent` is enabled (7.8e12 → "7.80e12",
+ * covering every representable number); otherwise — and for any input that
+ * is not a finite number (NaN, ±Infinity, non-numbers, failed parses) —
+ * `config.overflow` ("NaN") renders as the safeguard of last resort.
+ * Negatives keep their sign. No side effects.
  *
  * @param {number} value - Number to format
  * @param {object} [config=TRUNCATION_CONFIG.numberShorthand] - Shorthand table
- *   `{ significantFigures, overflow, tiers: [{ threshold, suffix }] }`
+ *   `{ significantFigures, exponent?, overflow, tiers: [{ threshold, suffix }] }`
  * @returns {string}
  */
 export function formatNumberShorthand(value, config = TRUNCATION_CONFIG.numberShorthand) {
-  const { significantFigures, overflow, tiers } = config;
+  const { significantFigures, exponent, overflow, tiers } = config;
   if (!Number.isFinite(value)) return overflow;
   const magnitude = Math.abs(value);
   if (magnitude < tiers[0].threshold) return String(value);
@@ -38,6 +41,13 @@ export function formatNumberShorthand(value, config = TRUNCATION_CONFIG.numberSh
     }
     if (Number(rendered) < 1000) return `${sign}${rendered}${tiers[tierIndex].suffix}`;
     tierIndex += 1;
+  }
+
+  // Past the tier table. The exponent mantissa always has one integer digit,
+  // so `significantFigures - 1` decimals holds the table's precision; JS
+  // renders "7.80e+12" — swap "e+" for the configured symbol.
+  if (exponent?.enabled) {
+    return value.toExponential(significantFigures - 1).replace('e+', exponent.symbol);
   }
   return overflow;
 }

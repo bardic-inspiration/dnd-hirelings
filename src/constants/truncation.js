@@ -39,6 +39,16 @@ export function parseTruncationConfig(ymlText) {
   assert(Number.isInteger(numberShorthand.significantFigures) && numberShorthand.significantFigures > 0,
     'numberShorthand.significantFigures must be a positive integer');
   assert(typeof numberShorthand.overflow === 'string', 'numberShorthand.overflow must be a string');
+  if (numberShorthand.exponent !== undefined) {
+    // Optional section: absent means exponent notation is disabled and
+    // past-the-table values render `overflow` (the pre-exponent behavior).
+    assert(numberShorthand.exponent && typeof numberShorthand.exponent === 'object',
+      'numberShorthand.exponent must be a mapping');
+    assert(typeof numberShorthand.exponent.enabled === 'boolean',
+      'numberShorthand.exponent.enabled must be a boolean');
+    assert(typeof numberShorthand.exponent.symbol === 'string' && numberShorthand.exponent.symbol.length > 0,
+      'numberShorthand.exponent.symbol must be a non-empty string');
+  }
   assert(Array.isArray(numberShorthand.tiers) && numberShorthand.tiers.length > 0,
     'numberShorthand.tiers must be a non-empty list');
   numberShorthand.tiers.forEach((tier, index) => {

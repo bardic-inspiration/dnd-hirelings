@@ -7,10 +7,19 @@ numberShorthand:
   # Ascending tiers. A number renders in the highest tier whose threshold it
   # reaches, as `mantissa = n / threshold` at `significantFigures` significant
   # digits. Rounding that carries the mantissa to 1000 promotes the number one
-  # tier; carrying past the last tier renders `overflow`. Extending the table
-  # (e.g. a trillions tier) is a config-only change:
+  # tier; carrying past the last tier falls through to `exponent`. Extending
+  # the table (e.g. a trillions tier) is a config-only change:
   #   - { threshold: 1000000000000, suffix: "T" }
   significantFigures: 3
+  # Past the last tier, render order-of-magnitude notation at the same
+  # precision: 7.8e12 reads as 7.8 × 10^12 (so 7800000000000 → "7.80e12").
+  # Covers every representable number; disable to fall back to `overflow`.
+  exponent:
+    enabled: true
+    symbol: "e"
+  # Safeguard of last resort: renders for values no notation can represent —
+  # NaN, ±Infinity, non-numbers, failed parses — and for past-the-table
+  # values when `exponent` is disabled or absent.
   overflow: "NaN"
   tiers:
     - { threshold: 1000,       suffix: "K" }

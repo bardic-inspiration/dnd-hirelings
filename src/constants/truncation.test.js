@@ -4,6 +4,7 @@ import { parseTruncationConfig, TRUNCATION_CONFIG } from './truncation.js';
 const VALID_YML = `
 numberShorthand:
   significantFigures: 3
+  exponent: { enabled: true, symbol: "e" }
   overflow: "NaN"
   tiers:
     - { threshold: 1000, suffix: "K" }
@@ -31,6 +32,15 @@ describe('parseTruncationConfig', () => {
   it('throws when a placeholder is missing', () => {
     expect(() => parseTruncationConfig(VALID_YML.replace('value: "<VAL>"', '')))
       .toThrow(/placeholders\.value/);
+  });
+
+  it('accepts an absent exponent section (disabled) and rejects a malformed one', () => {
+    expect(() => parseTruncationConfig(VALID_YML.replace('exponent: { enabled: true, symbol: "e" }', '')))
+      .not.toThrow();
+    expect(() => parseTruncationConfig(VALID_YML.replace('symbol: "e"', 'symbol: ""')))
+      .toThrow(/exponent\.symbol/);
+    expect(() => parseTruncationConfig(VALID_YML.replace('enabled: true', 'enabled: 1')))
+      .toThrow(/exponent\.enabled/);
   });
 
   it('throws when tiers are not strictly ascending', () => {

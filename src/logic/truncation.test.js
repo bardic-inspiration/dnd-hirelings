@@ -90,9 +90,9 @@ describe('truncateTagParts', () => {
     expect(result.truncated).toBe(false);
   });
 
-  it('renders overflow shorthand for values past the last tier', () => {
+  it('renders exponent shorthand for values past the last tier', () => {
     const result = truncateTagParts(parseTag('skill=10000000000000000000000000000000'), Infinity);
-    expect(result.text).toBe('skill=NaN');
+    expect(result.text).toBe('skill=1.00e31');
     expect(result.valueShortened).toBe(true);
   });
 
