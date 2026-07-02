@@ -9,7 +9,7 @@ How Guild Manager stores, optimizes, references, and loads its static media (ima
 ```
 public/assets/
 ├── UI/
-│   ├── background_<theme>.webp   # 2 theme backgrounds (light, arcane — used for the "dark" palette)
+│   ├── background_<theme>.webp   # 5 theme backgrounds (dark, light, vale, ember, arcane)
 │   └── fonts/
 │       ├── BNBreezy.woff2        # display font, primary
 │       └── BNBreezy.otf          # display font, fallback

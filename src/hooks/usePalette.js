@@ -11,7 +11,7 @@ const PALETTE_KEY_LEGACY = 'dnd-hirelings-palette';
  * and persisting the name to localStorage. Valid names are keys of `PALETTES`; falls
  * back to `'dark'` for unknown names.
  *
- * @param {string} name - Palette name ('light' | 'dark')
+ * @param {string} name - Palette name ('dark' | 'light' | 'vale' | 'ember' | 'arcane')
  */
 export function applyPalette(name) {
   const p = PALETTES[name] || PALETTES.dark;
