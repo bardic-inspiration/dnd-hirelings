@@ -334,6 +334,30 @@ below the first tier and switches to shorthand above it. The default table is
 `TRUNCATION_CONFIG.numberShorthand` (from `config/truncation.yml`); pass a
 `config` to extend it (e.g. a `T` tier) without code changes.
 
+### `src/logic/truncation.js`
+
+```js
+TAG_LABEL_VARIANTS: { [variant: string]: { modifierText, segmentText, valueText, modifierSeparator, segmentSeparator, valueSeparator } }
+computeCharBudget({ widthPx, fontSizePx, charWidthRatio, allowancePx?, minChars?, fallbackChars }): number
+truncateMiddle(text: string, maxChars: number): { text: string, truncated: boolean }
+truncateTagParts(parsed: ParsedTag, maxChars?: number, options?: { variant?: 'chip'|'row', shorthand?: boolean, config?: TruncationConfig }):
+  { parts: TagLabelPart[], text: string, truncated: boolean, valueShortened: boolean }
+// TagLabelPart = { kind: 'modifier'|'separator'|'segment'|'value'|'placeholder', text: string,
+//                  placeholder?: 'prefix'|'segment'|'segments'|'value' }
+```
+
+Structural tag truncation. `truncateTagParts` walks a decision ladder — full
+render → collapse trailing middle segments to `<TAG>`/`<TAGS>` → replace
+overlong mandatory elements (value, first segment, modifier) with
+`<VAL>`/`<TAG>`/`<PRE>` — and returns the first form that fits `maxChars`,
+always preserving the tag's structure. Pass `Infinity` to disable truncation.
+`TAG_LABEL_VARIANTS` is the extension point for new display styles (mirrors
+`MATCH_MODE_REGISTRY`): `chip` renders the literal tag string, `row` renders
+the pretty uppercase block-row style (registry modifier prefixes, `_`/`-` as
+spaces). Truncation measures the transformed text, so budgets are exact for
+what renders. `truncateMiddle` is the plain-text sibling (middle ellipsis);
+`computeCharBudget` is the pure math behind the `useCharBudget` hook.
+
 ---
 
 ## Constants
