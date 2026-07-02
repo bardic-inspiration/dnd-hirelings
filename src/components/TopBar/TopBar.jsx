@@ -23,6 +23,10 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
     setPalette(name);
   };
 
+  const handleTogglePalette = () => {
+    handleApplyPalette(palette === 'light' ? 'dark' : 'light');
+  };
+
   const setClock = (y, d) => updateSession({
     clock: clockMinutesFromParts(Math.max(1, y), Math.max(1, Math.min(DAYS_PER_YEAR, d))),
   });
@@ -105,19 +109,14 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
       </div>
 
       {/* Palette picker */}
-      <div className="palette-picker">
-        {Object.entries(PALETTES).map(([name, p]) => (
-          <button
-            key={name}
-            className={`palette-btn${palette === name ? ' palette-btn--active' : ''}`}
-            title={p.label}
-            onClick={e => { e.stopPropagation(); handleApplyPalette(name); }}
-          >
-            <span className="palette-dot" style={{ background: p.highlight }} />
-            {p.label}
-          </button>
-        ))}
-      </div>
+      <button
+        className="palette-switch"
+        title={PALETTES[palette].label}
+        onClick={e => { e.stopPropagation(); handleTogglePalette(); }}
+      >
+        <span className={`palette-switch-cell${palette === 'light' ? ' palette-switch-cell--filled' : ''}`}>☼</span>
+        <span className={`palette-switch-cell${palette === 'dark' ? ' palette-switch-cell--filled' : ''}`}>☽</span>
+      </button>
 
       {/* Session controls */}
       <div className="inset-panel session-controls right">

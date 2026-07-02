@@ -24,7 +24,7 @@ All persistent state is stored in `localStorage`. Every key is defined in the `S
 | Key | `STORAGE_KEYS` field | Default | Description |
 |-----|----------------------|---------|-------------|
 | `dnd-hirelings-state-v3` | `STATE` | `DEFAULT_STATE` from `storage.js` | Full serialized game state (agents, tasks, inventory, session, tagRegistry). Loaded on startup; saved on every state change. |
-| `dnd-hirelings-palette-v1` | `PALETTE` | `'dark'` | Name of the active color theme. One of: `dark`, `light`, `vale`, `ember`, `arcane`. On first read, falls back to the legacy unversioned key `dnd-hirelings-palette`. |
+| `dnd-hirelings-palette-v1` | `PALETTE` | `'dark'` | Name of the active color theme. One of: `light`, `dark`. On first read, falls back to the legacy unversioned key `dnd-hirelings-palette`. |
 | `dnd-hirelings-presets-agents-v1` | `PRESETS('agents')` | `[]` | User-authored agent presets. Bundled (standard) presets are not stored here. |
 | `dnd-hirelings-presets-tasks-v1` | `PRESETS('tasks')` | `[]` | User-authored task presets. |
 | `dnd-hirelings-presets-items-v1` | `PRESETS('items')` | `[]` | User-authored item presets. |
