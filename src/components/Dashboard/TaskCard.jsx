@@ -2,8 +2,9 @@ import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { agentsAssignedTo } from '../../logic/agents.js';
 import { resetConditions } from '../../logic/conditions.js';
-import { parseTag, formatTagLabel } from '../../logic/tags.js';
+import { useCharBudget } from '../../hooks/useCharBudget.js';
 import EditableSpan from '../EditableSpan.jsx';
+import TagLabel from '../TagLabel.jsx';
 import ProgressSection from './TaskSections/ProgressSection.jsx';
 import RequirementsSection from './TaskSections/RequirementsSection.jsx';
 import ResultsSection from './TaskSections/ResultsSection.jsx';
@@ -35,23 +36,23 @@ function AttributesSection({ task }) {
   const { dispatch } = useGame();
   const { openTagRegistry } = useUI();
   const attrs = task.attributes || [];
+  const { ref, maxChars } = useCharBudget('tag-row');
 
   const handleAdd = () => openTagRegistry({ target: { type: 'task', id: task.id } });
 
   return (
     <div className="task-section">
       <div className="tag-label">ATTRIBUTES</div>
-      <div className="task-tag-list">
+      <div className="task-tag-list" ref={ref}>
         {!attrs.length && <div className="task-tag-list-empty">—</div>}
-        {attrs.map((tag, index) => {
-          const { label, params } = formatTagLabel(parseTag(tag));
-          return (
-            <div key={index} className="tag-list-item">
-              <span className="tag-content"><strong>{label}</strong>{params}</span>
-              <span className="x" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'attributes', index }); }}>×</span>
-            </div>
-          );
-        })}
+        {attrs.map((tag, index) => (
+          <div key={index} className="tag-list-item">
+            <span className="tag-content">
+              <TagLabel tag={tag} maxChars={maxChars} variant="row" />
+            </span>
+            <span className="x" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'attributes', index }); }}>×</span>
+          </div>
+        ))}
       </div>
       <button className="tag-add" onClick={e => { e.stopPropagation(); handleAdd(); }}>+ TAG</button>
     </div>

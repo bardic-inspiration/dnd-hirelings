@@ -10,6 +10,7 @@ The build tool is Vite. No `.env` files are used. The only build-time behavior i
 |---------|-------|-------------|
 | Portrait asset directory | `vite.config.js` → `imageManifestPlugin.dir` | `public/assets/portraits` — scanned at build time to produce the portrait picker manifest |
 | Item icon asset directory | `vite.config.js` → `imageManifestPlugin.dir` | `public/assets/items` — scanned at build time to produce the item icon picker manifest |
+| Text display configuration | `config/truncation.yml` → `src/constants/truncation.js` | Number-shorthand table, truncation placeholders, and char-budget parameters — inlined via Vite `?raw` import and validated at module init (see `docs/gotchas.md`) |
 
 The two `imageManifestPlugin` instances expose these directories as virtual modules (`virtual:portrait-manifest`, `virtual:item-manifest`). Adding or removing image files from these directories while `vite dev` is running triggers a hot-reload automatically. Served images are WebP and the display font is WOFF2; see `docs/assets.md` for the full asset pipeline.
 
@@ -32,9 +33,11 @@ All persistent state is stored in `localStorage`. Every key is defined in the `S
 ## Scripts
 
 ```bash
-npm run dev      # Start Vite dev server with HMR
-npm run build    # Production build to dist/
-npm run preview  # Serve the production build locally
+npm run dev        # Start Vite dev server with HMR
+npm run build      # Production build to dist/
+npm run preview    # Serve the production build locally
+npm test           # Run the vitest unit suite once
+npm run test:watch # Run vitest in watch mode
 ```
 
 ## Dependencies
@@ -43,10 +46,11 @@ npm run preview  # Serve the production build locally
 |---------|---------|------|
 | `react` | ^18.3.1 | UI framework |
 | `react-dom` | ^18.3.1 | DOM renderer |
-| `js-yaml` | ^4.2.0 | YAML serialization for the tag registry |
-| `vite` | ^5.4.2 | Build tool and dev server |
-| `@vitejs/plugin-react` | ^4.3.1 | JSX transform and React fast-refresh |
+| `js-yaml` | ^4.2.0 | YAML serialization for the tag registry and build-time config parsing |
+| `vite` | ^8.0.16 | Build tool and dev server |
+| `@vitejs/plugin-react` | ^5.2.0 | JSX transform and React fast-refresh |
+| `vitest` | ^4.1.9 | Unit test runner (dev only; pure logic/constants tiers, node environment) |
 
-No test framework, no CSS preprocessor, no linter configuration is present in the repository.
+No CSS preprocessor and no linter configuration are present in the repository. Tests run through Vite's own transform pipeline (`test: { environment: 'node' }` in `vite.config.js`), so build-time imports such as `?raw` resolve in tests without mocking.
 
-The minimum supported Node.js version is **18**, declared via `"engines": { "node": ">=18" }` in `package.json`. Vite 8 requires Node ≥ 18.
+The minimum supported Node.js version is **20.19**, declared via `"engines": { "node": ">=20.19" }` in `package.json` (required by Vite 8).

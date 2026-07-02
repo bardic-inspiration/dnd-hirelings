@@ -1,6 +1,8 @@
 import { useUI } from '../../../state/UIContext.jsx';
-import { parseTag, formatTagLabel, mergeAttribute } from '../../../logic/tags.js';
+import { mergeAttribute } from '../../../logic/tags.js';
+import { useCharBudget } from '../../../hooks/useCharBudget.js';
 import EditableSpan from '../../EditableSpan.jsx';
+import TagLabel from '../../TagLabel.jsx';
 import DragNumber from '../../Dashboard/DragNumber.jsx';
 
 // Editable item preview. Mirrors an expanded ItemRow but binds to a draft via
@@ -8,6 +10,7 @@ import DragNumber from '../../Dashboard/DragNumber.jsx';
 // that the same way ItemRow's body does.
 export default function ItemPreview({ draft, onChange }) {
   const { openItemIcons, openTagRegistry } = useUI();
+  const { ref: tagListRef, maxChars } = useCharBudget('tag-chip');
 
   return (
     <div className="item-row item-row--expanded library-preview-card">
@@ -49,17 +52,14 @@ export default function ItemPreview({ draft, onChange }) {
           onCommit={v => onChange({ description: v })}
         />
         <div className="tag-label">ATTRIBUTES</div>
-        <div className="tag-list">
+        <div className="tag-list" ref={tagListRef}>
           {!draft.attributes.length && <span className="empty-inline">—</span>}
-          {draft.attributes.map((tag, i) => {
-            const { label, params } = formatTagLabel(parseTag(tag));
-            return (
-              <span key={i} className="tag">
-                {label}{params}
-                <span className="x" title="Remove" onClick={() => onChange({ attributes: draft.attributes.filter((_, attrIndex) => attrIndex !== i) })}>×</span>
-              </span>
-            );
-          })}
+          {draft.attributes.map((tag, i) => (
+            <span key={i} className="tag">
+              <TagLabel tag={tag} maxChars={maxChars} />
+              <span className="x" title="Remove" onClick={() => onChange({ attributes: draft.attributes.filter((_, attrIndex) => attrIndex !== i) })}>×</span>
+            </span>
+          ))}
           <button className="tag-add" title="Add attribute" onClick={() => openTagRegistry({
             onApply: (tag) => onChange({ attributes: mergeAttribute(draft.attributes, tag) }),
           })}>+</button>

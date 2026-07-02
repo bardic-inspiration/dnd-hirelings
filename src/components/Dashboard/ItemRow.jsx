@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
-import { parseTag, formatTagLabel } from '../../logic/tags.js';
+import { useCharBudget } from '../../hooks/useCharBudget.js';
 import EditableSpan from '../EditableSpan.jsx';
+import TagLabel from '../TagLabel.jsx';
 import DragNumber from './DragNumber.jsx';
 
 export default function ItemRow({ item }) {
   const { dispatch } = useGame();
   const { selectedItemId, setSelectedItemId, openItemIcons, openTagRegistry } = useUI();
   const [expanded, setExpanded] = useState(false);
+  const { ref: tagListRef, maxChars } = useCharBudget('tag-chip');
 
   const selected = selectedItemId === item.id;
   const update = (changes) => dispatch({ type: 'INVENTORY_UPDATE_ITEM', id: item.id, changes });
@@ -93,17 +95,14 @@ export default function ItemRow({ item }) {
           onCommit={v => update({ description: v })}
         />
         <div className="tag-label">ATTRIBUTES</div>
-        <div className="tag-list">
+        <div className="tag-list" ref={tagListRef}>
           {!item.attributes.length && <span className="empty-inline">—</span>}
-          {item.attributes.map((tag, index) => {
-            const { label, params } = formatTagLabel(parseTag(tag));
-            return (
-              <span key={index} className="tag">
-                {label}{params}
-                <span className="x" title="Remove" onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index }); }}>×</span>
-              </span>
-            );
-          })}
+          {item.attributes.map((tag, index) => (
+            <span key={index} className="tag">
+              <TagLabel tag={tag} maxChars={maxChars} />
+              <span className="x" title="Remove" onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index }); }}>×</span>
+            </span>
+          ))}
           <button className="tag-add" title="Add attribute" onClick={handleAddAttr}>+</button>
         </div>
       </div>

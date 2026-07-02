@@ -35,20 +35,26 @@ function imageManifestPlugin({ name, virtualId, dir, basePath }) {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // Pure-function unit tests only (logic/constants tiers) — no DOM environment.
+  test: { environment: 'node' },
   plugins: [
     react(),
-    imageManifestPlugin({
-      name: 'portrait-manifest',
-      virtualId: 'virtual:portrait-manifest',
-      dir: 'public/assets/portraits',
-      basePath: '/assets/portraits/',
-    }),
-    imageManifestPlugin({
-      name: 'item-manifest',
-      virtualId: 'virtual:item-manifest',
-      dir: 'public/assets/items',
-      basePath: '/assets/items/',
-    }),
+    // The manifest plugins' fs.watch handles keep vitest's server from
+    // exiting, and no test imports the virtual modules — skip them in tests.
+    ...(mode === 'test' ? [] : [
+      imageManifestPlugin({
+        name: 'portrait-manifest',
+        virtualId: 'virtual:portrait-manifest',
+        dir: 'public/assets/portraits',
+        basePath: '/assets/portraits/',
+      }),
+      imageManifestPlugin({
+        name: 'item-manifest',
+        virtualId: 'virtual:item-manifest',
+        dir: 'public/assets/items',
+        basePath: '/assets/items/',
+      }),
+    ]),
   ],
-});
+}));

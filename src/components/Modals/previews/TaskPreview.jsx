@@ -1,7 +1,8 @@
 import { useUI } from '../../../state/UIContext.jsx';
-import { parseTag, formatTagLabel } from '../../../logic/tags.js';
 import { routeTaskTag } from '../../../logic/tasks.js';
+import { useCharBudget } from '../../../hooks/useCharBudget.js';
 import EditableSpan from '../../EditableSpan.jsx';
+import TagLabel from '../../TagLabel.jsx';
 
 // One editable tag list (requirements / attributes). Reuses the task-card
 // section/tag classes but writes to the draft via onChange. Only the section
@@ -11,6 +12,7 @@ import EditableSpan from '../../EditableSpan.jsx';
 function TagListSection({ label, addLabel, field, draft, onChange }) {
   const { openTagRegistry } = useUI();
   const tags = draft[field] || [];
+  const { ref, maxChars } = useCharBudget('tag-row');
 
   const handleAdd = () => openTagRegistry({
     onApply: (tag) => {
@@ -22,17 +24,16 @@ function TagListSection({ label, addLabel, field, draft, onChange }) {
   return (
     <div className="task-section">
       <div className="tag-label">{label}</div>
-      <div className="task-tag-list">
+      <div className="task-tag-list" ref={ref}>
         {!tags.length && <div className="task-tag-list-empty">—</div>}
-        {tags.map((tag, i) => {
-          const { label: tl, params } = formatTagLabel(parseTag(tag));
-          return (
-            <div key={i} className="tag-list-item">
-              <span className="tag-content"><strong>{tl}</strong>{params}</span>
-              <span className="x" onClick={() => onChange({ [field]: tags.filter((_, j) => j !== i) })}>×</span>
-            </div>
-          );
-        })}
+        {tags.map((tag, i) => (
+          <div key={i} className="tag-list-item">
+            <span className="tag-content">
+              <TagLabel tag={tag} maxChars={maxChars} variant="row" />
+            </span>
+            <span className="x" onClick={() => onChange({ [field]: tags.filter((_, j) => j !== i) })}>×</span>
+          </div>
+        ))}
       </div>
       {addLabel && <button className="tag-add" onClick={handleAdd}>{addLabel}</button>}
     </div>

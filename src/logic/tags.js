@@ -113,26 +113,3 @@ export function mergeAttribute(attrs, tag) {
     tag,
   ];
 }
-
-/**
- * Derives a human-readable display label from a parsed tag without consulting the registry.
- *
- * Single-segment path → the segment itself. Deeper paths → "FIRST: LAST".
- * Modifier is prepended as its registry prefix (e.g. `req` → "REQ: ").
- * Underscores and hyphens render as spaces.
- *
- * @param {{ modifier: string|null, segments: string[], value: string|null }} parsed
- * @returns {{ label: string, params: string }} `label` is uppercase; `params` is `" =value"` or `""`
- */
-export function formatTagLabel(parsed) {
-  const pretty = (seg) => seg.replace(/[_-]/g, ' ');
-  const segs = parsed.segments;
-  const pathLabel = segs.length === 0 ? ''
-    : segs.length === 1 ? pretty(segs[0])
-    : `${pretty(segs[0])}: ${pretty(segs[segs.length - 1])}`;
-  const modEntry = parsed.modifier ? MODIFIER_REGISTRY[parsed.modifier] : null;
-  const modPrefix = modEntry ? modEntry.prefix : parsed.modifier;
-  const label = parsed.modifier ? `${modPrefix}: ${pathLabel}` : pathLabel;
-  const params = parsed.value !== null && parsed.value !== undefined ? ` =${parsed.value}` : '';
-  return { label: label.toUpperCase(), params };
-}
