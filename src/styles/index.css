@@ -51,6 +51,8 @@
   --fs-base: 13px;
 
   --fill-opacity: 0.7;
+
+  --tooltip-max-width: 260px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -769,6 +771,29 @@ body {
   font-size: var(--fs-xs);
   opacity: 0.75;
   margin-left: 1px;
+}
+
+/* ============================================================
+   TOOLTIP
+   Shared hover/focus bubble (components/Tooltip.jsx). Portals to
+   document.body; JS sets left/top and toggles .tooltip--below.
+   Above every overlay: modals are 100, elevated registry is 200.
+   ============================================================ */
+.tooltip {
+  position: fixed;
+  z-index: 300;
+  max-width: var(--tooltip-max-width);
+  background: var(--dimmer);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  padding: 4px 8px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 /* ============================================================

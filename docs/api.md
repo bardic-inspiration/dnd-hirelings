@@ -443,6 +443,33 @@ Registers the URL list with `AssetProvider` once on mount. No return value.
 
 ---
 
+## Shared Components
+
+Reusable presentational components at the `src/components/` root.
+
+### `<Tooltip content children disabled? delayMs? />`
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `content` | `ReactNode` | — | Tooltip body; `null`/empty renders the child untouched |
+| `children` | `ReactElement` | — | Single anchor element (cloned; no wrapper DOM node) |
+| `disabled` | `boolean` | `false` | Render the child untouched |
+| `delayMs` | `number` | `400` | Hover/focus delay before showing |
+
+The app-standard tooltip (`role="tooltip"`, `aria-describedby` wiring). Shows
+on hover and keyboard focus; hides on leave, blur, and Escape. Portals to
+`document.body`, centered above the anchor, viewport-clamped, flipping below
+when cramped (`.tooltip--below`). Width capped by the `--tooltip-max-width`
+token with word wrap. Child event handlers are merged, never clobbered.
+Native `title=` attributes should migrate to this component over time.
+
+### `<EditableSpan value onCommit ... />`
+
+Click-to-edit inline span used across cards and rows (pre-existing; see the
+component's JSDoc for the full prop set).
+
+---
+
 ## State Shape
 
 ```ts
