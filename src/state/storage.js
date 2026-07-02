@@ -17,7 +17,48 @@ export const STORAGE_KEYS = {
   PALETTE: 'dnd-hirelings-palette-v1',
   /** @param {string} type - 'agents' | 'tasks' | 'items' */
   PRESETS: (type) => `dnd-hirelings-presets-${type}-v1`,
+  CARD_EXPANSION: 'dnd-hirelings-card-expansion-v1',
 };
+
+/** Card types tracked by the expansion store; keys of a persisted deviation map. */
+const CARD_TYPES = ['agent', 'task', 'item'];
+
+/**
+ * Loads the persisted card-expansion deviation map from localStorage.
+ * Each entry is the set of entity IDs whose expand/collapse state has been
+ * toggled away from its type's default (see `CARD_DEFAULT_EXPANDED` in UIContext).
+ * Missing, malformed, or corrupt data yields empty Sets so the UI falls back to
+ * per-type defaults.
+ *
+ * @returns {{ agent: Set<string>, task: Set<string>, item: Set<string> }}
+ */
+export function loadCardExpansion() {
+  const empty = () => Object.fromEntries(CARD_TYPES.map(type => [type, new Set()]));
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.CARD_EXPANSION);
+    if (!raw) return empty();
+    const parsed = JSON.parse(raw);
+    return Object.fromEntries(CARD_TYPES.map(type => [
+      type,
+      new Set(Array.isArray(parsed?.[type]) ? parsed[type] : []),
+    ]));
+  } catch {
+    return empty();
+  }
+}
+
+/**
+ * Persists the card-expansion deviation map to localStorage, serializing each
+ * Set as an array.
+ *
+ * @param {{ agent: Set<string>, task: Set<string>, item: Set<string> }} deviations
+ */
+export function saveCardExpansion(deviations) {
+  const serialized = Object.fromEntries(
+    CARD_TYPES.map(type => [type, [...(deviations[type] ?? [])]]),
+  );
+  localStorage.setItem(STORAGE_KEYS.CARD_EXPANSION, JSON.stringify(serialized));
+}
 
 export const DEFAULT_RESULTS = { gold: 0, items: [], agents: [] };
 
