@@ -1,0 +1,47 @@
+# Text & value display configuration for the truncation/format library.
+# Loaded at build time (Vite `?raw` import) by src/constants/truncation.js —
+# editing this file in dev triggers a full reload; deployed builds inline it.
+# First piece of the planned YAML configuration system (see docs/gotchas.md).
+
+numberShorthand:
+  # Ascending tiers. A number renders in the highest tier whose threshold it
+  # reaches, as `mantissa = n / threshold` at `significantFigures` significant
+  # digits. Rounding that carries the mantissa to 1000 promotes the number one
+  # tier; carrying past the last tier falls through to `exponent`. Extending
+  # the table (e.g. a trillions tier) is a config-only change:
+  #   - { threshold: 1000000000000, suffix: "T" }
+  significantFigures: 3
+  # Past the last tier, render order-of-magnitude notation at the same
+  # precision: 7.8e12 reads as 7.8 × 10^12 (so 7800000000000 → "7.80e12").
+  # Covers every representable number; disable to fall back to `overflow`.
+  exponent:
+    enabled: true
+    symbol: "e"
+  # Safeguard of last resort: renders for values no notation can represent —
+  # NaN, ±Infinity, non-numbers, failed parses — and for past-the-table
+  # values when `exponent` is disabled or absent.
+  overflow: "NaN"
+  tiers:
+    - { threshold: 1000,       suffix: "K" }
+    - { threshold: 1000000,    suffix: "M" }
+    - { threshold: 1000000000, suffix: "B" }
+
+placeholders:
+  # Typed stand-ins for tag elements that are omitted or individually overlong.
+  prefix:   "<PRE>"   # overlong modifier prefix
+  segment:  "<TAG>"   # exactly one omitted segment, or an overlong first segment
+  segments: "<TAGS>"  # a run of two or more omitted segments
+  value:    "<VAL>"   # overlong value
+
+charBudget:
+  # maxChars = floor((widthPx - allowancePx) / (fontSizePx * fonts[font])),
+  # clamped to at least minChars. fallbackChars applies before the first
+  # measurement or when the container reports zero width (hidden/unmounted).
+  fonts:              # average glyph width as a fraction of font-size
+    ui:   0.55
+    mono: 0.62
+  minChars: 10
+  components:
+    tag-chip: { font: ui,   allowancePx: 30, fallbackChars: 24 }  # .tag pill: padding + gap + remove affordance
+    tag-row:  { font: mono, allowancePx: 24, fallbackChars: 40 }  # .tag-list-item: padding + gap + remove affordance
+    text:     { font: ui,   allowancePx: 30, fallbackChars: 24 }  # generic TruncatedText inside chips

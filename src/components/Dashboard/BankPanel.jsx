@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { usePressHoldDrag } from '../../hooks/usePressHoldDrag.js';
+import { formatGold } from '../../logic/format.js';
 
 export default function BankPanel() {
   const { state, dispatch } = useGame();
@@ -53,7 +54,7 @@ export default function BankPanel() {
       onPointerDown={onPointerDown}
     >
       <span className="bank-label">BANK:</span>
-      <span ref={amountRef} className="bank-amount mono">{bank.toFixed(1)}</span>
+      <span ref={amountRef} className="bank-amount mono">{formatGold(bank)}</span>
       <span className="bank-label">GOLD</span>
     </div>
   );

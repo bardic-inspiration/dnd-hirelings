@@ -153,8 +153,11 @@ parseTag(tagString: string): { modifier: string|null, segments: string[], value:
 buildTag(segments: string[], value?: string|null, modifier?: string|null): string
 tagMatches(tag: ParsedTag, prefix: { segments: string[] }): boolean
 mergeAttribute(attrs: string[], tag: string): string[]
-formatTagLabel(parsed: ParsedTag): { label: string, params: string }
 ```
+
+Tag display formatting lives in `src/logic/truncation.js` (the `row` variant
+absorbed the retired `formatTagLabel`); components render tags through
+`<TagLabel>`.
 
 ### `src/logic/tagMatching.js`
 
@@ -318,6 +321,86 @@ savePresetListToFile(presets: object[], type?: string): Promise<void>
 loadPresetsFromFile(file: File): Promise<object[]>
 ```
 
+### `src/logic/format.js`
+
+```js
+formatNumberShorthand(value: number, config?: NumberShorthandConfig): string
+formatGold(value: number, config?: NumberShorthandConfig): string
+```
+
+Table-driven number shorthand (`1.42K`, `56.5K`, `1.25M`, `6.00B`; three
+significant figures). Below the first tier numbers render verbatim; rounding
+that carries a mantissa to 1000 promotes it one tier (`999950` → `1.00M`).
+Past the last tier, order-of-magnitude notation takes over at the same
+precision when `exponent` is enabled (`7800000000000` → `7.80e12`, i.e.
+7.8 × 10^12 — covers every representable number). The configured `overflow`
+string (`"NaN"`) is the safeguard of last resort: it renders for anything no
+notation can represent — NaN, ±Infinity, non-numbers, failed parses — and
+for past-the-table values when `exponent` is disabled or absent. `formatGold`
+keeps the bank's one-decimal display below the first tier and switches to
+shorthand above it. The default table is `TRUNCATION_CONFIG.numberShorthand`
+(from `config/truncation.yml`); pass a `config` to extend it (e.g. a `T`
+tier or a different exponent symbol) without code changes.
+
+### `src/logic/truncation.js`
+
+```js
+TAG_LABEL_VARIANTS: { [variant: string]: { modifierText, segmentText, valueText, modifierSeparator, segmentSeparator, valueSeparator } }
+computeCharBudget({ widthPx, fontSizePx, charWidthRatio, allowancePx?, minChars?, fallbackChars }): number
+truncateMiddle(text: string, maxChars: number): { text: string, truncated: boolean }
+truncateTagParts(parsed: ParsedTag, maxChars?: number, options?: { variant?: 'chip'|'row', shorthand?: boolean, config?: TruncationConfig }):
+  { parts: TagLabelPart[], text: string, truncated: boolean, valueShortened: boolean }
+// TagLabelPart = { kind: 'modifier'|'separator'|'segment'|'value'|'placeholder', text: string,
+//                  placeholder?: 'prefix'|'segment'|'segments'|'value' }
+```
+
+Structural tag truncation. `truncateTagParts` walks a decision ladder — full
+render → collapse trailing middle segments to `<TAG>`/`<TAGS>` → replace
+overlong mandatory elements (value, first segment, modifier) with
+`<VAL>`/`<TAG>`/`<PRE>` — and returns the first form that fits `maxChars`,
+always preserving the tag's structure. Pass `Infinity` to disable truncation.
+`TAG_LABEL_VARIANTS` is the extension point for new display styles (mirrors
+`MATCH_MODE_REGISTRY`): `chip` renders the literal tag string, `row` renders
+the pretty uppercase block-row style (registry modifier prefixes, `_`/`-` as
+spaces). Truncation measures the transformed text, so budgets are exact for
+what renders. `truncateMiddle` is the plain-text sibling (middle ellipsis);
+`computeCharBudget` is the pure math behind the `useCharBudget` hook.
+
+---
+
+## Constants
+
+### `src/constants/truncation.js`
+
+```js
+parseTruncationConfig(ymlText: string): TruncationConfig   // throws on invalid config
+TRUNCATION_CONFIG: TruncationConfig                        // parsed once at module init, deep-frozen
+```
+
+Build-time loader for `config/truncation.yml` — the contract for the text
+display library (number shorthand table, `<PRE>`/`<TAG>`/`<TAGS>`/`<VAL>`
+placeholder strings, char-budget parameters). The YAML is inlined via Vite's
+`?raw` import; there is no runtime fetch. Validation is fail-fast at module
+init: tiers must be non-empty and strictly ascending, all four placeholders
+present, font ratios positive, every component entry complete.
+
+```ts
+interface TruncationConfig {
+  numberShorthand: {
+    significantFigures: number;               // display precision (3 → 1.42K)
+    exponent?: { enabled: boolean, symbol: string };  // past-the-table notation (7.80e12); absent = disabled
+    overflow: string;                          // safeguard of last resort ("NaN"): non-finite, non-number, exponent disabled
+    tiers: { threshold: number, suffix: string }[];   // ascending (1000 "K", 1e6 "M", 1e9 "B")
+  };
+  placeholders: { prefix: string, segment: string, segments: string, value: string };
+  charBudget: {
+    fonts: { [font: string]: number };         // average glyph width / font-size
+    minChars: number;                          // lower clamp on computed budgets
+    components: { [component: string]: { font: string, allowancePx: number, fallbackChars: number } };
+  };
+}
+```
+
 ---
 
 ## Hooks
@@ -366,6 +449,88 @@ Side-effect hook. Reads the stored palette name, applies it to `:root` CSS custo
 ### `useRegisterAssets(urls: string[])`
 
 Registers the URL list with `AssetProvider` once on mount. No return value.
+
+### `useCharBudget(component: string)` → `{ ref, maxChars }`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ref` | `(element) => void` | Attach to the **container** that constrains the text (e.g. a `.tag-list`) |
+| `maxChars` | `number` | Character budget for text inside that container |
+
+Derives dynamic character budgets for the text display library from the
+container's measured width and computed font size, using the parameters of
+the named `charBudget.components` entry in `config/truncation.yml`
+(`'tag-chip'`, `'tag-row'`, `'text'`). One shared module-level ResizeObserver
+serves all instances; re-renders only when the whole-character budget
+changes. Returns `fallbackChars` until the first usable measurement and keeps
+the last budget while hidden. Throws on an unknown component key.
+
+---
+
+## Shared Components
+
+Reusable presentational components at the `src/components/` root.
+
+### `<Tooltip content children disabled? delayMs? />`
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `content` | `ReactNode` | — | Tooltip body; `null`/empty renders the child untouched |
+| `children` | `ReactElement` | — | Single anchor element (cloned; no wrapper DOM node) |
+| `disabled` | `boolean` | `false` | Render the child untouched |
+| `delayMs` | `number` | `400` | Hover/focus delay before showing |
+
+The app-standard tooltip (`role="tooltip"`, `aria-describedby` wiring). Shows
+on hover and keyboard focus; hides on leave, blur, and Escape. Portals to
+`document.body`, centered above the anchor, viewport-clamped, flipping below
+when cramped (`.tooltip--below`). Width capped by the `--tooltip-max-width`
+token with word wrap. Child event handlers are merged, never clobbered.
+Native `title=` attributes should migrate to this component over time.
+
+### `<TagLabel tag maxChars? variant? truncate? tooltip? shorthand? />`
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `tag` | `string` | — | Raw tag string (parsed internally) |
+| `maxChars` | `number` | variant `fallbackChars` | Character budget, usually from `useCharBudget` |
+| `variant` | `'chip' \| 'row'` | `'chip'` | Display style from `TAG_LABEL_VARIANTS` |
+| `truncate` | `boolean` | `true` | Structural truncation toggle |
+| `tooltip` | `boolean` | `true` | Tooltip-on-difference toggle |
+| `shorthand` | `boolean` | `true` | Number shorthand on the value |
+
+Canonical tag display: every component that shows a tag string renders it
+through this. Runs the structural truncation ladder and wraps the label in a
+Tooltip carrying the full raw tag whenever display differs from data
+(collapse or shorthand); `.tag-string--truncated` adds the hover highlight
+and `cursor: help`. The parent owns the surrounding chrome (`.tag` chip,
+`.tag-content` row, active states, remove buttons). **Default-on contract:**
+future tag-displaying components get safe text display for free and opt out
+per prop.
+
+> ⚠️ **Naming:** the component's CSS block is `.tag-string`, not
+> `.tag-label` — that class was already taken by the section-heading style
+> (`REQUIREMENTS`, `ATTRIBUTES`, …), which predates this component and is not
+> a tag label. Renaming the heading class to `.section-label` would resolve
+> the mismatch.
+
+### `<TruncatedText text maxChars? truncate? tooltip? className? />`
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `text` | `string` | — | Full display text |
+| `maxChars` | `number` | `text` entry `fallbackChars` | Character budget, usually from `useCharBudget` |
+| `truncate` | `boolean` | `true` | Truncation toggle |
+| `tooltip` | `boolean` | `true` | Tooltip-when-truncated toggle |
+| `className` | `string` | — | Extra classes for the span |
+
+Plain-string counterpart to `TagLabel` for non-tag text (task names in chips,
+item names): middle ellipsis via `truncateMiddle` plus the standard Tooltip
+when truncated.
+
+### `<EditableSpan value onCommit ... />`
+
+Click-to-edit inline span used across cards and rows (pre-existing; see the
+component's JSDoc for the full prop set).
 
 ---
 

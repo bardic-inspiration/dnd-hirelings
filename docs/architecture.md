@@ -5,6 +5,8 @@ Guild Manager is a client-side SPA with no backend. All state lives in the brows
 ## Directory Map
 
 ```
+config/
+└── truncation.yml    # Text display config (build-time YAML; see Text Display Library below)
 src/
 ├── main.jsx          # React bootstrap; mounts providers
 ├── App.jsx           # Root shell; owns modal rendering, global click handler, tag-apply selection mode
@@ -12,8 +14,8 @@ src/
 ├── state/            # React context providers, reducer, storage
 ├── logic/            # Pure business logic (no React imports)
 ├── hooks/            # Custom hooks (bridge between state and UI concerns)
-├── constants/        # Static configuration and theme data
-├── components/       # React UI tree
+├── constants/        # Static configuration and theme data (incl. build-time YAML loaders)
+├── components/       # React UI tree (shared components at the root)
 │   ├── TopBar/
 │   ├── Dashboard/
 │   │   └── TaskSections/
@@ -109,17 +111,25 @@ The library modal merges two preset pools:
 
 Editing a standard preset implicitly forks it into the user pool. `usePresets` in `src/hooks/usePresets.js` manages this; mutation functions guard that only `source === 'user'` entries are ever written back.
 
+### Text Display Library
+
+A small cross-tier library keeps long strings and large numbers from spilling their containers (issue #69), designed so **future components get safe display by default and opt out per prop**:
+
+- **Config**: `config/truncation.yml` (repo root) declares the number-shorthand table, `<PRE>`/`<TAG>`/`<TAGS>`/`<VAL>` placeholder strings, and char-budget parameters. Inlined at build time via a Vite `?raw` import and validated fail-fast by `src/constants/truncation.js` — extending display behavior (a `T` tier, new component budgets) is a config-only change.
+- **Logic**: `src/logic/format.js` (number shorthand, gold) and `src/logic/truncation.js` (structural tag truncation ladder, middle ellipsis, budget math). `TAG_LABEL_VARIANTS` is the extension point for new tag display styles, mirroring `MATCH_MODE_REGISTRY`.
+- **Hook**: `useCharBudget(component)` measures a chip/row **container** (one shared ResizeObserver) and converts width + computed font size into a character budget, so truncation tracks the UI's actual scale.
+- **Components**: `<Tooltip>` (the app-standard hover/focus bubble), `<TagLabel>` (the canonical tag renderer; every tag display goes through it), `<TruncatedText>` (plain-text sibling). Truncation, tooltips, and shorthand are **on by default** with `truncate` / `tooltip` / `shorthand` toggle props.
+
+The guiding rule: the user always sees the structure of a tag — modifier, first segment, and value survive every stage of collapse, and the full string is one hover away.
+
 ### CSS Class Naming
 
-Classes follow a loose kebab-case convention but mix two structural patterns without a declared rule:
+Classes follow the **flat compound** convention (declared in `CLAUDE.md` and the stylesheet header):
 
-**Flat compound names** (most common): `.agent-card`, `.task-card`, `.item-row`, `.tag-list` — parent and child share a prefix but no separator signals the relationship.
-
-**Implicit BEM-like hierarchy**: `.vital-bar-fill--hp`, `.vital-bar-fill--xp`, `.condition-item-bar-fill` — double hyphens appear for some modifiers but not others; double underscores for sub-elements are absent.
-
-**Bare modifier classes**: `.active`, `.expanded`, `.selected`, `.depleted`, `.empty-state` — applied alongside block classes but not namespaced to a block, so their meaning depends on context.
-
-> ⚠️ **Naming:** The stylesheet should declare one pattern and follow it. Flat compound names (`.agent-card-name`, `.task-card-header`) are simpler and already dominant — formalizing that choice would mean removing the isolated `--modifier` suffixes and replacing bare state classes with namespaced ones (`.agent-card--active`, `.task-card--expanded`).
+- **Block**: `.agent-card`, `.task-card`, `.tooltip`
+- **Sub-element**: `.agent-name`, `.tag-string-placeholder` — block prefix, single hyphens
+- **State**: `.task-card--expanded`, `.tag--active`, `.tag-string--truncated` — double-hyphen modifier applied as a second class in JSX; never a bare unnamespaced state class
+- **Utilities**: `.mono`, `.bright`, `.dim`, `.label`, `.value`, `.right` — the only intentionally global, unprefixed classes
 
 ### Virtual Asset Manifests
 
@@ -136,8 +146,9 @@ See `docs/assets.md` for the full asset pipeline: directory layout, formats, man
 | Library | Why |
 |---------|-----|
 | **React 18** | Component model; `useReducer` for Redux-like state without the boilerplate of an external store |
-| **js-yaml** | Tag registry YAML I/O; chosen over hand-rolled parsing because YAML handles indentation-based nesting cleanly and the library is small |
+| **js-yaml** | Tag registry YAML I/O and build-time config parsing; chosen over hand-rolled parsing because YAML handles indentation-based nesting cleanly and the library is small |
 | **Vite** | Fast HMR, native ESM, and a simple plugin API that made the virtual manifest pattern straightforward |
+| **vitest** (dev) | Unit tests for the pure logic/constants tiers; runs on Vite's own transform pipeline so build-time imports (`?raw`) resolve without mocking |
 
 No routing library (single page, no routes), no CSS framework (single bespoke stylesheet), no state management library (React's `useReducer` is sufficient for this scale).
 
