@@ -122,7 +122,10 @@ export function truncateTagParts(parsed, maxChars = Infinity, options = {}) {
   let valueText = null;
   let valueShortened = false;
   if (parsed.value !== null) {
-    const numeric = parsed.value !== '' && Number.isFinite(Number(parsed.value));
+    // Anything with numeric syntax routes through the formatter — including
+    // values that parse to ±Infinity (e.g. "1e500"), which the formatter
+    // renders as its overflow safeguard rather than leaking literal text.
+    const numeric = parsed.value !== '' && !Number.isNaN(Number(parsed.value));
     const display = shorthand && numeric
       ? formatNumberShorthand(Number(parsed.value), config.numberShorthand)
       : parsed.value;

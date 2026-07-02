@@ -96,6 +96,18 @@ describe('truncateTagParts', () => {
     expect(result.valueShortened).toBe(true);
   });
 
+  it('renders the overflow safeguard for values that parse beyond number range', () => {
+    const result = truncateTagParts(parseTag('skill=1e500'), Infinity);
+    expect(result.text).toBe('skill=NaN');
+    expect(result.valueShortened).toBe(true);
+  });
+
+  it('leaves non-numeric values as literal text', () => {
+    const result = truncateTagParts(parseTag('bind:weapon=longsword'), Infinity);
+    expect(result.text).toBe('bind:weapon=longsword');
+    expect(result.valueShortened).toBe(false);
+  });
+
   it('leaves numeric values alone when shorthand is off', () => {
     const result = truncateTagParts(parseTag('skill=1250000'), Infinity, { shorthand: false });
     expect(result.text).toBe('skill=1250000');
