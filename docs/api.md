@@ -478,6 +478,46 @@ when cramped (`.tooltip--below`). Width capped by the `--tooltip-max-width`
 token with word wrap. Child event handlers are merged, never clobbered.
 Native `title=` attributes should migrate to this component over time.
 
+### `<TagLabel tag maxChars? variant? truncate? tooltip? shorthand? />`
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `tag` | `string` | — | Raw tag string (parsed internally) |
+| `maxChars` | `number` | variant `fallbackChars` | Character budget, usually from `useCharBudget` |
+| `variant` | `'chip' \| 'row'` | `'chip'` | Display style from `TAG_LABEL_VARIANTS` |
+| `truncate` | `boolean` | `true` | Structural truncation toggle |
+| `tooltip` | `boolean` | `true` | Tooltip-on-difference toggle |
+| `shorthand` | `boolean` | `true` | Number shorthand on the value |
+
+Canonical tag display: every component that shows a tag string renders it
+through this. Runs the structural truncation ladder and wraps the label in a
+Tooltip carrying the full raw tag whenever display differs from data
+(collapse or shorthand); `.tag-string--truncated` adds the hover highlight
+and `cursor: help`. The parent owns the surrounding chrome (`.tag` chip,
+`.tag-content` row, active states, remove buttons). **Default-on contract:**
+future tag-displaying components get safe text display for free and opt out
+per prop.
+
+> ⚠️ **Naming:** the component's CSS block is `.tag-string`, not
+> `.tag-label` — that class was already taken by the section-heading style
+> (`REQUIREMENTS`, `ATTRIBUTES`, …), which predates this component and is not
+> a tag label. Renaming the heading class to `.section-label` would resolve
+> the mismatch.
+
+### `<TruncatedText text maxChars? truncate? tooltip? className? />`
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `text` | `string` | — | Full display text |
+| `maxChars` | `number` | `text` entry `fallbackChars` | Character budget, usually from `useCharBudget` |
+| `truncate` | `boolean` | `true` | Truncation toggle |
+| `tooltip` | `boolean` | `true` | Tooltip-when-truncated toggle |
+| `className` | `string` | — | Extra classes for the span |
+
+Plain-string counterpart to `TagLabel` for non-tag text (task names in chips,
+item names): middle ellipsis via `truncateMiddle` plus the standard Tooltip
+when truncated.
+
 ### `<EditableSpan value onCommit ... />`
 
 Click-to-edit inline span used across cards and rows (pre-existing; see the

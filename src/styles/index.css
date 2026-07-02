@@ -773,6 +773,16 @@ body {
   margin-left: 1px;
 }
 
+/* Truncating label spans (components/TagLabel.jsx, TruncatedText.jsx).
+   Block is .tag-string — .tag-label was already taken by the section
+   headings above. The --truncated state marks display-differs-from-data:
+   hover highlights and the shared Tooltip carries the full string. */
+.tag-string-placeholder { color: var(--dim); }
+.tag-string--truncated,
+.truncated-text--truncated { cursor: help; }
+.tag-string--truncated:hover,
+.truncated-text--truncated:hover { color: var(--highlight); }
+
 /* ============================================================
    TOOLTIP
    Shared hover/focus bubble (components/Tooltip.jsx). Portals to
