@@ -183,6 +183,19 @@ If `public/assets/portraits/` or `public/assets/items/` do not exist when `vite 
 
 ---
 
+## Char Budgets are Estimates, Not Per-Glyph Measurement
+
+The text display library truncates by **character count**, derived from
+container width ÷ (font size × an average glyph-width ratio from
+`config/truncation.yml`). Consequences:
+
+- Budgets are approximate for proportional fonts (a string of `W`s runs wider than the estimate). The pre-existing CSS `text-overflow: ellipsis` on `.tag-content` stays as the pixel-exact backstop; `.tag` chips rely on the budget alone.
+- `truncateTagParts` never drops the tag's structure: if even the all-placeholder form (`<PRE>,<TAG>:<TAGS>=<VAL>`) exceeds a pathologically small budget, it renders anyway (the `minChars` clamp makes this a non-event in practice).
+- A tag whose display already fits is returned untouched — `truncated: false` — even when the budget is smaller than the placeholders would be; no tooltip shows because nothing is hidden.
+- The tooltip bubble sits at `z-index: 300`, above modal overlays (100) and the elevated registry overlay (200).
+
+---
+
 ## `config/truncation.yml` is Build-Time Input, Not a Served File
 
 The text display library's configuration (`config/truncation.yml`) sits at the

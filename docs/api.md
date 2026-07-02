@@ -153,8 +153,11 @@ parseTag(tagString: string): { modifier: string|null, segments: string[], value:
 buildTag(segments: string[], value?: string|null, modifier?: string|null): string
 tagMatches(tag: ParsedTag, prefix: { segments: string[] }): boolean
 mergeAttribute(attrs: string[], tag: string): string[]
-formatTagLabel(parsed: ParsedTag): { label: string, params: string }
 ```
+
+Tag display formatting lives in `src/logic/truncation.js` (the `row` variant
+absorbed the retired `formatTagLabel`); components render tags through
+`<TagLabel>`.
 
 ### `src/logic/tagMatching.js`
 

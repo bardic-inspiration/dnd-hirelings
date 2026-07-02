@@ -1,12 +1,15 @@
 import { useUI } from '../../../state/UIContext.jsx';
-import { parseTag, formatTagLabel, mergeAttribute } from '../../../logic/tags.js';
+import { mergeAttribute } from '../../../logic/tags.js';
+import { useCharBudget } from '../../../hooks/useCharBudget.js';
 import EditableSpan from '../../EditableSpan.jsx';
+import TagLabel from '../../TagLabel.jsx';
 
 // Editable agent preview. Mirrors AgentCard's markup/CSS but binds to a draft
 // preset via onChange instead of dispatching board actions. Attribute "active"
 // highlighting and the TASKS section are board-only, so they're omitted here.
 export default function AgentPreview({ draft, onChange }) {
   const { openPortraits, openTagRegistry } = useUI();
+  const { ref: tagListRef, maxChars } = useCharBudget('tag-chip');
 
   return (
     <div className="agent-card library-preview-card">
@@ -47,17 +50,14 @@ export default function AgentPreview({ draft, onChange }) {
 
       <div className="tag-section">
         <div className="tag-label">ATTRIBUTES</div>
-        <div className="tag-list">
+        <div className="tag-list" ref={tagListRef}>
           {!draft.attributes.length && <span className="empty-inline">—</span>}
-          {draft.attributes.map((tag, i) => {
-            const { label, params } = formatTagLabel(parseTag(tag));
-            return (
-              <span key={i} className="tag">
-                {label}{params}
-                <span className="x" title="Remove" onClick={() => onChange({ attributes: draft.attributes.filter((_, j) => j !== i) })}>×</span>
-              </span>
-            );
-          })}
+          {draft.attributes.map((tag, i) => (
+            <span key={i} className="tag">
+              <TagLabel tag={tag} maxChars={maxChars} />
+              <span className="x" title="Remove" onClick={() => onChange({ attributes: draft.attributes.filter((_, j) => j !== i) })}>×</span>
+            </span>
+          ))}
           <button className="tag-add" title="Add attribute" onClick={() => openTagRegistry({
             onApply: (tag) => onChange({ attributes: mergeAttribute(draft.attributes, tag) }),
           })}>+</button>

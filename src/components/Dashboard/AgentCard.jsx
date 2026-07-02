@@ -4,23 +4,26 @@ import { useUI } from '../../state/UIContext.jsx';
 import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, hasSlotSchema } from '../../logic/agents.js';
 import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
 import { parseTag } from '../../logic/tags.js';
+import { useCharBudget } from '../../hooks/useCharBudget.js';
 import EditableSpan from '../EditableSpan.jsx';
+import TagLabel from '../TagLabel.jsx';
+import TruncatedText from '../TruncatedText.jsx';
 import { flashAgentCard } from '../../logic/dom.js';
 
-function TagChip({ tagStr, active, onRemove }) {
+// Task activity chips show the resolved task name (plain text); every other
+// tag renders through TagLabel's chip variant. Both truncate to the card's
+// measured budget with the full string in a tooltip.
+function TagChip({ tagStr, active, maxChars, onRemove }) {
   const parsed = parseTag(tagStr);
   const { state } = useGame();
-  let label;
-  if (parsed.segments[0] === 'task') {
-    const task = state.tasks.find(task => task.id === parsed.segments[1]);
-    label = task ? `${task.name}` : parsed.segments.join(':');
-  } else {
-    label = parsed.segments.join(':');
-  }
+  const task = parsed.segments[0] === 'task'
+    ? state.tasks.find(task => task.id === parsed.segments[1])
+    : null;
   return (
     <span className={`tag${active ? ' tag--active' : ''}`}>
-      {label}
-      {parsed.value !== null && parsed.segments[0] !== 'task' && <span className="tag-value">={parsed.value}</span>}
+      {task
+        ? <TruncatedText text={task.name} maxChars={maxChars} />
+        : <TagLabel tag={tagStr} maxChars={maxChars} />}
       <span className="x" title="Remove" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
     </span>
   );
@@ -68,6 +71,10 @@ export default function AgentCard({ agent }) {
   const personalItems   = getPersonalItems(agent.activities);
   const boundItems      = getBoundItems(agent.activities);
   const dyn = computeDynamicAttributes(agent, state.inventory);
+  // One measured budget serves every chip list on the card — they share the
+  // card's width. The ref sits on the ATTRIBUTES list; collapse keeps the
+  // last measurement.
+  const { ref: tagListRef, maxChars } = useCharBudget('tag-chip');
 
   // Give `quantity` units of the selected item to this agent (clamped to stock by
   // the reducer). Used by left-click (1) and the right-click quantity input. The
@@ -234,12 +241,13 @@ export default function AgentCard({ agent }) {
           {/* Attributes */}
           <div className="tag-section">
             <div className="tag-label">ATTRIBUTES</div>
-            <div className="tag-list">
+            <div className="tag-list" ref={tagListRef}>
               {agent.attributes.map((tag, index) => (
                 <TagChip
                   key={index}
                   tagStr={tag}
                   active={isAttributeActive(tag, agent, state.tasks)}
+                  maxChars={maxChars}
                   onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
                 />
               ))}
@@ -263,7 +271,7 @@ export default function AgentCard({ agent }) {
                   onClick={e => allocateItem(e, name)}
                   onContextMenu={e => bindItem(e, name)}
                 >
-                  {name}
+                  <TruncatedText text={name} maxChars={maxChars} />
                   {quantity > 1 && <span className="tag-value"> ×{quantity}</span>}
                 </span>
               ))}
@@ -299,7 +307,8 @@ export default function AgentCard({ agent }) {
                     title="Right-click: unbind"
                     onContextMenu={e => unbindItem(e, slot, name)}
                   >
-                    {slot && <><span className="tag-value">[{slot}]</span>&nbsp;</>}{name}
+                    {slot && <><span className="tag-value">[{slot}]</span>&nbsp;</>}
+                    <TruncatedText text={name} maxChars={maxChars} />
                   </span>
                 ))}
               </div>
@@ -319,6 +328,7 @@ export default function AgentCard({ agent }) {
                     key={index}
                     tagStr={tag}
                     active={isCurrent}
+                    maxChars={maxChars}
                     onRemove={() => dispatch({ type: 'AGENT_REMOVE_ACTIVITY', id: agent.id, tag })}
                   />
                 );
