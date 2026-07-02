@@ -11,7 +11,7 @@ const PALETTE_KEY_LEGACY = 'dnd-hirelings-palette';
  * and persisting the name to localStorage. Valid names are keys of `PALETTES`; falls
  * back to `'dark'` for unknown names.
  *
- * @param {string} name - Palette name ('dark' | 'light' | 'vale' | 'ember' | 'arcane')
+ * @param {string} name - Palette name ('light' | 'dark')
  */
 export function applyPalette(name) {
   const p = PALETTES[name] || PALETTES.dark;
@@ -33,13 +33,15 @@ export function applyPalette(name) {
 
 /**
  * Returns the palette name stored in localStorage, defaulting to `'dark'`.
+ * Falls back to `'dark'` if the stored value is not a known palette (e.g. a
+ * name retired in a later release, such as the pre-rename `'arcane'`).
  *
  * @returns {string}
  */
 export function getStoredPalette() {
-  return localStorage.getItem(STORAGE_KEYS.PALETTE)
-    || localStorage.getItem(PALETTE_KEY_LEGACY)
-    || 'dark';
+  const stored = localStorage.getItem(STORAGE_KEYS.PALETTE)
+    || localStorage.getItem(PALETTE_KEY_LEGACY);
+  return PALETTES[stored] ? stored : 'dark';
 }
 
 /**
