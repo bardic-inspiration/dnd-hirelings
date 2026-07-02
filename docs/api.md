@@ -17,7 +17,8 @@ The primary game state interface. Provides the normalized state tree and dispatc
 
 ### `useUI()` → `UIContext`
 
-Ephemeral UI state. Not persisted. All fields below are part of the returned object.
+Mostly ephemeral UI state. The one persisted slice is card expansion (see below);
+everything else resets on refresh. All fields below are part of the returned object.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -25,8 +26,8 @@ Ephemeral UI state. Not persisted. All fields below are part of the returned obj
 | `setSelectedTaskId` | `(id: string \| null) => void` | Select or deselect a task |
 | `selectedItemId` | `string \| null` | Currently selected inventory item |
 | `setSelectedItemId` | `(id: string \| null) => void` | Select or deselect an item |
-| `expandedTasks` | `Set<string>` | IDs of expanded task cards |
-| `toggleExpanded` | `(id: string) => void` | Toggle task card expansion |
+| `isExpanded` | `(type: 'agent' \| 'task' \| 'item', id: string) => boolean` | Whether a card is expanded, resolving its type's default (agents expand by default; tasks/items collapse by default) |
+| `toggleExpanded` | `(type: 'agent' \| 'task' \| 'item', id: string) => void` | Toggle a card's expand/collapse state; **persisted** to localStorage (survives refresh) |
 | `playing` | `boolean` | Whether the game clock is running |
 | `setPlaying` | `(v: boolean) => void` | Set playing state (prefer `usePlayClock` start/stop) |
 | `portraitsProps` | `{ onSelect } \| null` | Non-null when PortraitsModal is open |
@@ -56,6 +57,10 @@ interface TagRegistryProps {       // all fields optional
 ```
 
 > **Modal state pattern:** All modals use the same nullable-object idiom — `*Props` is `null` when closed and a (possibly empty) object when open, paired with `open*`/`close*` callbacks. Props travel with the open signal.
+
+> **Card expansion:** `isExpanded`/`toggleExpanded` back all three card types (agents, tasks, items) through one persisted store in `UIContext`. Only IDs toggled *away* from their type's default are stored (`STORAGE_KEYS.CARD_EXPANSION`), so the payload stays bounded to user actions. Per-type defaults live in `CARD_DEFAULT_EXPANDED` (UIContext) — add a card type there to extend the store.
+>
+> ⚠️ **Needs clarification:** The deviation Sets retain IDs of deleted entities (harmless, but grows unbounded over the app's lifetime). Pruning is deferred because `UIContext` has no access to the live entity list; a future reducer-side or startup reconciliation could clear orphaned IDs.
 
 ### `useAssets()` → `{ registerAssets, isReady }`
 
