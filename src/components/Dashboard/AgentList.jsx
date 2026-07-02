@@ -5,7 +5,7 @@ import AgentCard from './AgentCard.jsx';
 
 export default function AgentList() {
   const { state, dispatch } = useGame();
-  const { openLibrary, collapsedAgents } = useUI();
+  const { openLibrary, isExpanded } = useUI();
   const { agents, tasks } = state;
 
   const active = [], idle = [];
@@ -15,10 +15,10 @@ export default function AgentList() {
   active.sort((a, b) => activeTaskCount(b, tasks) - activeTaskCount(a, tasks) || (b.lastAssigned ?? b.createdAt) - (a.lastAssigned ?? a.createdAt));
   idle.sort((a, b) => (b.lastAssigned ?? b.createdAt) - (a.lastAssigned ?? a.createdAt));
 
-  const activeExpanded  = active.filter(a => !collapsedAgents.has(a.id));
-  const activeCollapsed = active.filter(a =>  collapsedAgents.has(a.id));
-  const idleExpanded    = idle.filter(a => !collapsedAgents.has(a.id));
-  const idleCollapsed   = idle.filter(a =>  collapsedAgents.has(a.id));
+  const activeExpanded  = active.filter(a =>  isExpanded('agent', a.id));
+  const activeCollapsed = active.filter(a => !isExpanded('agent', a.id));
+  const idleExpanded    = idle.filter(a =>  isExpanded('agent', a.id));
+  const idleCollapsed   = idle.filter(a => !isExpanded('agent', a.id));
 
   return (
     <div className="pane" id="agents-pane">

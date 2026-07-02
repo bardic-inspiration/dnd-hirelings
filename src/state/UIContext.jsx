@@ -1,10 +1,20 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { loadCardExpansion, saveCardExpansion } from './storage.js';
 
 const UIContext = createContext(null);
 
 /**
- * Provides ephemeral UI state to the component tree: modal open/close state,
- * selection state, and playing flag. Nothing here is persisted.
+ * Whether each card type is expanded by default. The persisted expansion store
+ * records only IDs whose state deviates from these defaults, so both
+ * default-expanded (agents) and default-collapsed (tasks, items) types share one
+ * mechanism. Add a card type here to extend the store.
+ */
+const CARD_DEFAULT_EXPANDED = { agent: true, task: false, item: false };
+
+/**
+ * Provides UI state to the component tree: modal open/close state, selection
+ * state, and the playing flag — all ephemeral — plus the card expand/collapse
+ * store, which is the one slice persisted to localStorage (survives refresh).
  *
  * Tag registry modal props (`openTagRegistry(props)` — all fields optional):
  * - `target`: `{ type: 'agent'|'task'|'item', id }` board entity APPLY assigns to
@@ -15,15 +25,15 @@ const UIContext = createContext(null);
  * `pendingApply` holds a tag/condition awaiting a board-entity click (selection
  * mode, hosted by App.jsx): `null | { kind: 'tag', tag } | { kind: 'condition', template }`.
  *
- * `collapsedAgents` is a Set of agent IDs the user has explicitly collapsed.
- * Agents default to expanded; only collapsed cards enter the Set.
+ * Card expansion: `isExpanded(type, id)` / `toggleExpanded(type, id)` drive every
+ * card type (`'agent' | 'task' | 'item'`). State is a per-type Set of IDs toggled
+ * away from `CARD_DEFAULT_EXPANDED`, persisted via `saveCardExpansion`.
  *
  * @param {{ children: React.ReactNode }} props
  */
 export function UIProvider({ children }) {
   const [selectedTaskId, setSelectedTaskId] = useState(null);
-  const [expandedTasks, setExpandedTasks]   = useState(new Set());
-  const [collapsedAgents, setCollapsedAgents] = useState(new Set());
+  const [cardExpansion, setCardExpansion]   = useState(loadCardExpansion);
   const [playing, setPlaying]               = useState(false);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [configProps, setConfigProps]       = useState(null);
@@ -33,19 +43,36 @@ export function UIProvider({ children }) {
   const [tagRegistryProps, setTagRegistryProps] = useState(null);
   const [pendingApply, setPendingApply]     = useState(null);
 
-  const toggleExpanded = useCallback((id) => {
-    setExpandedTasks(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
+  // Persist card expansion on every change (mirrors GameProvider's saveState effect).
+  useEffect(() => {
+    saveCardExpansion(cardExpansion);
+  }, [cardExpansion]);
 
-  const toggleAgentCollapsed = useCallback((id) => {
-    setCollapsedAgents(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
+  /**
+   * Whether a card is currently expanded, resolving its type's default against
+   * the persisted deviation Set.
+   *
+   * @param {'agent'|'task'|'item'} type
+   * @param {string} id - Entity ID
+   * @returns {boolean}
+   */
+  const isExpanded = useCallback((type, id) => {
+    const deviates = cardExpansion[type]?.has(id) ?? false;
+    return CARD_DEFAULT_EXPANDED[type] ? !deviates : deviates;
+  }, [cardExpansion]);
+
+  /**
+   * Toggles a card's expand/collapse state by flipping its ID's membership in the
+   * type's deviation Set. Side effect: triggers persistence via the effect above.
+   *
+   * @param {'agent'|'task'|'item'} type
+   * @param {string} id - Entity ID
+   */
+  const toggleExpanded = useCallback((type, id) => {
+    setCardExpansion(prev => {
+      const nextSet = new Set(prev[type]);
+      if (nextSet.has(id)) nextSet.delete(id); else nextSet.add(id);
+      return { ...prev, [type]: nextSet };
     });
   }, []);
 
@@ -67,8 +94,7 @@ export function UIProvider({ children }) {
   return (
     <UIContext.Provider value={{
       selectedTaskId, setSelectedTaskId,
-      expandedTasks, toggleExpanded,
-      collapsedAgents, toggleAgentCollapsed,
+      isExpanded, toggleExpanded,
       playing, setPlaying,
       selectedItemId, setSelectedItemId,
       configProps, openConfig, closeConfig,

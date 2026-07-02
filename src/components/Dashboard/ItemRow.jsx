@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
@@ -8,8 +7,9 @@ import DragNumber from './DragNumber.jsx';
 
 export default function ItemRow({ item }) {
   const { dispatch } = useGame();
-  const { selectedItemId, setSelectedItemId, openItemIcons, openTagRegistry } = useUI();
-  const [expanded, setExpanded] = useState(false);
+  const { selectedItemId, setSelectedItemId, openItemIcons, openTagRegistry,
+          isExpanded, toggleExpanded } = useUI();
+  const expanded = isExpanded('item', item.id);
   const { ref: tagListRef, maxChars } = useCharBudget('tag-chip');
 
   const selected = selectedItemId === item.id;
@@ -74,7 +74,7 @@ export default function ItemRow({ item }) {
         <span
           className="item-toggle"
           title="Expand / collapse"
-          onClick={e => { e.stopPropagation(); setExpanded(v => !v); }}
+          onClick={e => { e.stopPropagation(); toggleExpanded('item', item.id); }}
         >{expanded ? '−' : '+'}</span>
         <span
           className="x"

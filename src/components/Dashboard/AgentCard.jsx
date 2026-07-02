@@ -43,7 +43,7 @@ const INLINE_INPUT_STYLE = {
 export default function AgentCard({ agent }) {
   const { state, dispatch } = useGame();
   const { selectedTaskId, selectedItemId, setSelectedItemId, openTagRegistry, openPortraits,
-          collapsedAgents, toggleAgentCollapsed } = useUI();
+          isExpanded, toggleExpanded } = useUI();
 
   const [giveQtyOpen, setGiveQtyOpen] = useState(false);
   const [giveQty, setGiveQty]       = useState(1);
@@ -61,11 +61,11 @@ export default function AgentCard({ agent }) {
       ? (validateAssignment(agent, selectedTask) ? ' agent-card--assignable' : ' agent-card--not-assignable')
       : '';
 
-  const isCollapsed = collapsedAgents.has(agent.id);
+  const isCollapsed = !isExpanded('agent', agent.id);
 
   const handleToggle = (e) => {
     e.stopPropagation(); // must not fire task-assign or item-give
-    toggleAgentCollapsed(agent.id);
+    toggleExpanded('agent', agent.id);
   };
 
   const personalItems   = getPersonalItems(agent.activities);

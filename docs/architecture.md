@@ -40,7 +40,7 @@ Three React contexts:
 | Context | Contents | Persisted |
 |---------|----------|-----------|
 | `GameContext` | `{ state, dispatch }` — the full game world via `useReducer` | Yes, localStorage on every change |
-| `UIContext` | Ephemeral UI state: selection, modal props, playing flag | No |
+| `UIContext` | Mostly ephemeral UI state: selection, modal props, playing flag | Card expand/collapse only (localStorage on every toggle); rest not persisted |
 | `AssetContext` | Image load registry; gates app render until assets settle | No |
 
 `GameContext` follows the Redux pattern: a single normalized state tree, a single reducer, dispatch-only mutations. The reducer is in `reducer.js`; persistence is in `storage.js`.

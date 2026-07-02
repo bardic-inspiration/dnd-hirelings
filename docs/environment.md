@@ -29,6 +29,7 @@ All persistent state is stored in `localStorage`. Every key is defined in the `S
 | `dnd-hirelings-presets-agents-v1` | `PRESETS('agents')` | `[]` | User-authored agent presets. Bundled (standard) presets are not stored here. |
 | `dnd-hirelings-presets-tasks-v1` | `PRESETS('tasks')` | `[]` | User-authored task presets. |
 | `dnd-hirelings-presets-items-v1` | `PRESETS('items')` | `[]` | User-authored item presets. |
+| `dnd-hirelings-card-expansion-v1` | `CARD_EXPANSION` | `{ agent: [], task: [], item: [] }` | Per-type Sets (serialized as arrays) of card IDs toggled away from their default expand/collapse state. Loaded into `UIContext`; saved on every toggle. |
 
 ## Scripts
 
