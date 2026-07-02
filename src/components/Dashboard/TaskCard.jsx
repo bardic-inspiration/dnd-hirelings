@@ -61,10 +61,10 @@ function AttributesSection({ task }) {
 
 export default function TaskCard({ task }) {
   const { state, dispatch } = useGame();
-  const { selectedTaskId, setSelectedTaskId, expandedTasks, toggleExpanded } = useUI();
+  const { selectedTaskId, setSelectedTaskId, isExpanded, toggleExpanded } = useUI();
 
   const selected = selectedTaskId === task.id;
-  const expanded = expandedTasks.has(task.id);
+  const expanded = isExpanded('task', task.id);
   const assigned = agentsAssignedTo(task.id, state.agents);
 
   const handleCardClick = () => {
@@ -73,7 +73,7 @@ export default function TaskCard({ task }) {
 
   const handleToggle = (e) => {
     e.stopPropagation();
-    toggleExpanded(task.id);
+    toggleExpanded('task', task.id);
   };
 
   const handleComplete = (e) => {
