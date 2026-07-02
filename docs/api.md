@@ -318,6 +318,22 @@ savePresetListToFile(presets: object[], type?: string): Promise<void>
 loadPresetsFromFile(file: File): Promise<object[]>
 ```
 
+### `src/logic/format.js`
+
+```js
+formatNumberShorthand(value: number, config?: NumberShorthandConfig): string
+formatGold(value: number, config?: NumberShorthandConfig): string
+```
+
+Table-driven number shorthand (`1.42K`, `56.5K`, `1.25M`, `6.00B`; three
+significant figures). Below the first tier numbers render verbatim; rounding
+that carries a mantissa to 1000 promotes it one tier (`999950` → `1.00M`);
+past the last tier — and for non-finite input — the configured `overflow`
+string (`"NaN"`) renders. `formatGold` keeps the bank's one-decimal display
+below the first tier and switches to shorthand above it. The default table is
+`TRUNCATION_CONFIG.numberShorthand` (from `config/truncation.yml`); pass a
+`config` to extend it (e.g. a `T` tier) without code changes.
+
 ---
 
 ## Constants
