@@ -88,6 +88,43 @@ describe('formatNumberShorthand', () => {
     expect(formatNumberShorthand(999999999999, config)).toBe('1.00T');
     expect(formatNumberShorthand(1e15, config)).toBe('NaN');
   });
+
+  it('extends by config alone (T and Q tiers, exponent past Q)', () => {
+    const config = {
+      significantFigures: 3,
+      exponent: { enabled: true, symbol: 'e' },
+      overflow: 'NaN',
+      tiers: [
+        { threshold: 1000, suffix: 'K' },
+        { threshold: 1000000, suffix: 'M' },
+        { threshold: 1000000000, suffix: 'B' },
+        { threshold: 1000000000000, suffix: 'T' },
+        { threshold: 1000000000000000, suffix: 'Q' },
+      ],
+    };
+    expect(formatNumberShorthand(1e12, config)).toBe('1.00T');
+    expect(formatNumberShorthand(56500000000000, config)).toBe('56.5T');
+    expect(formatNumberShorthand(7800000000000000, config)).toBe('7.80Q');
+    expect(formatNumberShorthand(994000000000000000, config)).toBe('994Q');
+    expect(formatNumberShorthand(999999999999999999, config)).toBe('1.00e18'); // carry past Q → exponent
+    expect(formatNumberShorthand(1e21, config)).toBe('1.00e21');
+  });
+
+  it('tunes precision by config alone (significantFigures)', () => {
+    const withPrecision = (significantFigures) => ({
+      significantFigures,
+      exponent: { enabled: true, symbol: 'e' },
+      overflow: 'NaN',
+      tiers: [{ threshold: 1000, suffix: 'K' }, { threshold: 1000000, suffix: 'M' }],
+    });
+    expect(formatNumberShorthand(1456000)).toBe('1.46M');                   // bundled default (3)
+    expect(formatNumberShorthand(1456000, withPrecision(4))).toBe('1.456M');
+    expect(formatNumberShorthand(1456000, withPrecision(2))).toBe('1.5M');
+    expect(formatNumberShorthand(203000, withPrecision(4))).toBe('203.0K'); // significant figures, not fixed decimals
+    expect(formatNumberShorthand(203000, withPrecision(2))).toBe('203K');   // integer digits are never dropped
+    expect(formatNumberShorthand(7800000000000, withPrecision(4))).toBe('7.800e12'); // exponent inherits precision
+    expect(formatNumberShorthand(7800000000000, withPrecision(2))).toBe('7.8e12');
+  });
 });
 
 describe('formatGold', () => {
