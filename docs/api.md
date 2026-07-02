@@ -320,6 +320,40 @@ loadPresetsFromFile(file: File): Promise<object[]>
 
 ---
 
+## Constants
+
+### `src/constants/truncation.js`
+
+```js
+parseTruncationConfig(ymlText: string): TruncationConfig   // throws on invalid config
+TRUNCATION_CONFIG: TruncationConfig                        // parsed once at module init, deep-frozen
+```
+
+Build-time loader for `config/truncation.yml` — the contract for the text
+display library (number shorthand table, `<PRE>`/`<TAG>`/`<TAGS>`/`<VAL>`
+placeholder strings, char-budget parameters). The YAML is inlined via Vite's
+`?raw` import; there is no runtime fetch. Validation is fail-fast at module
+init: tiers must be non-empty and strictly ascending, all four placeholders
+present, font ratios positive, every component entry complete.
+
+```ts
+interface TruncationConfig {
+  numberShorthand: {
+    significantFigures: number;               // display precision (3 → 1.42K)
+    overflow: string;                          // rendered past the last tier ("NaN")
+    tiers: { threshold: number, suffix: string }[];   // ascending (1000 "K", 1e6 "M", 1e9 "B")
+  };
+  placeholders: { prefix: string, segment: string, segments: string, value: string };
+  charBudget: {
+    fonts: { [font: string]: number };         // average glyph width / font-size
+    minChars: number;                          // lower clamp on computed budgets
+    components: { [component: string]: { font: string, allowancePx: number, fallbackChars: number } };
+  };
+}
+```
+
+---
+
 ## Hooks
 
 ### `usePlayClock()` → `{ start, stop, advance }`

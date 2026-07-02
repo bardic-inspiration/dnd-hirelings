@@ -183,6 +183,18 @@ If `public/assets/portraits/` or `public/assets/items/` do not exist when `vite 
 
 ---
 
+## `config/truncation.yml` is Build-Time Input, Not a Served File
+
+The text display library's configuration (`config/truncation.yml`) sits at the
+repo root — **outside `public/`** — and is inlined at build time through a Vite
+`?raw` import in `src/constants/truncation.js`. Consequences:
+
+- Editing it in a deployed build does nothing; the values are baked into the bundle. Editing it under `vite dev` triggers a full reload (the `?raw` import chain), not HMR.
+- Validation is fail-fast: a malformed file throws at module init and blanks the app. This is deliberate — the file is developer-controlled build input, not user data.
+- This is the first piece of the YAML configuration system planned for session settings (see the event-log section below); new build-time config tables should follow the same pattern (repo-root YAML + validating loader in `src/constants/`).
+
+---
+
 ## Event Log is Per-Day, Tick-Driven, and Capped
 
 `advanceTime` is the only writer of `state.eventLog`. Consequences:

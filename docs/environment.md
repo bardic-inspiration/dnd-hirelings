@@ -10,6 +10,7 @@ The build tool is Vite. No `.env` files are used. The only build-time behavior i
 |---------|-------|-------------|
 | Portrait asset directory | `vite.config.js` → `imageManifestPlugin.dir` | `public/assets/portraits` — scanned at build time to produce the portrait picker manifest |
 | Item icon asset directory | `vite.config.js` → `imageManifestPlugin.dir` | `public/assets/items` — scanned at build time to produce the item icon picker manifest |
+| Text display configuration | `config/truncation.yml` → `src/constants/truncation.js` | Number-shorthand table, truncation placeholders, and char-budget parameters — inlined via Vite `?raw` import and validated at module init (see `docs/gotchas.md`) |
 
 The two `imageManifestPlugin` instances expose these directories as virtual modules (`virtual:portrait-manifest`, `virtual:item-manifest`). Adding or removing image files from these directories while `vite dev` is running triggers a hot-reload automatically. Served images are WebP and the display font is WOFF2; see `docs/assets.md` for the full asset pipeline.
 
