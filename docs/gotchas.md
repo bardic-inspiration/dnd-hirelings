@@ -125,9 +125,11 @@ This means:
 
 ---
 
-## Asset Loading Gate Blocks First Paint
+## Asset Loading Gate Overlays (does not unmount) the App
 
-`AssetProvider` renders a full-screen "LOADING" placeholder until every URL registered via `useRegisterAssets` has resolved. `usePalette` registers the background image for the active theme on mount, which means first paint is gated on that image loading. On a slow connection or a missing image, the app will stay on the loading screen until the image 404s (which still resolves the gate via `onerror`).
+`AssetProvider` draws a full-screen "LOADING" overlay *on top of* the app while any URL registered via `useRegisterAssets` is still pending. `usePalette` registers the background image for the active theme on mount, so first paint is visually gated on that image loading. On a slow connection or a missing image, the overlay stays up until the image 404s (which still resolves the gate via `onerror`).
+
+The children are **always mounted** — the overlay is layered over them, never swapped in. This matters: assets register from post-mount effects, so gating by swapping `children` for the loading screen (the old behavior) unmounted and remounted the whole tree the instant the first batch registered, reading as a spurious page refresh that also discarded ephemeral UI state such as an open modal (issue #81). Keep the overlay approach; do not gate by conditionally rendering `children`.
 
 Adding more `useRegisterAssets` calls elsewhere will add to this blocking set. Use `useAssetGroup` (local, modal-scoped) for images that can load lazily.
 

@@ -18,7 +18,41 @@ export const STORAGE_KEYS = {
   /** @param {string} type - 'agents' | 'tasks' | 'items' */
   PRESETS: (type) => `dnd-hirelings-presets-${type}-v1`,
   CARD_EXPANSION: 'dnd-hirelings-card-expansion-v1',
+  OPEN_LIBRARY: 'dnd-hirelings-open-library-v1',
 };
+
+/** Library modal types whose open state is persisted across refresh. */
+const LIBRARY_TYPES = ['agent', 'task', 'item'];
+
+/**
+ * Loads which library modal (if any) was open, so it can be reopened after a
+ * page refresh (issue #81). Unknown or corrupt values yield null (no modal).
+ *
+ * @returns {'agent'|'task'|'item'|null}
+ */
+export function loadOpenLibrary() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.OPEN_LIBRARY);
+    return LIBRARY_TYPES.includes(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persists which library modal is open (or clears it when none is). Best-effort:
+ * storage errors are swallowed so a full/blocked quota never breaks the UI.
+ *
+ * @param {'agent'|'task'|'item'|null} type - Library type, or null to clear
+ */
+export function saveOpenLibrary(type) {
+  try {
+    if (LIBRARY_TYPES.includes(type)) localStorage.setItem(STORAGE_KEYS.OPEN_LIBRARY, type);
+    else localStorage.removeItem(STORAGE_KEYS.OPEN_LIBRARY);
+  } catch {
+    // ignore quota / availability errors — persistence is best-effort
+  }
+}
 
 /** Card types tracked by the expansion store; keys of a persisted deviation map. */
 const CARD_TYPES = ['agent', 'task', 'item'];

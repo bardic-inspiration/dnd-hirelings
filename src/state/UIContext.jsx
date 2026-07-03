@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { loadCardExpansion, saveCardExpansion } from './storage.js';
+import { loadCardExpansion, saveCardExpansion, loadOpenLibrary, saveOpenLibrary } from './storage.js';
 
 const UIContext = createContext(null);
 
@@ -13,8 +13,10 @@ const CARD_DEFAULT_EXPANDED = { agent: true, task: false, item: false };
 
 /**
  * Provides UI state to the component tree: modal open/close state, selection
- * state, and the playing flag — all ephemeral — plus the card expand/collapse
- * store, which is the one slice persisted to localStorage (survives refresh).
+ * state, and the playing flag — mostly ephemeral. Two slices are persisted to
+ * localStorage and survive a refresh: the card expand/collapse store, and which
+ * library modal is open (issue #81; other modals carry callbacks and stay
+ * ephemeral).
  *
  * Tag registry modal props (`openTagRegistry(props)` — all fields optional):
  * - `target`: `{ type: 'agent'|'task'|'item', id }` board entity APPLY assigns to
@@ -39,7 +41,13 @@ export function UIProvider({ children }) {
   const [configProps, setConfigProps]       = useState(null);
   const [portraitsProps, setPortraitsProps] = useState(null);
   const [itemIconsProps, setItemIconsProps] = useState(null);
-  const [libraryProps, setLibraryProps]     = useState(null);
+  // The open library modal is the one modal whose state survives a refresh: it
+  // carries only a serializable `{ type }`, and asset loading it kicks off used
+  // to read as a spurious refresh that closed it (issue #81). Rehydrate it here.
+  const [libraryProps, setLibraryProps]     = useState(() => {
+    const type = loadOpenLibrary();
+    return type ? { type } : null;
+  });
   const [tagRegistryProps, setTagRegistryProps] = useState(null);
   const [pendingApply, setPendingApply]     = useState(null);
 
@@ -47,6 +55,11 @@ export function UIProvider({ children }) {
   useEffect(() => {
     saveCardExpansion(cardExpansion);
   }, [cardExpansion]);
+
+  // Persist which library modal is open so a refresh reopens it (issue #81).
+  useEffect(() => {
+    saveOpenLibrary(libraryProps?.type ?? null);
+  }, [libraryProps]);
 
   /**
    * Whether a card is currently expanded, resolving its type's default against
