@@ -9,9 +9,18 @@ import { highlight } from '../../logic/text.jsx';
 import { savePresetToFile, savePresetListToFile, loadPresetsFromFile } from '../../logic/presets.js';
 
 export default function LibraryModal() {
-  const { libraryProps, closeLibrary } = useUI();
+  const { libraryProps } = useUI();
+  const config = LIBRARY_CONFIGS[libraryProps?.type];
+  // A persisted-but-unknown type (issue #81 rehydration of a corrupt entry) has
+  // no config — render nothing rather than crash. Split from the body so the
+  // body's hooks always run unconditionally.
+  if (!config) return null;
+  return <LibraryModalBody config={config} />;
+}
+
+function LibraryModalBody({ config }) {
+  const { closeLibrary } = useUI();
   const { dispatch } = useGame();
-  const config = LIBRARY_CONFIGS[libraryProps.type];
 
   const { presets, ready, addBlank, addPreset, updatePreset, deletePreset, importPresets } = usePresets(config);
   const [query, setQuery]           = useState('');

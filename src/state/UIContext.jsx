@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { loadCardExpansion, saveCardExpansion, loadOpenLibrary, saveOpenLibrary } from './storage.js';
+import { loadCardExpansion, saveCardExpansion, loadOpenModal, saveOpenModal } from './storage.js';
 
 const UIContext = createContext(null);
 
@@ -12,11 +12,58 @@ const UIContext = createContext(null);
 const CARD_DEFAULT_EXPANDED = { agent: true, task: false, item: false };
 
 /**
+ * Per-modal persistence toggle (issue #81). `true` = the modal's open state is
+ * saved to localStorage and restored after a refresh; `false` = it stays
+ * ephemeral. Flip a component's entry here to enable/disable its persistence.
+ *
+ * The picker modals default OFF: they open with a live `onSelect` callback that
+ * can't survive a reload, so restoring them would resurrect a picker whose
+ * "apply" does nothing. (`isPersistableProps` enforces the same rule at runtime,
+ * so a persistence-enabled modal that happens to carry a callback — e.g. the tag
+ * registry opened from a library draft — is also skipped rather than restored
+ * half-alive.)
+ */
+const MODAL_PERSISTENCE = {
+  config: true,
+  library: true,
+  tagRegistry: true,
+  portraits: false,
+  itemIcons: false,
+};
+
+// Props round-trip through localStorage only when they're plain data; a modal
+// carrying a live function (picker `onSelect`, tag-registry `onApply`) is treated
+// as ephemeral even when its modal is persistence-enabled.
+const isPersistableProps = (props) =>
+  props == null || Object.values(props).every(value => typeof value !== 'function');
+
+/**
+ * Modal open-state hook with opt-in refresh persistence (issue #81). Returns
+ * `[props, open, close]`: `props` is the open payload (`null` when closed),
+ * `open(value)` opens with `value ?? {}`, `close()` closes. When the modal is
+ * persistence-enabled (`MODAL_PERSISTENCE[name]`) and its props are plain data,
+ * the open state is mirrored to localStorage and rehydrated on mount.
+ *
+ * @param {string} name - Modal key in `MODAL_PERSISTENCE`
+ * @returns {[object|null, (value?: object) => void, () => void]}
+ */
+function useModal(name) {
+  const persist = MODAL_PERSISTENCE[name] ?? false;
+  const [props, setProps] = useState(() => (persist ? loadOpenModal(name) : null));
+  useEffect(() => {
+    if (persist) saveOpenModal(name, isPersistableProps(props) ? props : null);
+  }, [persist, name, props]);
+  const open = useCallback((value) => setProps(value ?? {}), []);
+  const close = useCallback(() => setProps(null), []);
+  return [props, open, close];
+}
+
+/**
  * Provides UI state to the component tree: modal open/close state, selection
- * state, and the playing flag — mostly ephemeral. Two slices are persisted to
- * localStorage and survive a refresh: the card expand/collapse store, and which
- * library modal is open (issue #81; other modals carry callbacks and stay
- * ephemeral).
+ * state, and the playing flag. Slices persisted to localStorage (survive a
+ * refresh): the card expand/collapse store, and every persistence-enabled
+ * modal's open state (issue #81 — standardized via `useModal` /
+ * `MODAL_PERSISTENCE`; picker modals opt out because they carry callbacks).
  *
  * Tag registry modal props (`openTagRegistry(props)` — all fields optional):
  * - `target`: `{ type: 'agent'|'task'|'item', id }` board entity APPLY assigns to
@@ -38,28 +85,21 @@ export function UIProvider({ children }) {
   const [cardExpansion, setCardExpansion]   = useState(loadCardExpansion);
   const [playing, setPlaying]               = useState(false);
   const [selectedItemId, setSelectedItemId] = useState(null);
-  const [configProps, setConfigProps]       = useState(null);
-  const [portraitsProps, setPortraitsProps] = useState(null);
-  const [itemIconsProps, setItemIconsProps] = useState(null);
-  // The open library modal is the one modal whose state survives a refresh: it
-  // carries only a serializable `{ type }`, and asset loading it kicks off used
-  // to read as a spurious refresh that closed it (issue #81). Rehydrate it here.
-  const [libraryProps, setLibraryProps]     = useState(() => {
-    const type = loadOpenLibrary();
-    return type ? { type } : null;
-  });
-  const [tagRegistryProps, setTagRegistryProps] = useState(null);
   const [pendingApply, setPendingApply]     = useState(null);
+
+  // Every modal goes through the same open-state hook; persistence is per-modal
+  // via MODAL_PERSISTENCE (issue #81). The raw `open` takes a props object, so
+  // handlers with their own argument shape are wrapped below.
+  const [configProps, openConfigModal, closeConfig]        = useModal('config');
+  const [portraitsProps, openPortraitsModal, closePortraits] = useModal('portraits');
+  const [itemIconsProps, openItemIconsModal, closeItemIcons] = useModal('itemIcons');
+  const [libraryProps, openLibraryModal, closeLibrary]     = useModal('library');
+  const [tagRegistryProps, openTagRegistry, closeTagRegistry] = useModal('tagRegistry');
 
   // Persist card expansion on every change (mirrors GameProvider's saveState effect).
   useEffect(() => {
     saveCardExpansion(cardExpansion);
   }, [cardExpansion]);
-
-  // Persist which library modal is open so a refresh reopens it (issue #81).
-  useEffect(() => {
-    saveOpenLibrary(libraryProps?.type ?? null);
-  }, [libraryProps]);
 
   /**
    * Whether a card is currently expanded, resolving its type's default against
@@ -89,20 +129,11 @@ export function UIProvider({ children }) {
     });
   }, []);
 
-  const openConfig  = useCallback(() => setConfigProps({}), []);
-  const closeConfig = useCallback(() => setConfigProps(null), []);
-
-  const openPortraits  = useCallback((onSelect) => setPortraitsProps({ onSelect }), []);
-  const closePortraits = useCallback(() => setPortraitsProps(null), []);
-
-  const openItemIcons  = useCallback((onSelect) => setItemIconsProps({ onSelect }), []);
-  const closeItemIcons = useCallback(() => setItemIconsProps(null), []);
-
-  const openLibrary  = useCallback((type) => setLibraryProps({ type }), []);
-  const closeLibrary = useCallback(() => setLibraryProps(null), []);
-
-  const openTagRegistry  = useCallback((props) => setTagRegistryProps(props ?? {}), []);
-  const closeTagRegistry = useCallback(() => setTagRegistryProps(null), []);
+  // Wrap the raw openers to keep each modal's existing call signature.
+  const openConfig    = useCallback(() => openConfigModal({}), [openConfigModal]);
+  const openPortraits = useCallback((onSelect) => openPortraitsModal({ onSelect }), [openPortraitsModal]);
+  const openItemIcons = useCallback((onSelect) => openItemIconsModal({ onSelect }), [openItemIconsModal]);
+  const openLibrary   = useCallback((type) => openLibraryModal({ type }), [openLibraryModal]);
 
   return (
     <UIContext.Provider value={{

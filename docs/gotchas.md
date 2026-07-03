@@ -137,6 +137,18 @@ On repeat visits the background is already in the HTTP cache (via the `<link rel
 
 ---
 
+## Modal Open State Persists Across Refresh (per-modal toggle)
+
+Every modal goes through one hook — `useModal(name)` in `UIContext` — which mirrors its open state to localStorage (the shared `dnd-hirelings-open-modals-v1` map) and rehydrates it on mount, so a refresh reopens whatever was open (issue #81). Persistence is **per component**: flip the modal's entry in `MODAL_PERSISTENCE` to enable/disable it.
+
+Two guards keep this safe:
+- **Callback props are never persisted.** A modal opened with a live function — the portrait/icon pickers' `onSelect`, or the tag registry's `onApply` from a library draft — can't be restored (the callback is gone after a reload), so `isPersistableProps` treats it as ephemeral even if the modal is persistence-enabled. The pickers are also set `false` in `MODAL_PERSISTENCE` to make the intent explicit.
+- **Rehydrated props may be stale/corrupt.** Restored props aren't re-validated by the generic layer, so a modal that indexes a registry by a persisted key must guard it — e.g. `LibraryModal` splits into a validating wrapper (`LIBRARY_CONFIGS[type]` → render nothing if unknown) and a body that always runs its hooks.
+
+When adding a modal, register it in `MODAL_PERSISTENCE` and open it via `useModal`; don't hand-roll a separate `useState` + persistence effect.
+
+---
+
 ## Preset `source` Field is Runtime-only
 
 Presets loaded from the bundled JSON files get `source: 'standard'`; user presets get `source: 'user'`. When saving to localStorage or exporting to file, `source` is stripped (`persistUserPresets` / `exportable`). If you use the `presets` array from `usePresets` to render UI, guard against `source` being absent in externally-loaded data.
