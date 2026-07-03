@@ -848,6 +848,30 @@ body {
 .tag-string--truncated:hover,
 .truncated-text--truncated:hover { color: var(--highlight); }
 
+/* Editable tag value (issue #75): the value is a click-to-edit target that
+   swaps for an inline input; the tag string itself stays read-only (double-
+   clicking it opens the registry to replace the whole tag). */
+.tag-value--editable { cursor: text; }
+.tag-value--editable:hover {
+  color: var(--highlight);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.tag-value-eq { opacity: 0.75; }
+.tag-value-input {
+  background: var(--dimmer);
+  border: var(--line) solid var(--highlight);
+  border-radius: var(--radius-xs);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  line-height: 1.3;
+  padding: 0 3px;
+  margin-left: 1px;
+  outline: none;
+  min-width: 1.5em;
+}
+
 /* ============================================================
    TOOLTIP
    Shared hover/focus bubble (components/Tooltip.jsx). Portals to

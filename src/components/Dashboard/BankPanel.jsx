@@ -3,6 +3,7 @@ import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { usePressHoldDrag } from '../../hooks/usePressHoldDrag.js';
 import { formatGold } from '../../logic/format.js';
+import Tooltip from '../Tooltip.jsx';
 
 export default function BankPanel() {
   const { state, dispatch } = useGame();
@@ -46,16 +47,18 @@ export default function BankPanel() {
   }, [bank]);
 
   return (
-    <div
-      className={`bank-panel${canSell ? ' bank-panel--sellable' : ''}`}
-      title={canSell
-        ? `Click to sell 1 ${selectedItem.name} for ${selectedItem.value || 0} GP`
-        : 'Hold and drag up/down to adjust gold'}
-      onPointerDown={onPointerDown}
+    <Tooltip content={canSell
+      ? `Click to sell 1 ${selectedItem.name} for ${selectedItem.value || 0} GP`
+      : 'Hold and drag up/down to adjust gold'}
     >
-      <span className="bank-label">BANK:</span>
-      <span ref={amountRef} className="bank-amount mono">{formatGold(bank)}</span>
-      <span className="bank-label">GOLD</span>
-    </div>
+      <div
+        className={`bank-panel${canSell ? ' bank-panel--sellable' : ''}`}
+        onPointerDown={onPointerDown}
+      >
+        <span className="bank-label">BANK:</span>
+        <span ref={amountRef} className="bank-amount mono">{formatGold(bank)}</span>
+        <span className="bank-label">GOLD</span>
+      </div>
+    </Tooltip>
   );
 }

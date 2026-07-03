@@ -13,6 +13,7 @@ export const EMPTY_CARD_CONFIG = Object.freeze({
   bars: Object.freeze([]),
   fields: Object.freeze([]),
   values: Object.freeze([]),
+  slots: Object.freeze([]),
 });
 
 // Sources under the `dynamic:` namespace — computed stats from
@@ -71,6 +72,7 @@ function normalizeSourceList(list) {
  * Bar entries accept both `[current, max]` lists and `"(current, max)"`
  * strings. Unknown or unresolvable sources are kept: resolution (not parsing)
  * decides validity, so a bad source renders its element in the warning state.
+ * `slots` is a plain string list of bind slot names (lowercased).
  *
  * @param {string} ymlText - Raw YAML text of a tag UI config
  * @returns {{ cards: Object<string, typeof EMPTY_CARD_CONFIG> }} Normalized
@@ -90,6 +92,9 @@ export function parseTagUIConfig(ymlText) {
       bars: Array.isArray(card.bars) ? card.bars.map(normalizeBarEntry) : [],
       fields: normalizeSourceList(card.fields),
       values: normalizeSourceList(card.values),
+      // Bind slot names for the card's item slots (see AGENT_BIND_ITEM). Lowercased
+      // so they compose cleanly into `bind:<slot>:item:<name>` tag paths.
+      slots: normalizeSourceList(card.slots).map(slot => slot.trim().toLowerCase()).filter(Boolean),
     };
   }
   return { cards };

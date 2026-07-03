@@ -16,6 +16,9 @@ cards:
     values:
       - "dynamic:AC"
       - "dynamic:pb"
+    slots:
+      - Weapon
+      - armor
 `;
 
 describe('parseTagUIConfig', () => {
@@ -30,7 +33,13 @@ describe('parseTagUIConfig', () => {
       ],
       fields: ['rate'],
       values: ['dynamic:AC', 'dynamic:pb'],
+      slots: ['weapon', 'armor'],
     });
+  });
+
+  it('lowercases slot names and drops non-string / blank entries', () => {
+    const { cards } = parseTagUIConfig('cards:\n  agentCard:\n    slots: ["Head", "", { x: 1 }, "FEET"]\n');
+    expect(cards.agentCard.slots).toEqual(['head', 'feet']);
   });
 
   it('defaults missing element sections to empty assignments', () => {
@@ -39,6 +48,7 @@ describe('parseTagUIConfig', () => {
     expect(cards.agentCard.boxes).toEqual([]);
     expect(cards.agentCard.bars).toEqual([]);
     expect(cards.agentCard.values).toEqual([]);
+    expect(cards.agentCard.slots).toEqual([]);
   });
 
   it('keeps a malformed bar entry as an (invalid) tuple instead of dropping the element', () => {

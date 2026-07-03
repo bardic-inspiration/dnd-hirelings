@@ -198,17 +198,19 @@ export function getBoundItems(activities) {
 }
 
 /**
- * Whether the agent defines a slot schema that constrains binding.
+ * Returns the first configured bind slot not already occupied by a bound item,
+ * or `null` when the card defines no slots or they are all full. Slot names come
+ * from the card config (`tagUI.yml → cards.<card>.slots`), never the tag registry
+ * (issue #84). Callers fall back to a slotless bind on `null`, so binding never
+ * dead-ends.
  *
- * Stub: per-agent slot schemas are not implemented yet, so this is always false.
- * The bind flow branches on it so slot-aware binding can be added later without
- * touching call sites.
- *
- * @param {Agent} agent
- * @returns {boolean}
+ * @param {string[]} slots - Configured slot names for the card
+ * @param {{ slot: string|null }[]} boundItems - Output of `getBoundItems`
+ * @returns {string|null} A free slot name, or null
  */
-export function hasSlotSchema(agent) {
-  return false;
+export function firstFreeSlot(slots, boundItems) {
+  const occupied = new Set(boundItems.map(bound => bound.slot).filter(Boolean));
+  return (slots ?? []).find(slot => !occupied.has(slot)) ?? null;
 }
 
 /**

@@ -18,7 +18,51 @@ export const STORAGE_KEYS = {
   /** @param {string} type - 'agents' | 'tasks' | 'items' */
   PRESETS: (type) => `dnd-hirelings-presets-${type}-v1`,
   CARD_EXPANSION: 'dnd-hirelings-card-expansion-v1',
+  OPEN_MODALS: 'dnd-hirelings-open-modals-v1',
 };
+
+// Reads the persisted `{ [modalName]: props }` map (issue #81). Any corrupt or
+// non-object payload degrades to an empty map, so a bad entry opens no modal.
+function readOpenModals() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.OPEN_MODALS) || '{}');
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Loads the persisted open props for one modal, so it can be reopened after a
+ * page refresh (issue #81). Only plain-object props round-trip; anything else
+ * (or an absent entry) yields null.
+ *
+ * @param {string} name - Modal key (e.g. `'library'`, `'config'`, `'tagRegistry'`)
+ * @returns {object|null}
+ */
+export function loadOpenModal(name) {
+  const props = readOpenModals()[name];
+  return props && typeof props === 'object' && !Array.isArray(props) ? props : null;
+}
+
+/**
+ * Persists (or clears) one modal's open props within the shared map. Best-effort:
+ * storage errors are swallowed so a full/blocked quota never breaks the UI.
+ *
+ * @param {string} name - Modal key
+ * @param {object|null} props - Serializable props to store, or null to clear the entry
+ */
+export function saveOpenModal(name, props) {
+  try {
+    const map = readOpenModals();
+    if (props && typeof props === 'object' && !Array.isArray(props)) map[name] = props;
+    else delete map[name];
+    if (Object.keys(map).length) localStorage.setItem(STORAGE_KEYS.OPEN_MODALS, JSON.stringify(map));
+    else localStorage.removeItem(STORAGE_KEYS.OPEN_MODALS);
+  } catch {
+    // ignore quota / availability errors — persistence is best-effort
+  }
+}
 
 /** Card types tracked by the expansion store; keys of a persisted deviation map. */
 const CARD_TYPES = ['agent', 'task', 'item'];
@@ -124,7 +168,7 @@ function normalizeResults(r) {
 }
 
 // Migrates tag strings from older formats to the current grammar.
-function migrateTag(tag) {
+export function migrateTag(tag) {
   if (typeof tag !== 'string') return tag;
   // Strip legacy '#' sigil from pre-path-based format.
   if (tag.startsWith('#')) tag = tag.slice(1);

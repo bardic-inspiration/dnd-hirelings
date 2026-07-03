@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo } from 'react';
 import Modal from './Modal.jsx';
+import Tooltip from '../Tooltip.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
 import { parseTag, buildTag, MODIFIER_REGISTRY } from '../../logic/tags.js';
@@ -305,13 +306,17 @@ export default function TagRegistryModal() {
                 ) : (
                   <span className={`tagreg-tick${row.isLast ? ' tagreg-tick--last' : ''}`} />
                 )}
-                <span className="tagreg-key" onClick={() => handleKeyClick(row)} title={row.pathStr}>
-                  {n > 0 && <span className="tagreg-match">{row.key.slice(0, n)}</span>}
-                  {row.key.slice(n)}
-                  <span className="tagreg-colon">:</span>
-                </span>
+                <Tooltip content={row.pathStr}>
+                  <span className="tagreg-key" onClick={() => handleKeyClick(row)}>
+                    {n > 0 && <span className="tagreg-match">{row.key.slice(0, n)}</span>}
+                    {row.key.slice(n)}
+                    <span className="tagreg-colon">:</span>
+                  </span>
+                </Tooltip>
                 {count > 0 && <span className="tagreg-count">{count}</span>}
-                <span className="tagreg-x" title="Delete from registry" onClick={() => handleDelete(row.segments)}>×</span>
+                <Tooltip content="Delete from registry">
+                  <span className="tagreg-x" onClick={() => handleDelete(row.segments)}>×</span>
+                </Tooltip>
               </div>
               );
             })}
@@ -319,17 +324,20 @@ export default function TagRegistryModal() {
 
         <div className="tagreg-builder">
           {!isConditionMode && (
-            <select
-              className="tagreg-prefix"
-              value={modifier}
-              onChange={e => setModifier(e.target.value)}
-              title={modifier ? MODIFIER_REGISTRY[modifier]?.description : 'Modifier prefix'}
-            >
-              <option value="">—</option>
-              {Object.entries(MODIFIER_REGISTRY).map(([key, def]) => (
-                <option key={key} value={key} title={def.description}>{key.toUpperCase()}</option>
-              ))}
-            </select>
+            <Tooltip content={modifier ? MODIFIER_REGISTRY[modifier]?.description : 'Modifier prefix'}>
+              <select
+                className="tagreg-prefix"
+                value={modifier}
+                onChange={e => setModifier(e.target.value)}
+              >
+                <option value="">—</option>
+                {Object.entries(MODIFIER_REGISTRY).map(([key, def]) => (
+                  // Native `title` stays here: options render in the OS dropdown,
+                  // which the portal Tooltip can't anchor to (issue #73).
+                  <option key={key} value={key} title={def.description}>{key.toUpperCase()}</option>
+                ))}
+              </select>
+            </Tooltip>
           )}
           <div className="tagreg-input-wrap">
             {suggestion && (
@@ -347,8 +355,12 @@ export default function TagRegistryModal() {
               autoFocus
             />
           </div>
-          <button className="ctrl" onClick={handleAdd} disabled={!draft.trim() || isPattern} title="Register this path">ADD</button>
-          <button className="ctrl" onClick={handleApply} disabled={!canApply} title="Assign to a target">APPLY</button>
+          <Tooltip content="Register this path">
+            <button className="ctrl" onClick={handleAdd} disabled={!draft.trim() || isPattern}>ADD</button>
+          </Tooltip>
+          <Tooltip content="Assign to a target">
+            <button className="ctrl" onClick={handleApply} disabled={!canApply}>APPLY</button>
+          </Tooltip>
         </div>
       </div>
     </Modal>

@@ -1,5 +1,6 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
+import Tooltip from '../Tooltip.jsx';
 import TaskCard from './TaskCard.jsx';
 
 export default function TaskList() {
@@ -13,12 +14,13 @@ export default function TaskList() {
       <div id="task-list">
         {!state.tasks.length && <div className="empty">—</div>}
         {sorted.map(task => <TaskCard key={task.id} task={task} />)}
-        <button
-          className="add-card add-task"
-          onClick={e => { e.stopPropagation(); openLibrary('task'); }}
-          onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'TASK_CREATE' }); }}
-          title="Click for the library. Right click to add."
-        >+ TASK</button>
+        <Tooltip content="Click for the library. Right click to add.">
+          <button
+            className="add-card add-task"
+            onClick={e => { e.stopPropagation(); openLibrary('task'); }}
+            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'TASK_CREATE' }); }}
+          >+ TASK</button>
+        </Tooltip>
       </div>
     </div>
   );

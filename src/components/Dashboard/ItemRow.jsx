@@ -1,8 +1,10 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
+import { parseTag, buildTag } from '../../logic/tags.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import EditableSpan from '../EditableSpan.jsx';
 import TagLabel from '../TagLabel.jsx';
+import Tooltip from '../Tooltip.jsx';
 import DragNumber from './DragNumber.jsx';
 
 export default function ItemRow({ item }) {
@@ -38,6 +40,21 @@ export default function ItemRow({ item }) {
     openTagRegistry({ target: { type: 'item', id: item.id } });
   };
 
+  // Editable-tag wiring (issue #75): rewrite a value in place (order preserved),
+  // or replace the whole tag via the registry (remove the old one, apply the new).
+  const attrEditProps = (tag, index) => {
+    const { segments, modifier } = parseTag(tag);
+    return {
+      onValueCommit: (value) => dispatch({ type: 'INVENTORY_UPDATE_ITEM', id: item.id, changes: {
+        attributes: item.attributes.map((current, i) => i === index ? buildTag(segments, value, modifier) : current),
+      } }),
+      onReplace: () => openTagRegistry({ onApply: (newTag) => {
+        dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index });
+        dispatch({ type: 'TAG_APPLY', target: { type: 'item', id: item.id }, tag: newTag });
+      } }),
+    };
+  };
+
   return (
     <div
       className={`item-row${selected ? ' item-row--selected' : ''}${expanded ? ' item-row--expanded' : ''}${item.quantity <= 0 ? ' item-row--depleted' : ''}`}
@@ -45,12 +62,13 @@ export default function ItemRow({ item }) {
       onClick={handleRowClick}
     >
       <div className="item-head">
-        <div
-          className="item-icon"
-          title="Click to set icon"
-          style={item.icon ? { backgroundImage: `url("${item.icon}")` } : {}}
-          onClick={handleIconClick}
-        />
+        <Tooltip content="Click to set icon">
+          <div
+            className="item-icon"
+            style={item.icon ? { backgroundImage: `url("${item.icon}")` } : {}}
+            onClick={handleIconClick}
+          />
+        </Tooltip>
         <EditableSpan
           className="item-name"
           value={item.name}
@@ -71,19 +89,21 @@ export default function ItemRow({ item }) {
             onCommit={handleValue}
           /> GP
         </span>
-        <span
-          className="item-toggle"
-          title="Expand / collapse"
-          onClick={e => { e.stopPropagation(); toggleExpanded('item', item.id); }}
-        >{expanded ? '−' : '+'}</span>
-        <span
-          className="x"
-          title="Delete item"
-          onClick={e => {
-            e.stopPropagation();
-            if (confirm(`Delete item "${item.name}"?`)) dispatch({ type: 'INVENTORY_REMOVE_ITEM', id: item.id });
-          }}
-        >×</span>
+        <Tooltip content="Expand / collapse">
+          <span
+            className="item-toggle"
+            onClick={e => { e.stopPropagation(); toggleExpanded('item', item.id); }}
+          >{expanded ? '−' : '+'}</span>
+        </Tooltip>
+        <Tooltip content="Delete item">
+          <span
+            className="x"
+            onClick={e => {
+              e.stopPropagation();
+              if (confirm(`Delete item "${item.name}"?`)) dispatch({ type: 'INVENTORY_REMOVE_ITEM', id: item.id });
+            }}
+          >×</span>
+        </Tooltip>
       </div>
 
       <div className="item-body">
@@ -99,11 +119,15 @@ export default function ItemRow({ item }) {
           {!item.attributes.length && <span className="empty-inline">—</span>}
           {item.attributes.map((tag, index) => (
             <span key={index} className="tag">
-              <TagLabel tag={tag} maxChars={maxChars} />
-              <span className="x" title="Remove" onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index }); }}>×</span>
+              <TagLabel tag={tag} maxChars={maxChars} {...attrEditProps(tag, index)} />
+              <Tooltip content="Remove">
+                <span className="x" onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index }); }}>×</span>
+              </Tooltip>
             </span>
           ))}
-          <button className="tag-add" title="Add attribute" onClick={handleAddAttr}>+</button>
+          <Tooltip content="Add attribute">
+            <button className="tag-add" onClick={handleAddAttr}>+</button>
+          </Tooltip>
         </div>
       </div>
     </div>

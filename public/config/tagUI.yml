@@ -20,6 +20,9 @@
 #              string form "(current, max)"
 #   fields     editable single values (writes back to the source)
 #   values     read-only "LABEL: value" entries
+#   slots      bind slot names for the card's item slots — an item bound to a
+#              slot becomes a `bind:<slot>:item:<name>` tag. Slot names are not
+#              hardcoded in the tag registry; this list is their sole source.
 #
 # A source that cannot be resolved to a number on an agent renders as an
 # empty element flashing the warning color.
@@ -35,3 +38,10 @@ cards:
     values:
       - "dynamic:ac"
       - "dynamic:pb"
+    slots:
+      - weapon
+      - armor
+      - offhand
+      - ring
+      - head
+      - feet

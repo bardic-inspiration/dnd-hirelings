@@ -4,10 +4,11 @@ import { agentsAssignedTo } from '../../logic/agents.js';
 import { resetConditions } from '../../logic/conditions.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import EditableSpan from '../EditableSpan.jsx';
-import TagLabel from '../TagLabel.jsx';
+import Tooltip from '../Tooltip.jsx';
 import ProgressSection from './TaskSections/ProgressSection.jsx';
 import RequirementsSection from './TaskSections/RequirementsSection.jsx';
 import ResultsSection from './TaskSections/ResultsSection.jsx';
+import TagRow from './TaskSections/TagRow.jsx';
 
 function TaskProgressBar({ task }) {
   const conditions = task.conditions || [];
@@ -33,7 +34,6 @@ function TaskProgressBar({ task }) {
 // tag routes by its own modifier (TAG_APPLY → routeTaskTag), so a `req`-
 // modified tag built here still lands in the requirements list above.
 function AttributesSection({ task }) {
-  const { dispatch } = useGame();
   const { openTagRegistry } = useUI();
   const attrs = task.attributes || [];
   const { ref, maxChars } = useCharBudget('tag-row');
@@ -46,12 +46,7 @@ function AttributesSection({ task }) {
       <div className="task-tag-list" ref={ref}>
         {!attrs.length && <div className="task-tag-list-empty">—</div>}
         {attrs.map((tag, index) => (
-          <div key={index} className="tag-list-item">
-            <span className="tag-content">
-              <TagLabel tag={tag} maxChars={maxChars} variant="row" />
-            </span>
-            <span className="x" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_REMOVE_TAG', id: task.id, field: 'attributes', index }); }}>×</span>
-          </div>
+          <TagRow key={index} taskId={task.id} tagStr={tag} index={index} field="attributes" maxChars={maxChars} />
         ))}
       </div>
       <button className="tag-add" onClick={e => { e.stopPropagation(); handleAdd(); }}>+ TAG</button>
@@ -97,9 +92,11 @@ export default function TaskCard({ task }) {
           value={task.name}
           onCommit={v => dispatch({ type: 'TASK_UPDATE', id: task.id, changes: { name: v || 'NEW TASK' } })}
         />
-        <span className="task-toggle" title="Expand / collapse" onClick={handleToggle}>
-          {expanded ? '−' : '+'}
-        </span>
+        <Tooltip content="Expand / collapse">
+          <span className="task-toggle" onClick={handleToggle}>
+            {expanded ? '−' : '+'}
+          </span>
+        </Tooltip>
       </div>
 
       <TaskProgressBar task={task} />
@@ -126,11 +123,12 @@ export default function TaskCard({ task }) {
 
         <div className="task-status-row action-row">
           <span className="tag-label">STATUS:</span>
-          <button
-            className="tag-add"
-            title={task.isComplete ? 'Reset task' : 'Mark complete'}
-            onClick={handleComplete}
-          >{task.isComplete ? '↻' : '✓'}</button>
+          <Tooltip content={task.isComplete ? 'Reset task' : 'Mark complete'}>
+            <button
+              className="tag-add"
+              onClick={handleComplete}
+            >{task.isComplete ? '↻' : '✓'}</button>
+          </Tooltip>
           <span>{task.isComplete ? 'COMPLETE' : 'INCOMPLETE'}</span>
           <button className="delete-btn" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_DUPLICATE', id: task.id }); }}>⎘ COPY</button>
           <button className="delete-btn" onClick={e => {

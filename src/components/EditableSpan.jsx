@@ -12,9 +12,13 @@ import { useRef, useEffect } from 'react';
  * @param {(value: string) => void} props.onCommit - Called with the trimmed text when it changed
  * @param {string} [props.className]
  * @param {string} [props.placeholder] - Rendered via CSS `data-placeholder` when empty
+ * @param {(e: FocusEvent) => void} [props.onFocus] - Composed with (runs before) the
+ *   internal select-all-on-focus; lets a `Tooltip` wrapper hook focus without clobbering it
+ * @param {(e: FocusEvent) => void} [props.onBlur] - Composed with (runs before) the
+ *   internal commit-on-blur
  * Remaining props (e.g. `data-*` attributes) are forwarded onto the span.
  */
-export default function EditableSpan({ value, onCommit, className, placeholder, ...rest }) {
+export default function EditableSpan({ value, onCommit, className, placeholder, onFocus, onBlur, ...rest }) {
   const ref = useRef(null);
   const originalRef = useRef(value || '');
 
@@ -25,7 +29,8 @@ export default function EditableSpan({ value, onCommit, className, placeholder, 
     }
   }, [value]);
 
-  const handleFocus = () => {
+  const handleFocus = (e) => {
+    onFocus?.(e); // e.g. a Tooltip anchor's focus handler
     originalRef.current = ref.current.textContent;
     const range = document.createRange();
     range.selectNodeContents(ref.current);
@@ -39,7 +44,8 @@ export default function EditableSpan({ value, onCommit, className, placeholder, 
     if (e.key === 'Escape') { ref.current.textContent = originalRef.current; ref.current.blur(); }
   };
 
-  const handleBlur = () => {
+  const handleBlur = (e) => {
+    onBlur?.(e); // e.g. a Tooltip anchor's blur handler
     const v = ref.current.textContent.trim();
     if (v !== originalRef.current) onCommit(v);
   };

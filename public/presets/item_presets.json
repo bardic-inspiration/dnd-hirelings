@@ -6,9 +6,9 @@
     "value": 50,
     "description": "Restores 2d4+2 hit points when consumed.",
     "attributes": [
-      "#item:potion",
-      "#item:consumable",
-      "#rarity:common"
+      "item:potion",
+      "item:consumable",
+      "rarity:common"
     ]
   },
   {
@@ -18,9 +18,9 @@
     "value": 150,
     "description": "Restores 4d4+4 hit points when consumed.",
     "attributes": [
-      "#item:potion",
-      "#item:consumable",
-      "#rarity:uncommon"
+      "item:potion",
+      "item:consumable",
+      "rarity:uncommon"
     ]
   },
   {
@@ -30,9 +30,9 @@
     "value": 300,
     "description": "Grants resistance to fire damage for one hour.",
     "attributes": [
-      "#item:potion",
-      "#item:consumable",
-      "#rarity:uncommon"
+      "item:potion",
+      "item:consumable",
+      "rarity:uncommon"
     ]
   },
   {
@@ -42,9 +42,9 @@
     "value": 50,
     "description": "Advantage on saving throws against poison for one hour.",
     "attributes": [
-      "#item:potion",
-      "#item:consumable",
-      "#rarity:common"
+      "item:potion",
+      "item:consumable",
+      "rarity:common"
     ]
   },
   {
@@ -54,9 +54,9 @@
     "value": 480,
     "description": "Coats a creature or surface, mimicking grease.",
     "attributes": [
-      "#item:potion",
-      "#item:consumable",
-      "#rarity:uncommon"
+      "item:potion",
+      "item:consumable",
+      "rarity:uncommon"
     ]
   },
   {
@@ -66,8 +66,8 @@
     "value": 2,
     "description": "A simple finesse blade, easily concealed.",
     "attributes": [
-      "#item:weapon",
-      "#tool:weapon",
+      "item:weapon",
+      "tool:weapon",
       "bonus,skill:sword=1"
     ]
   },
@@ -78,8 +78,8 @@
     "value": 10,
     "description": "A light, versatile blade favored by scouts.",
     "attributes": [
-      "#item:weapon",
-      "#tool:weapon",
+      "item:weapon",
+      "tool:weapon",
       "bonus,skill:sword=1"
     ]
   },
@@ -90,8 +90,8 @@
     "value": 15,
     "description": "The reliable martial blade of soldiers everywhere.",
     "attributes": [
-      "#item:weapon",
-      "#tool:weapon",
+      "item:weapon",
+      "tool:weapon",
       "bonus,skill:sword=2"
     ]
   },
@@ -102,8 +102,8 @@
     "value": 30,
     "description": "A brutal two-handed axe. Subtlety not included.",
     "attributes": [
-      "#item:weapon",
-      "#tool:weapon",
+      "item:weapon",
+      "tool:weapon",
       "bonus,ability:str=1"
     ]
   },
@@ -114,8 +114,8 @@
     "value": 15,
     "description": "A heavy hammer that caves shields and skulls alike.",
     "attributes": [
-      "#item:weapon",
-      "#tool:weapon",
+      "item:weapon",
+      "tool:weapon",
       "bonus,ability:str=1"
     ]
   },
@@ -126,8 +126,8 @@
     "value": 50,
     "description": "A tall bow with deadly reach in skilled hands.",
     "attributes": [
-      "#item:weapon",
-      "#tool:weapon",
+      "item:weapon",
+      "tool:weapon",
       "bonus,skill:bow=2"
     ]
   },
@@ -138,8 +138,8 @@
     "value": 25,
     "description": "A compact bow for hunting and skirmishing.",
     "attributes": [
-      "#item:weapon",
-      "#tool:weapon",
+      "item:weapon",
+      "tool:weapon",
       "bonus,skill:bow=1"
     ]
   },
@@ -150,8 +150,8 @@
     "value": 25,
     "description": "Simple to load, simpler to aim.",
     "attributes": [
-      "#item:weapon",
-      "#tool:weapon",
+      "item:weapon",
+      "tool:weapon",
       "bonus,skill:bow=1"
     ]
   },
@@ -162,8 +162,8 @@
     "value": 1,
     "description": "A stout length of oak. Cheap and dependable.",
     "attributes": [
-      "#item:weapon",
-      "#tool:weapon"
+      "item:weapon",
+      "tool:weapon"
     ]
   },
   {
@@ -173,8 +173,8 @@
     "value": 1,
     "description": "A versatile thrown or thrusting weapon.",
     "attributes": [
-      "#item:weapon",
-      "#tool:weapon"
+      "item:weapon",
+      "tool:weapon"
     ]
   },
   {
@@ -184,8 +184,8 @@
     "value": 1,
     "description": "A bundle of twenty fletched arrows.",
     "attributes": [
-      "#item:ammunition",
-      "#item:consumable"
+      "item:ammunition",
+      "item:consumable"
     ]
   },
   {
@@ -195,8 +195,8 @@
     "value": 1,
     "description": "Twenty iron-tipped bolts.",
     "attributes": [
-      "#item:ammunition",
-      "#item:consumable"
+      "item:ammunition",
+      "item:consumable"
     ]
   },
   {
@@ -206,8 +206,8 @@
     "value": 5,
     "description": "Quilted layers offering minimal protection.",
     "attributes": [
-      "#item:armor",
-      "#tool:armor",
+      "item:armor",
+      "tool:armor",
       "bonus,ability:con=1"
     ]
   },
@@ -218,8 +218,8 @@
     "value": 10,
     "description": "Supple boiled leather, quiet and light.",
     "attributes": [
-      "#item:armor",
-      "#tool:armor",
+      "item:armor",
+      "tool:armor",
       "bonus,ability:con=1"
     ]
   },
@@ -230,8 +230,8 @@
     "value": 50,
     "description": "A mail shirt worn beneath clothes.",
     "attributes": [
-      "#item:armor",
-      "#tool:armor",
+      "item:armor",
+      "tool:armor",
       "bonus,ability:con=1"
     ]
   },
@@ -242,8 +242,8 @@
     "value": 75,
     "description": "Interlocking iron rings providing solid protection.",
     "attributes": [
-      "#item:armor",
-      "#tool:armor",
+      "item:armor",
+      "tool:armor",
       "bonus,ability:con=2"
     ]
   },
@@ -254,8 +254,8 @@
     "value": 1500,
     "description": "Shaped steel plates covering the whole body.",
     "attributes": [
-      "#item:armor",
-      "#tool:armor",
+      "item:armor",
+      "tool:armor",
       "bonus,ability:con=3"
     ]
   },
@@ -266,8 +266,8 @@
     "value": 10,
     "description": "A sturdy wooden shield banded with iron.",
     "attributes": [
-      "#item:armor",
-      "#tool:armor",
+      "item:armor",
+      "tool:armor",
       "bonus,skill:shield=1"
     ]
   },
@@ -278,8 +278,8 @@
     "value": 1,
     "description": "Fifty feet of sturdy hempen rope.",
     "attributes": [
-      "#item:wondrous",
-      "#tool:gear"
+      "item:wondrous",
+      "tool:gear"
     ]
   },
   {
@@ -289,7 +289,7 @@
     "value": 2,
     "description": "An iron hook for scaling walls and cliffs.",
     "attributes": [
-      "#tool:gear",
+      "tool:gear",
       "bonus,skill:athletics=1"
     ]
   },
@@ -300,8 +300,8 @@
     "value": 1,
     "description": "Dried trail food for a day.",
     "attributes": [
-      "#item:consumable",
-      "#item:trade-good"
+      "item:consumable",
+      "item:trade-good"
     ]
   },
   {
@@ -311,8 +311,8 @@
     "value": 1,
     "description": "Burns for about an hour, shedding bright light.",
     "attributes": [
-      "#item:consumable",
-      "#tool:gear"
+      "item:consumable",
+      "tool:gear"
     ]
   },
   {
@@ -322,7 +322,7 @@
     "value": 5,
     "description": "A hooded lantern that casts a steady beam.",
     "attributes": [
-      "#tool:gear"
+      "tool:gear"
     ]
   },
   {
@@ -332,7 +332,7 @@
     "value": 1,
     "description": "Warm enough for a night under the stars.",
     "attributes": [
-      "#tool:gear"
+      "tool:gear"
     ]
   },
   {
@@ -342,7 +342,7 @@
     "value": 1,
     "description": "Holds four pints of water or wine.",
     "attributes": [
-      "#tool:gear"
+      "tool:gear"
     ]
   },
   {
@@ -352,7 +352,7 @@
     "value": 1,
     "description": "Flint, steel, and tinder for starting fires.",
     "attributes": [
-      "#tool:gear"
+      "tool:gear"
     ]
   },
   {
@@ -362,8 +362,8 @@
     "value": 1,
     "description": "Scattered iron spikes to slow pursuers.",
     "attributes": [
-      "#item:consumable",
-      "#tool:gear"
+      "item:consumable",
+      "tool:gear"
     ]
   },
   {
@@ -373,7 +373,7 @@
     "value": 2,
     "description": "Iron restraints for captured quarry.",
     "attributes": [
-      "#tool:gear"
+      "tool:gear"
     ]
   },
   {
@@ -383,7 +383,7 @@
     "value": 25,
     "description": "Picks and probes for locks and traps.",
     "attributes": [
-      "#tool:thieves-tools",
+      "tool:thieves-tools",
       "bonus,skill:lockpicking=2"
     ]
   },
@@ -394,8 +394,8 @@
     "value": 5,
     "description": "Bandages, salves, and splints for ten uses.",
     "attributes": [
-      "#tool:healers-kit",
-      "#item:consumable",
+      "tool:healers-kit",
+      "item:consumable",
       "bonus,skill:medicine=2"
     ]
   },
@@ -406,7 +406,7 @@
     "value": 20,
     "description": "Hammer, tongs, and files for metalwork.",
     "attributes": [
-      "#tool:smiths-tools",
+      "tool:smiths-tools",
       "bonus,skill:smithing=2"
     ]
   },
@@ -417,7 +417,7 @@
     "value": 50,
     "description": "Retorts, reagents, and glassware.",
     "attributes": [
-      "#tool:alchemists-supplies",
+      "tool:alchemists-supplies",
       "bonus,skill:alchemy=2"
     ]
   },
@@ -428,7 +428,7 @@
     "value": 10,
     "description": "Reference texts and instruments for academic work.",
     "attributes": [
-      "#tool:gear",
+      "tool:gear",
       "bonus,skill:arcana=2",
       "bonus,skill:history=1"
     ]
@@ -440,7 +440,7 @@
     "value": 25,
     "description": "Charts, compass, and sextant.",
     "attributes": [
-      "#tool:gear",
+      "tool:gear",
       "bonus,skill:navigation=2"
     ]
   },
@@ -451,7 +451,7 @@
     "value": 25,
     "description": "Cosmetics and props for assuming another face.",
     "attributes": [
-      "#tool:gear",
+      "tool:gear",
       "bonus,skill:deception=2"
     ]
   },
@@ -462,7 +462,7 @@
     "value": 35,
     "description": "A finely strung instrument for the road.",
     "attributes": [
-      "#tool:musical-instrument",
+      "tool:musical-instrument",
       "bonus,skill:performance=2"
     ]
   },
@@ -473,8 +473,8 @@
     "value": 50,
     "description": "A wizard's grimoire of inscribed spells.",
     "attributes": [
-      "#tool:spellbook",
-      "#item:wondrous",
+      "tool:spellbook",
+      "item:wondrous",
       "bonus,skill:arcana=2"
     ]
   },
@@ -485,9 +485,9 @@
     "value": 80,
     "description": "Reveals the properties of a magic item.",
     "attributes": [
-      "#item:scroll",
-      "#item:consumable",
-      "#rarity:common"
+      "item:scroll",
+      "item:consumable",
+      "rarity:common"
     ]
   },
   {
@@ -497,9 +497,9 @@
     "value": 300,
     "description": "Unleashes a roaring sphere of flame.",
     "attributes": [
-      "#item:scroll",
-      "#item:consumable",
-      "#rarity:rare"
+      "item:scroll",
+      "item:consumable",
+      "rarity:rare"
     ]
   },
   {
@@ -509,7 +509,7 @@
     "value": 5,
     "description": "An emblem of faith and a divine focus.",
     "attributes": [
-      "#tool:holy-symbol",
+      "tool:holy-symbol",
       "bonus,skill:religion=1"
     ]
   },
@@ -520,8 +520,8 @@
     "value": 500,
     "description": "Looses unerring bolts of force. 7 charges.",
     "attributes": [
-      "#item:wand",
-      "#rarity:uncommon",
+      "item:wand",
+      "rarity:uncommon",
       "bonus,skill:arcana=1"
     ]
   },
@@ -532,8 +532,8 @@
     "value": 1300,
     "description": "Channels restorative magic. 10 charges.",
     "attributes": [
-      "#item:staff",
-      "#rarity:rare",
+      "item:staff",
+      "rarity:rare",
       "bonus,skill:medicine=2"
     ]
   },
@@ -544,8 +544,8 @@
     "value": 3500,
     "description": "A band that wards its wearer from harm.",
     "attributes": [
-      "#item:ring",
-      "#rarity:rare",
+      "item:ring",
+      "rarity:rare",
       "bonus,ability:con=1"
     ]
   },
@@ -556,8 +556,8 @@
     "value": 1000,
     "description": "Shimmering cloth that blurs its wearer from sight.",
     "attributes": [
-      "#item:wondrous",
-      "#rarity:uncommon",
+      "item:wondrous",
+      "rarity:uncommon",
       "bonus,skill:stealth=2"
     ]
   },
@@ -568,8 +568,8 @@
     "value": 1200,
     "description": "Tireless boots that quicken every step.",
     "attributes": [
-      "#item:wondrous",
-      "#rarity:uncommon",
+      "item:wondrous",
+      "rarity:uncommon",
       "bonus,skill:athletics=1"
     ]
   },
@@ -580,8 +580,8 @@
     "value": 4000,
     "description": "An extradimensional sack of vast capacity.",
     "attributes": [
-      "#item:wondrous",
-      "#rarity:uncommon"
+      "item:wondrous",
+      "rarity:uncommon"
     ]
   },
   {
@@ -591,8 +591,8 @@
     "value": 8000,
     "description": "Bolsters the wearer's constitution.",
     "attributes": [
-      "#item:wondrous",
-      "#rarity:rare",
+      "item:wondrous",
+      "rarity:rare",
       "bonus,ability:con=2"
     ]
   },
@@ -603,8 +603,8 @@
     "value": 1,
     "description": "Standard currency of the realm.",
     "attributes": [
-      "#item:treasure",
-      "#item:trade-good"
+      "item:treasure",
+      "item:trade-good"
     ]
   },
   {
@@ -614,8 +614,8 @@
     "value": 1,
     "description": "Ten silver to the gold.",
     "attributes": [
-      "#item:treasure",
-      "#item:trade-good"
+      "item:treasure",
+      "item:trade-good"
     ]
   },
   {
@@ -625,8 +625,8 @@
     "value": 50,
     "description": "A cut gem, easy to carry and trade.",
     "attributes": [
-      "#item:treasure",
-      "#rarity:uncommon"
+      "item:treasure",
+      "rarity:uncommon"
     ]
   },
   {
@@ -636,8 +636,8 @@
     "value": 500,
     "description": "A flawless blood-red ruby.",
     "attributes": [
-      "#item:treasure",
-      "#rarity:rare"
+      "item:treasure",
+      "rarity:rare"
     ]
   },
   {
@@ -647,8 +647,8 @@
     "value": 750,
     "description": "A small idol of solid gold, looted from a ruin.",
     "attributes": [
-      "#item:treasure",
-      "#rarity:rare"
+      "item:treasure",
+      "rarity:rare"
     ]
   },
   {
@@ -658,7 +658,7 @@
     "value": 10,
     "description": "A bolt of fine silk for trade.",
     "attributes": [
-      "#item:trade-good"
+      "item:trade-good"
     ]
   },
   {
@@ -668,7 +668,7 @@
     "value": 2,
     "description": "Exotic spices worth their weight in coin.",
     "attributes": [
-      "#item:trade-good"
+      "item:trade-good"
     ]
   },
   {
@@ -678,8 +678,8 @@
     "value": 100,
     "description": "A reagent prized by armorers and alchemists.",
     "attributes": [
-      "#item:reagent",
-      "#rarity:rare"
+      "item:reagent",
+      "rarity:rare"
     ]
   },
   {
@@ -689,9 +689,9 @@
     "value": 40,
     "description": "A regenerative reagent for potion-brewing.",
     "attributes": [
-      "#item:reagent",
-      "#item:consumable",
-      "#rarity:uncommon"
+      "item:reagent",
+      "item:consumable",
+      "rarity:uncommon"
     ]
   },
   {
@@ -701,9 +701,9 @@
     "value": 5,
     "description": "A pale flower that blooms only by night.",
     "attributes": [
-      "#item:reagent",
-      "#item:consumable",
-      "#trait:foraging"
+      "item:reagent",
+      "item:consumable",
+      "trait:foraging"
     ]
   },
   {
@@ -713,8 +713,8 @@
     "value": 3,
     "description": "Refined iron ready for the forge.",
     "attributes": [
-      "#item:trade-good",
-      "#item:reagent"
+      "item:trade-good",
+      "item:reagent"
     ]
   },
   {
@@ -724,9 +724,9 @@
     "value": 50,
     "description": "Bursts into sticky resin, miring whatever it strikes.",
     "attributes": [
-      "#item:consumable",
-      "#tool:gear",
-      "#rarity:common"
+      "item:consumable",
+      "tool:gear",
+      "rarity:common"
     ]
   }
 ]

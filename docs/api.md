@@ -127,7 +127,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `TAG_APPLY` | `{ target: { type: 'agent'\|'task'\|'item', id }, tag: string }` | Apply a tag to any board entity; the single assignment path for the registry's APPLY button and selection mode. Tasks route by modifier (`routeTaskTag`: `req`/`block` → `requirements`, else `attributes`) and append; agents/items dedupe-merge into `attributes` (`mergeAttribute`). Registers the tag's path |
+| `TAG_APPLY` | `{ target: { type: 'agent'\|'task'\|'item', id }, tag: string }` | Apply a tag to any board entity; the single assignment path for the registry's APPLY button and selection mode. Tasks route by modifier (`routeTaskTag`: `req`/`block` → `requirements`, else `attributes`). Every entity dedupe-merges into its target field (`mergeAttribute`): one instance per tag string, incoming value wins (issue #82). Registers the tag's path |
 
 ### Tag Registry
 
@@ -201,7 +201,7 @@ isAttributeActive(attrTag: string, agent: Agent, tasks: Task[]): boolean
 agentsAssignedTo(taskId: string, agents: Agent[]): Agent[]
 getPersonalItems(activities: string[]): { name: string, quantity: number, tag: string }[]
 getBoundItems(activities: string[]): { slot: string|null, name: string, tag: string }[]
-hasSlotSchema(agent: Agent): boolean
+firstFreeSlot(slots: string[], boundItems: { slot: string|null }[]): string|null  // first unoccupied configured bind slot, else null
 collectAllHeldItems(activities: string[]): { [name: string]: number }
 getEffectiveAttributes(agentAttributes: string[], activities: string[], inventory: InventoryItem[]): string[]
 mergeItemQty(activities: string[], name: string, delta: number): string[]
@@ -529,9 +529,15 @@ on hover and keyboard focus; hides on leave, blur, and Escape. Portals to
 `document.body`, centered above the anchor, viewport-clamped, flipping below
 when cramped (`.tooltip--below`). Width capped by the `--tooltip-max-width`
 token with word wrap. Child event handlers are merged, never clobbered.
-Native `title=` attributes should migrate to this component over time.
 
-### `<TagLabel tag maxChars? variant? truncate? tooltip? shorthand? />`
+All in-app hover hints go through this component (issue #73 migrated the last
+native `title=` attributes). The sole intentional exception is `title` on
+`<option>` elements (`TagRegistryModal`'s modifier picker): options render in
+the OS-native dropdown, which a portal tooltip cannot anchor to. Wrapping an
+`EditableSpan` is safe — it composes an injected `onFocus`/`onBlur` ahead of
+its own select-all / commit handlers rather than letting them be clobbered.
+
+### `<TagLabel tag maxChars? variant? truncate? tooltip? shorthand? onValueCommit? onReplace? />`
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
@@ -541,6 +547,8 @@ Native `title=` attributes should migrate to this component over time.
 | `truncate` | `boolean` | `true` | Structural truncation toggle |
 | `tooltip` | `boolean` | `true` | Tooltip-on-difference toggle |
 | `shorthand` | `boolean` | `true` | Number shorthand on the value |
+| `onValueCommit` | `(value: string) => void` | — | Makes the **value** click-to-edit (issue #75); called with the edited value only when it round-trips cleanly (non-empty, grammar-safe) |
+| `onReplace` | `() => void` | — | Makes the **tag string** double-click-to-replace; the host opens the Tag Registry to pick a replacement |
 
 Canonical tag display: every component that shows a tag string renders it
 through this. Runs the structural truncation ladder and wraps the label in a
@@ -550,6 +558,17 @@ and `cursor: help`. The parent owns the surrounding chrome (`.tag` chip,
 `.tag-content` row, active states, remove buttons). **Default-on contract:**
 future tag-displaying components get safe text display for free and opt out
 per prop.
+
+**Editing (issue #75):** the tag *string* is never directly editable, only its
+value. When `onValueCommit` is set, single-clicking the value swaps it for an
+inline input (`.tag-value-input`); Enter/blur commits, Escape cancels, and an
+edit that would corrupt the grammar (empty, or a value containing `,`) is
+discarded — "invalid value → no change." When `onReplace` is set,
+double-clicking the tag string fires it; double-clicking the value edits
+instead (the value swallows its own `dblclick`). Hosts wire value commits as an
+**in-place** array rewrite (order preserved) and replacement as remove-then-
+`TAG_APPLY`. Wired on the Agent, Item, and Task board cards (`AgentCard` chips,
+`ItemRow`, `TagRow`).
 
 > ⚠️ **Naming:** the component's CSS block is `.tag-string`, not
 > `.tag-label` — that class was already taken by the section-heading style

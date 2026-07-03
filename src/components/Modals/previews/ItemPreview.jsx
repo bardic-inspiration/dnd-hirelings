@@ -3,6 +3,7 @@ import { mergeAttribute } from '../../../logic/tags.js';
 import { useCharBudget } from '../../../hooks/useCharBudget.js';
 import EditableSpan from '../../EditableSpan.jsx';
 import TagLabel from '../../TagLabel.jsx';
+import Tooltip from '../../Tooltip.jsx';
 import DragNumber from '../../Dashboard/DragNumber.jsx';
 
 // Editable item preview. Mirrors an expanded ItemRow but binds to a draft via
@@ -15,12 +16,13 @@ export default function ItemPreview({ draft, onChange }) {
   return (
     <div className="item-row item-row--expanded library-preview-card">
       <div className="item-head">
-        <div
-          className="item-icon"
-          title="Click to set icon"
-          style={draft.icon ? { backgroundImage: `url("${draft.icon}")` } : {}}
-          onClick={() => openItemIcons(url => onChange({ icon: url }))}
-        />
+        <Tooltip content="Click to set icon">
+          <div
+            className="item-icon"
+            style={draft.icon ? { backgroundImage: `url("${draft.icon}")` } : {}}
+            onClick={() => openItemIcons(url => onChange({ icon: url }))}
+          />
+        </Tooltip>
         <EditableSpan
           className="item-name"
           value={draft.name}
@@ -57,12 +59,16 @@ export default function ItemPreview({ draft, onChange }) {
           {draft.attributes.map((tag, i) => (
             <span key={i} className="tag">
               <TagLabel tag={tag} maxChars={maxChars} />
-              <span className="x" title="Remove" onClick={() => onChange({ attributes: draft.attributes.filter((_, attrIndex) => attrIndex !== i) })}>×</span>
+              <Tooltip content="Remove">
+                <span className="x" onClick={() => onChange({ attributes: draft.attributes.filter((_, attrIndex) => attrIndex !== i) })}>×</span>
+              </Tooltip>
             </span>
           ))}
-          <button className="tag-add" title="Add attribute" onClick={() => openTagRegistry({
-            onApply: (tag) => onChange({ attributes: mergeAttribute(draft.attributes, tag) }),
-          })}>+</button>
+          <Tooltip content="Add attribute">
+            <button className="tag-add" onClick={() => openTagRegistry({
+              onApply: (tag) => onChange({ attributes: mergeAttribute(draft.attributes, tag) }),
+            })}>+</button>
+          </Tooltip>
         </div>
       </div>
     </div>

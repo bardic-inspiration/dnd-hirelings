@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
-import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, hasSlotSchema, getEffectiveAttributes } from '../../logic/agents.js';
+import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, firstFreeSlot, getEffectiveAttributes } from '../../logic/agents.js';
 import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
-import { parseTag } from '../../logic/tags.js';
+import { parseTag, buildTag } from '../../logic/tags.js';
 import { getConsumedTagPaths, isTagConsumed } from '../../logic/tagUI.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import { useTagUIConfig } from '../../hooks/useTagUIConfig.js';
@@ -11,12 +11,15 @@ import { CardMedallion, StatBox, StatBar, StatField, StatValue } from './AgentCa
 import EditableSpan from '../EditableSpan.jsx';
 import TagLabel from '../TagLabel.jsx';
 import TruncatedText from '../TruncatedText.jsx';
+import Tooltip from '../Tooltip.jsx';
 import { flashAgentCard } from '../../logic/dom.js';
 
 // Task activity chips show the resolved task name (plain text); every other
 // tag renders through TagLabel's chip variant. Both truncate to the card's
-// measured budget with the full string in a tooltip.
-function TagChip({ tagStr, active, maxChars, onRemove }) {
+// measured budget with the full string in a tooltip. Attribute chips pass
+// `onValueCommit`/`onReplace` to make the value editable (issue #75); task
+// chips omit them (their label is a task name, not an editable tag).
+function TagChip({ tagStr, active, maxChars, onRemove, onValueCommit, onReplace }) {
   const parsed = parseTag(tagStr);
   const { state } = useGame();
   const task = parsed.segments[0] === 'task'
@@ -26,8 +29,10 @@ function TagChip({ tagStr, active, maxChars, onRemove }) {
     <span className={`tag${active ? ' tag--active' : ''}`}>
       {task
         ? <TruncatedText text={task.name} maxChars={maxChars} />
-        : <TagLabel tag={tagStr} maxChars={maxChars} />}
-      <span className="x" title="Remove" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
+        : <TagLabel tag={tagStr} maxChars={maxChars} onValueCommit={onValueCommit} onReplace={onReplace} />}
+      <Tooltip content="Remove">
+        <span className="x" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
+      </Tooltip>
     </span>
   );
 }
@@ -111,17 +116,15 @@ export default function AgentCard({ agent }) {
     const existing = state.inventory.find(item => item.name.trim().toLowerCase() === name.trim().toLowerCase());
     if (existing) setSelectedItemId(existing.id);
   };
-  // Right-click a bag item: bind it into the agent.
+  // Right-click a bag item: bind it into the agent. Slot names come from the
+  // card config (tagUI.yml → cards.agentCard.slots), not the tag registry
+  // (issue #84). Fill the first unoccupied slot; with none configured or all
+  // full, the item binds without a slot, so binding never dead-ends.
   const bindItem = (e, name) => {
     e.preventDefault();
     e.stopPropagation();
-    if (hasSlotSchema(agent)) {
-      // TODO: agent has a slot schema — prompt the user to choose a Slot for this
-      // item before binding. Slot schemas are not implemented yet.
-    } else {
-      // No slot schema: bind without a slot.
-      dispatch({ type: 'AGENT_BIND_ITEM', id: agent.id, itemName: name });
-    }
+    const slot = firstFreeSlot(cardConfig.slots, boundItems);
+    dispatch({ type: 'AGENT_BIND_ITEM', id: agent.id, itemName: name, slot });
   };
   // Right-click a bound item: unbind it back to the bag.
   const unbindItem = (e, slot, name) => {
@@ -163,6 +166,23 @@ export default function AgentCard({ agent }) {
     return task && !task.isComplete;
   });
 
+  // Editable-tag wiring (issue #75) for an attribute chip. Committing a value
+  // rewrites the tag in place (order preserved — the path is unchanged, so it
+  // can't collide with another entry); replacing removes the old tag then
+  // applies whatever the registry returns.
+  const attrEditProps = (tag, index) => {
+    const { segments, modifier } = parseTag(tag);
+    return {
+      onValueCommit: (value) => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: {
+        attributes: agent.attributes.map((current, i) => i === index ? buildTag(segments, value, modifier) : current),
+      } }),
+      onReplace: () => openTagRegistry({ onApply: (newTag) => {
+        dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index });
+        dispatch({ type: 'TAG_APPLY', target: { type: 'agent', id: agent.id }, tag: newTag });
+      } }),
+    };
+  };
+
   let foundCurrent = false;
 
   return (
@@ -190,26 +210,28 @@ export default function AgentCard({ agent }) {
           value={agent.name}
           onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { name: v || 'NEW HIRELING' } })}
         />
-        <button
-          className="agent-toggle"
-          title={isCollapsed ? 'Expand' : 'Collapse'}
-          onClick={handleToggle}
-        >
-          {isCollapsed ? '+' : '−'}
-        </button>
+        <Tooltip content={isCollapsed ? 'Expand' : 'Collapse'}>
+          <button
+            className="agent-toggle"
+            onClick={handleToggle}
+          >
+            {isCollapsed ? '+' : '−'}
+          </button>
+        </Tooltip>
       </div>
 
       {!isCollapsed && (
         <>
           {/* 2. Portrait */}
-          <div
-            className="agent-icon"
-            title="Click to set image"
-            style={agent.icon ? { backgroundImage: `url("${agent.icon}")` } : {}}
-            onClick={handleIconClick}
-          >
-            {!agent.icon && 'NO IMAGE'}
-          </div>
+          <Tooltip content="Click to set image">
+            <div
+              className="agent-icon"
+              style={agent.icon ? { backgroundImage: `url("${agent.icon}")` } : {}}
+              onClick={handleIconClick}
+            >
+              {!agent.icon && 'NO IMAGE'}
+            </div>
+          </Tooltip>
 
           {/* 3. Fields (editable values) */}
           {cardConfig.fields.map(source => (
@@ -275,12 +297,15 @@ export default function AgentCard({ agent }) {
                     active={isAttributeActive(tag, agent, state.tasks)}
                     maxChars={maxChars}
                     onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
+                    {...attrEditProps(tag, index)}
                   />
                 ))}
-              <button className="tag-add" title="Add attribute" onClick={e => {
-                e.stopPropagation();
-                openTagRegistry({ target: { type: 'agent', id: agent.id } });
-              }}>+</button>
+              <Tooltip content="Add attribute">
+                <button className="tag-add" onClick={e => {
+                  e.stopPropagation();
+                  openTagRegistry({ target: { type: 'agent', id: agent.id } });
+                }}>+</button>
+              </Tooltip>
             </div>
           </div>
 
@@ -290,16 +315,16 @@ export default function AgentCard({ agent }) {
             <div className="tag-list">
               {personalItems.length === 0 && !giveQtyVisible && <span className="empty-inline">—</span>}
               {personalItems.map(({ name, quantity, tag }) => (
-                <span
-                  key={tag}
-                  className="tag tag--action"
-                  title="Left-click: allocate · Right-click: bind"
-                  onClick={e => allocateItem(e, name)}
-                  onContextMenu={e => bindItem(e, name)}
-                >
-                  <TruncatedText text={name} maxChars={maxChars} />
-                  {quantity > 1 && <span className="tag-value"> ×{quantity}</span>}
-                </span>
+                <Tooltip key={tag} content="Left-click: allocate · Right-click: bind">
+                  <span
+                    className="tag tag--action"
+                    onClick={e => allocateItem(e, name)}
+                    onContextMenu={e => bindItem(e, name)}
+                  >
+                    <TruncatedText text={name} maxChars={maxChars} />
+                    {quantity > 1 && <span className="tag-value"> ×{quantity}</span>}
+                  </span>
+                </Tooltip>
               ))}
             </div>
             {giveQtyVisible && (
@@ -327,15 +352,15 @@ export default function AgentCard({ agent }) {
               <div className="tag-label">BOUND</div>
               <div className="tag-list">
                 {boundItems.map(({ slot, name, tag }) => (
-                  <span
-                    key={tag}
-                    className="tag tag--active tag--action"
-                    title="Right-click: unbind"
-                    onContextMenu={e => unbindItem(e, slot, name)}
-                  >
-                    {slot && <><span className="tag-value">[{slot}]</span>&nbsp;</>}
-                    <TruncatedText text={name} maxChars={maxChars} />
-                  </span>
+                  <Tooltip key={tag} content="Right-click: unbind">
+                    <span
+                      className="tag tag--active tag--action"
+                      onContextMenu={e => unbindItem(e, slot, name)}
+                    >
+                      {slot && <><span className="tag-value">[{slot}]</span>&nbsp;</>}
+                      <TruncatedText text={name} maxChars={maxChars} />
+                    </span>
+                  </Tooltip>
                 ))}
               </div>
             </div>
@@ -364,7 +389,9 @@ export default function AgentCard({ agent }) {
 
           {/* 12. Copy | Delete */}
           <div className="tag-section action-row">
-            <button className="delete-btn" title="Duplicate hireling" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_DUPLICATE', id: agent.id }); }}>⎘ COPY</button>
+            <Tooltip content="Duplicate hireling">
+              <button className="delete-btn" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_DUPLICATE', id: agent.id }); }}>⎘ COPY</button>
+            </Tooltip>
             <button className="delete-btn" onClick={e => {
               e.stopPropagation();
               if (confirm(`Delete hireling "${agent.name}"?`)) dispatch({ type: 'AGENT_DELETE', id: agent.id });

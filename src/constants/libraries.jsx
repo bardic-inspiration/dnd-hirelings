@@ -2,7 +2,7 @@
 // to the library system means adding one entry here plus a preview component —
 // the modal shell, storage hook, and file I/O are all type-agnostic.
 
-import { STORAGE_KEYS } from '../state/storage.js';
+import { STORAGE_KEYS, migrateTag } from '../state/storage.js';
 import { normalizeConditionTemplate, migrateLegacyWorkTemplates } from '../logic/conditions.js';
 import AgentPreview from '../components/Modals/previews/AgentPreview.jsx';
 import TaskPreview from '../components/Modals/previews/TaskPreview.jsx';
@@ -10,7 +10,10 @@ import ItemPreview from '../components/Modals/previews/ItemPreview.jsx';
 
 const str = (v, fallback = '') => (typeof v === 'string' ? v : fallback);
 const num = (v, fallback = 0) => { const n = Number(v); return Number.isFinite(n) ? n : fallback; };
-const tags = (v) => (Array.isArray(v) ? v.filter(tag => typeof tag === 'string' && tag) : []);
+// Preset tag arrays are legacy data too: run each through the same grammar
+// migration state uses (strips the legacy `#` sigil, `equip:`→`bind:`, etc.) so
+// presets display and instantiate in the current format regardless of source.
+const tags = (v) => (Array.isArray(v) ? v.filter(tag => typeof tag === 'string' && tag).map(migrateTag) : []);
 
 // A loaded entry must carry a non-empty string name to be a real preset.
 // Entries that don't are bypassed (usePresets drops normalize() results that

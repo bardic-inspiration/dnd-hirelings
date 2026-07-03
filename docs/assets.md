@@ -110,8 +110,10 @@ the first-paint caveat.
 
 ### Global gate — `AssetProvider` / `useRegisterAssets`
 
-Blocks first paint until every registered URL settles (loads or errors). Used
-only for the **active theme background**, registered by `usePalette` on mount.
+Overlays a LOADING screen over the app until every registered URL settles (loads
+or errors); the app tree stays mounted underneath (issue #81 — see
+`docs/gotchas.md`). Used only for the **active theme background**, registered by
+`usePalette` on mount.
 
 - `index.html` injects `<link rel="preload" as="image">` for the active background and sets `--bg-image` before React mounts.
 - `AssetContext.registerAssets` checks `img.complete` synchronously after setting `src`, so a preloaded/cached background resolves the gate immediately — no LOADING flash on repeat visits. `settle` guards against double-resolution.

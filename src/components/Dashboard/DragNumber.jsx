@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import EditableSpan from '../EditableSpan.jsx';
+import Tooltip from '../Tooltip.jsx';
 
 const DRAG_THRESHOLD_PX = 4;
 const PX_PER_UNIT = 12;
@@ -60,13 +61,14 @@ export default function DragNumber({ value, onChange, onCommit, className, step 
   };
 
   return (
-    <span
-      className="drag-number"
-      onPointerDown={onPointerDown}
-      onClickCapture={onClickCapture}
-      title="Click to edit. Drag up/down to adjust."
-    >
-      <EditableSpan className={className} value={String(value)} onCommit={onCommit} />
-    </span>
+    <Tooltip content="Click to edit. Drag up/down to adjust.">
+      <span
+        className="drag-number"
+        onPointerDown={onPointerDown}
+        onClickCapture={onClickCapture}
+      >
+        <EditableSpan className={className} value={String(value)} onCommit={onCommit} />
+      </span>
+    </Tooltip>
   );
 }

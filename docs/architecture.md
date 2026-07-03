@@ -43,8 +43,8 @@ Three React contexts:
 | Context | Contents | Persisted |
 |---------|----------|-----------|
 | `GameContext` | `{ state, dispatch }` — the full game world via `useReducer` | Yes, localStorage on every change |
-| `UIContext` | Mostly ephemeral UI state: selection, modal props, playing flag | Card expand/collapse only (localStorage on every toggle); rest not persisted |
-| `AssetContext` | Image load registry; gates app render until assets settle | No |
+| `UIContext` | Mostly ephemeral UI state: selection, modal props, playing flag | Card expand/collapse, plus each persistence-enabled modal's open state (`MODAL_PERSISTENCE`); rest ephemeral |
+| `AssetContext` | Image load registry; overlays a LOADING screen (app stays mounted) until assets settle | No |
 
 `GameContext` follows the Redux pattern: a single normalized state tree, a single reducer, dispatch-only mutations. The reducer is in `reducer.js`; persistence is in `storage.js`.
 
@@ -111,6 +111,14 @@ renders a set of **standard UI elements** whose value sources are assigned in
 | `bars` | `(current, max)` tuples as ratio bars | the pre-existing vital-bar format; current value editable when writable |
 | `fields` | labelled editable values | writes back through the source |
 | `values` | read-only `LABEL: value` entries | label = last path segment |
+| `slots` | bind slot names for the card's item slots | not a value source — see below |
+
+`slots` is a plain list of bind slot names (e.g. `weapon`, `armor`). It is the
+**sole source** of a card's slot names — they are no longer hardcoded in the tag
+registry (issue #84). Binding an item fills the first unoccupied configured slot
+(`firstFreeSlot`), producing a `bind:<slot>:item:<name>` tag; with no slots
+configured (or all full) the item binds without a slot. `parseTagUIConfig`
+lowercases slot names so they compose cleanly into tag paths.
 
 A source is a tag-like path: `dynamic:<key>` reads a computed stat from
 `computeDynamicAttributes`; a bare field name (`rate`) reads an agent scalar;

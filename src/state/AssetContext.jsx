@@ -4,8 +4,14 @@ const AssetContext = createContext(null);
 
 /**
  * Tracks a registry of asset URLs and their load state.
- * Children render only after every registered URL has settled (loaded or errored).
- * Shows a full-screen "LOADING" placeholder while any URL is still pending.
+ *
+ * Children stay mounted at all times; a full-screen "LOADING" overlay is drawn
+ * *on top* while any URL is still pending. Assets register from post-mount
+ * effects (`useRegisterAssets`), so gating by swapping children for the loading
+ * screen would unmount and remount the whole tree the moment the first batch
+ * registers — reading to the user as a spurious page refresh that also discarded
+ * ephemeral UI state (an open modal). Overlaying instead keeps that state intact
+ * (issue #81).
  *
  * @param {{ children: React.ReactNode }} props
  */
@@ -50,7 +56,8 @@ export function AssetProvider({ children }) {
 
   return (
     <AssetContext.Provider value={{ registerAssets, isReady }}>
-      {isReady ? children : <AssetLoadingScreen />}
+      {children}
+      {!isReady && <AssetLoadingScreen />}
     </AssetContext.Provider>
   );
 }

@@ -23,9 +23,11 @@ export const TAG_REGISTRY = {
     stealth: {}, survival: {},
   },
   tool: {}, trait: {}, class: {}, race: {}, level: {}, item: {},
-  // `bind` slots an item into the agent. Slot is optional (`bind:item:<name>`);
-  // these slot-name children seed the namespace as hints for future slot schemas.
-  bind: { weapon: {}, armor: {}, offhand: {}, ring: {}, head: {}, feet: {} },
+  // `bind` slots an item into the agent. Slot is optional (`bind:item:<name>`).
+  // Slot NAMES are not hardcoded here — they are configured per card under
+  // `cards.<card>.slots` in config/tagUI.yml (see logic/tagUI.js), so the registry
+  // stays a pure structure skeleton (issue #84).
+  bind: {},
 };
 
 // Parses a tag string into { modifier, segments, value }.

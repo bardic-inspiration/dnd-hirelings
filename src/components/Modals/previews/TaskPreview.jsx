@@ -1,8 +1,10 @@
 import { useUI } from '../../../state/UIContext.jsx';
 import { routeTaskTag } from '../../../logic/tasks.js';
+import { mergeAttribute } from '../../../logic/tags.js';
 import { useCharBudget } from '../../../hooks/useCharBudget.js';
 import EditableSpan from '../../EditableSpan.jsx';
 import TagLabel from '../../TagLabel.jsx';
+import Tooltip from '../../Tooltip.jsx';
 
 // One editable tag list (requirements / attributes). Reuses the task-card
 // section/tag classes but writes to the draft via onChange. Only the section
@@ -16,8 +18,10 @@ function TagListSection({ label, addLabel, field, draft, onChange }) {
 
   const handleAdd = () => openTagRegistry({
     onApply: (tag) => {
+      // Dedupe-merge so re-adding a tag string replaces its value rather than
+      // stacking a hidden duplicate (issue #82), matching the board reducer.
       const route = routeTaskTag(tag);
-      onChange({ [route]: [...(draft[route] || []), tag] });
+      onChange({ [route]: mergeAttribute(draft[route] || [], tag) });
     },
   });
 
@@ -85,7 +89,9 @@ export default function TaskPreview({ draft, onChange }) {
         />
       </div>
 
-      <div className="task-preview-frame" title="Map (coming soon)" />
+      <Tooltip content="Map (coming soon)">
+        <div className="task-preview-frame" />
+      </Tooltip>
 
       <div className="task-body">
         <div className="tag-label">DESCRIPTION</div>

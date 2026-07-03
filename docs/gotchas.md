@@ -14,7 +14,7 @@ The grammar:
 [modifier,]segment[:segment...][=value]
 ```
 
-- The **modifier** (`req`, `block`, `bonus`) is separated from the content path by a comma, not a colon. This tripped up older code that used a colon and is what the migration in `normalizeState` → `migrateTag()` fixes.
+- The **modifier** (`req`, `block`, `bonus`) is separated from the content path by a comma, not a colon. This tripped up older code that used a colon and is what the migration in `normalizeState` → `migrateTag()` fixes. `migrateTag()` also strips the legacy `#` sigil (`#skill:x` → `skill:x`); it is applied both to loaded state and to preset tags on import (`constants/libraries.jsx`), so a legacy sigil never reaches the display.
 - **Segments** form a path. The full path is the identity key for deduplication (`mergeAttribute` replaces any tag with the same modifier + path).
 - `bind:[<slot>:]item:<name>` and `task:<id>` tags live in `activities`, not `attributes`. Don't look for them in `attributes`.
 
@@ -40,7 +40,9 @@ Two distinct, deliberately separated concepts operate on items:
 
 **Slot is optional.** `bind:item:<name>` has no slot; `bind:<slot>:item:<name>` is slotted. `getBoundItems` parses both, returning `slot: null` for the former.
 
-> ⚠️ **Needs clarification:** the per-agent **slot schema** that would constrain binding (which slots exist, what each accepts) is **not implemented**. `hasSlotSchema(agent)` is a stub that always returns `false`, so the bind flow currently always takes the no-slot branch (`bind:item:<name>`). When slot schemas land, the `if (hasSlotSchema(agent))` branch in `AgentCard`'s bind handler should prompt for a slot.
+**Slot names come from config, not the tag registry.** A card's bind slots are listed under `cards.<card>.slots` in `config/tagUI.yml` (issue #84); the tag registry's `bind` node is an empty structure skeleton. Binding fills the first unoccupied configured slot (`firstFreeSlot(cardConfig.slots, boundItems)`); when a card defines no slots, or all are full, the item binds without one.
+
+> ⚠️ **Needs clarification:** slot assignment is currently **positional** — the first free slot in config order — with no notion of which item *type* a slot accepts (a shield could land in `weapon`). A per-slot **acceptance schema** (which items each slot allows) is not yet implemented; when it lands, `firstFreeSlot` should be replaced by a type-aware chooser in `AgentCard`'s bind handler.
 
 ---
 
@@ -123,13 +125,27 @@ This means:
 
 ---
 
-## Asset Loading Gate Blocks First Paint
+## Asset Loading Gate Overlays (does not unmount) the App
 
-`AssetProvider` renders a full-screen "LOADING" placeholder until every URL registered via `useRegisterAssets` has resolved. `usePalette` registers the background image for the active theme on mount, which means first paint is gated on that image loading. On a slow connection or a missing image, the app will stay on the loading screen until the image 404s (which still resolves the gate via `onerror`).
+`AssetProvider` draws a full-screen "LOADING" overlay *on top of* the app while any URL registered via `useRegisterAssets` is still pending. `usePalette` registers the background image for the active theme on mount, so first paint is visually gated on that image loading. On a slow connection or a missing image, the overlay stays up until the image 404s (which still resolves the gate via `onerror`).
+
+The children are **always mounted** — the overlay is layered over them, never swapped in. This matters: assets register from post-mount effects, so gating by swapping `children` for the loading screen (the old behavior) unmounted and remounted the whole tree the instant the first batch registered, reading as a spurious page refresh that also discarded ephemeral UI state such as an open modal (issue #81). Keep the overlay approach; do not gate by conditionally rendering `children`.
 
 Adding more `useRegisterAssets` calls elsewhere will add to this blocking set. Use `useAssetGroup` (local, modal-scoped) for images that can load lazily.
 
 On repeat visits the background is already in the HTTP cache (via the `<link rel="preload">` injected by `index.html`), so `AssetContext` checks `img.complete` synchronously after setting `src` and resolves the gate immediately — no LOADING flash. `settle` guards against double-resolution (the cached path and the async `onload` can both fire), so this is safe for the uncached first-load case too.
+
+---
+
+## Modal Open State Persists Across Refresh (per-modal toggle)
+
+Every modal goes through one hook — `useModal(name)` in `UIContext` — which mirrors its open state to localStorage (the shared `dnd-hirelings-open-modals-v1` map) and rehydrates it on mount, so a refresh reopens whatever was open (issue #81). Persistence is **per component**: flip the modal's entry in `MODAL_PERSISTENCE` to enable/disable it.
+
+Two guards keep this safe:
+- **Callback props are never persisted.** A modal opened with a live function — the portrait/icon pickers' `onSelect`, or the tag registry's `onApply` from a library draft — can't be restored (the callback is gone after a reload), so `isPersistableProps` treats it as ephemeral even if the modal is persistence-enabled. The pickers are also set `false` in `MODAL_PERSISTENCE` to make the intent explicit.
+- **Rehydrated props may be stale/corrupt.** Restored props aren't re-validated by the generic layer, so a modal that indexes a registry by a persisted key must guard it — e.g. `LibraryModal` splits into a validating wrapper (`LIBRARY_CONFIGS[type]` → render nothing if unknown) and a body that always runs its hooks.
+
+When adding a modal, register it in `MODAL_PERSISTENCE` and open it via `useModal`; don't hand-roll a separate `useState` + persistence effect.
 
 ---
 
