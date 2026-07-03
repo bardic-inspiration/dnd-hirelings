@@ -208,6 +208,24 @@ repo root — **outside `public/`** — and is inlined at build time through a V
 
 ---
 
+## `public/config/tagUI.yml` is Runtime Input (the Opposite Convention)
+
+The tag UI config takes the **other** loading path: it lives in `public/`, ships
+with the deployed bundle as-is, and is fetched + parsed once per page load by
+`useTagUIConfig`. Consequences:
+
+- Editing it in a deployed build **does** take effect — on the next reload, no rebuild needed. This is the point: which values a card displays is user-facing configuration, not build input.
+- Validation is therefore lenient, the reverse of `truncation.yml`: a missing/unparseable file degrades to bare cards with a `console.warn`; a malformed section degrades to no elements of that kind; an unresolvable *source* renders its element empty in the warning state. Nothing throws.
+- Editing invalid values is silently ignored at commit time: a non-numeric entry in an editable bar label or field snaps back to the resolved value. Notably, clearing the HP bar label **no longer resets HP to full** (the old hardcoded bar's `NaN → null` behavior); set the value explicitly instead.
+
+> ⚠️ **Needs clarification:** The spec sizes medallion and boxes as "1/4 of agent card width, square, fixed dimensions" — but card width is fluid (`minmax(160px, 1fr)` grid). Implemented as a fixed `--stat-square: 34px` side (≈¼ of the *minimum* card content width), so the squares don't grow with the card.
+
+> ⚠️ **Needs clarification:** "Element flashes warning color" for invalid sources is implemented as a one-shot flash on render plus persistent warn-colored chrome (border/text), not a continuous pulse.
+
+> ⚠️ **Needs clarification:** The spec says elements display "any integer" tag value; the resolver accepts any finite number, since `rate` (a field source) is fractional (e.g. `1.5` gp/day).
+
+---
+
 ## Event Log is Per-Day, Tick-Driven, and Capped
 
 `advanceTime` is the only writer of `state.eventLog`. Consequences:

@@ -7,6 +7,9 @@ Guild Manager is a client-side SPA with no backend. All state lives in the brows
 ```
 config/
 └── truncation.yml    # Text display config (build-time YAML; see Text Display Library below)
+public/
+└── config/
+    └── tagUI.yml     # Card element → tag source assignments (runtime YAML; see Configurable Card Elements below)
 src/
 ├── main.jsx          # React bootstrap; mounts providers
 ├── App.jsx           # Root shell; owns modal rendering, global click handler, tag-apply selection mode
@@ -95,20 +98,55 @@ Two persistent selections in UIContext drive the same "pick a source, then click
 - **`selectedTaskId`** — selecting a task highlights agent cards as assignable / not, and clicking a card assigns it.
 - **`selectedItemId`** — selecting an inventory item (`ItemRow`) arms a single **place-item** flow routed through the `ITEM_PLACE` reducer action. Agent cards become give-targets (`.agent-card--give-target`) and the BankPanel becomes a sell-target (`.bank-panel--sellable`). On an agent card, **left-click gives 1**, **right-click opens an inline quantity input**; clicking the BankPanel sells 1. The selection persists so you can give/sell repeatedly, clearing only on a true clickout (handled in App.jsx, which excludes `.agent-card`, `.item-row`, and `.bank-panel`) or once the stack is depleted. The two modes are mutually exclusive — give-target highlighting takes priority over task-assignment highlighting.
 
+### Configurable Card Elements (tag UI)
+
+Instead of hardcoding which agent attributes the card displays, `AgentCard`
+renders a set of **standard UI elements** whose value sources are assigned in
+`public/config/tagUI.yml` (issue: agent card configurable UI elements):
+
+| Element | Renders | Notes |
+|---------|---------|-------|
+| `medallion` | one value in a square badge beside the name | visible while collapsed |
+| `boxes` | one value per square, four per row | sit directly above the bars |
+| `bars` | `(current, max)` tuples as ratio bars | the pre-existing vital-bar format; current value editable when writable |
+| `fields` | labelled editable values | writes back through the source |
+| `values` | read-only `LABEL: value` entries | label = last path segment |
+
+A source is a tag-like path: `dynamic:<key>` reads a computed stat from
+`computeDynamicAttributes`; a bare field name (`rate`) reads an agent scalar;
+any other path reads the numeric `=value` of the matching effective attribute
+tag. Resolution, config parsing, and write-back mapping live in
+`src/logic/tagUI.js`; `useTagUIConfig(cardName)` fetches + caches the config
+once per page load. Because the file lives in `public/`, it ships with the
+deployed bundle and can be edited without a rebuild (unlike
+`config/truncation.yml`, which is inlined at build time).
+
+Two contract points from the spec:
+
+- **Invalid sources** (unknown dynamic key, missing tag, non-numeric value)
+  render their element with **no value** in an `--invalid` state that flashes
+  the warning color and keeps warn-colored chrome.
+- **Consumed tags**: an attribute tag whose path is assigned to any element is
+  omitted from the ATTRIBUTES chip list — only tags *not* mentioned in the
+  config render as chips (`getConsumedTagPaths` / `isTagConsumed`). Modifier
+  tags (`req,` / `bonus,`) are never consumed.
+
 ### Agent Card Rendering Order
 
 `AgentCard` renders its elements in one fixed **standard order**, independent of
 which are always-visible and which are hidden when the card is collapsed:
 
-`Name · Portrait · Rate (editable values) · Bars (HP/XP) · AC/PB (non-editable
-values) · Description · Attributes · Bag · Bound · Tasks · Copy | Delete`
+`Name (+ Medallion) · Portrait · Fields (editable values) · Boxes · Bars ·
+Values (read-only) · Description · Attributes · Bag · Bound · Tasks ·
+Copy | Delete`
 
-Only Name and Bars are always visible; the rest are hidden when collapsed. Because
-those hidden elements fall into two contiguous runs around the always-visible Bars
-(Portrait + Rate before; everything from AC/PB onward after), the JSX expresses the
-whole card as that flat sequence with just **two `!isCollapsed` guards** — no
-wrapper element and no per-element conditional. A collapsed card therefore shows
-exactly Name + Bars. Preserve this order when adding card elements (e.g. future
+Only Name (with the medallion) and Bars are always visible; the rest are hidden
+when collapsed. Because those hidden elements fall into two contiguous runs
+around the always-visible Bars (Portrait + Fields + Boxes before; everything
+from Values onward after), the JSX expresses the whole card as that flat
+sequence with just **two `!isCollapsed` guards** — no wrapper element and no
+per-element conditional. A collapsed card therefore shows exactly Name +
+Medallion + Bars. Preserve this order when adding card elements (e.g. future
 editable/non-editable values slot in with their group).
 
 ### Real-time Interpolated Display
