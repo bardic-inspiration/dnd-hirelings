@@ -1,8 +1,41 @@
-import { Fragment } from 'react';
-import { parseTag } from '../logic/tags.js';
+import { Fragment, useState } from 'react';
+import { parseTag, buildTag } from '../logic/tags.js';
 import { truncateTagParts } from '../logic/truncation.js';
 import { TRUNCATION_CONFIG } from '../constants/truncation.js';
 import Tooltip from './Tooltip.jsx';
+
+/**
+ * Inline editor for a tag's scalar value. Autofocuses, sizes to its content,
+ * commits on Enter/blur, cancels on Escape, and stops click/dblclick from
+ * bubbling to the card or the tag's replace handler.
+ *
+ * @param {object} props
+ * @param {string} props.initial - Raw value to seed the field with
+ * @param {(raw: string) => void} props.onCommit - Called with the edited text
+ * @param {() => void} props.onCancel - Called on Escape (no commit)
+ * @returns {JSX.Element}
+ */
+function TagValueInput({ initial, onCommit, onCancel }) {
+  const [text, setText] = useState(initial);
+  return (
+    <input
+      className="tag-value-input mono"
+      type="text"
+      autoFocus
+      size={Math.max(1, text.length)}
+      value={text}
+      spellCheck={false}
+      onChange={event => setText(event.target.value)}
+      onClick={event => event.stopPropagation()}
+      onDoubleClick={event => event.stopPropagation()}
+      onKeyDown={event => {
+        if (event.key === 'Enter') { event.preventDefault(); onCommit(text); }
+        else if (event.key === 'Escape') { event.preventDefault(); onCancel(); }
+      }}
+      onBlur={() => onCommit(text)}
+    />
+  );
+}
 
 /**
  * Canonical tag display. Runs a tag string through the structural truncation
@@ -15,6 +48,14 @@ import Tooltip from './Tooltip.jsx';
  * active states, remove button); this renders only the label span, so the
  * tooltip triggers on the label rather than its controls.
  *
+ * Editing (issue #75) is opt-in via callbacks — the tag *string* is never
+ * directly editable, only its value:
+ * - `onValueCommit`: single-clicking the value swaps it for an inline editor;
+ *   a value that round-trips cleanly (non-empty, doesn't corrupt the grammar)
+ *   commits, anything else is discarded ("invalid value → no change").
+ * - `onReplace`: double-clicking the tag string fires it (host opens the Tag
+ *   Registry to pick a replacement). Double-clicking the value edits instead.
+ *
  * @param {object} props
  * @param {string} props.tag - Raw tag string (parsed internally via `parseTag`)
  * @param {number} [props.maxChars] - Character budget (from `useCharBudget`);
@@ -23,12 +64,16 @@ import Tooltip from './Tooltip.jsx';
  * @param {boolean} [props.truncate=true] - Structural truncation toggle
  * @param {boolean} [props.tooltip=true] - Tooltip-on-difference toggle
  * @param {boolean} [props.shorthand=true] - Number shorthand on the value
+ * @param {(value: string) => void} [props.onValueCommit] - Commit an edited value
+ * @param {() => void} [props.onReplace] - Open a replacement picker for the whole tag
  * @returns {JSX.Element}
  */
-export default function TagLabel({ tag, maxChars, variant = 'chip', truncate = true, tooltip = true, shorthand = true }) {
+export default function TagLabel({ tag, maxChars, variant = 'chip', truncate = true, tooltip = true, shorthand = true, onValueCommit, onReplace }) {
+  const [editing, setEditing] = useState(false);
+  const parsed = parseTag(tag);
   const fallbackChars = TRUNCATION_CONFIG.charBudget.components[variant === 'row' ? 'tag-row' : 'tag-chip'].fallbackChars;
   const budget = truncate ? (maxChars ?? fallbackChars) : Infinity;
-  const { parts, truncated, valueShortened } = truncateTagParts(parseTag(tag), budget, { variant, shorthand });
+  const { parts, truncated, valueShortened } = truncateTagParts(parsed, budget, { variant, shorthand });
 
   // Split off the value (and its separator) so each variant can keep its
   // existing markup: chips put "=value" in .tag-value, rows embolden the path.
@@ -40,17 +85,58 @@ export default function TagLabel({ tag, maxChars, variant = 'chip', truncate = t
     ? <span key={i} className="tag-string-placeholder">{part.text}</span>
     : <Fragment key={i}>{part.text}</Fragment>);
 
-  const differs = truncated || valueShortened;
-  const label = (
-    <span className={`tag-string${differs ? ' tag-string--truncated' : ''}`}>
-      {variant === 'row' ? <strong>{renderParts(pathParts)}</strong> : renderParts(pathParts)}
-      {valueParts.length > 0 && (
-        variant === 'row'
-          ? renderParts(valueParts)
-          : <span className="tag-value">{renderParts(valueParts)}</span>
-      )}
+  const canEditValue = typeof onValueCommit === 'function' && parsed.value !== null;
+
+  // Accept the edit only if it round-trips through the tag grammar unchanged
+  // apart from the value — this rejects empty input and values that would
+  // corrupt the tag (e.g. a comma, which parseTag reads as a modifier).
+  const commitValue = (raw) => {
+    setEditing(false);
+    const next = raw.trim();
+    if (next === '' || next === String(parsed.value)) return;
+    const reparsed = parseTag(buildTag(parsed.segments, next, parsed.modifier));
+    const clean = reparsed.value === next
+      && reparsed.segments.join(':') === parsed.segments.join(':')
+      && reparsed.modifier === parsed.modifier;
+    if (clean) onValueCommit(next);
+  };
+
+  const startEdit = (event) => {
+    if (!canEditValue || editing) return;
+    event.stopPropagation();
+    setEditing(true);
+  };
+
+  const handleReplace = onReplace
+    ? (event) => { event.stopPropagation(); onReplace(); }
+    : undefined;
+
+  const valueContent = editing
+    ? <><span className="tag-value-eq">=</span><TagValueInput initial={String(parsed.value)} onCommit={commitValue} onCancel={() => setEditing(false)} /></>
+    : renderParts(valueParts);
+
+  // The value gets its own click target (edit) and swallows dblclick so a
+  // double-click there never also triggers the tag's replace handler.
+  const valueNode = valueParts.length > 0 && (
+    <span
+      className={`${variant === 'row' ? '' : 'tag-value '}${canEditValue ? 'tag-value--editable' : ''}`.trim() || undefined}
+      onClick={canEditValue ? startEdit : undefined}
+      onDoubleClick={canEditValue ? (event => event.stopPropagation()) : undefined}
+    >
+      {valueContent}
     </span>
   );
 
-  return <Tooltip content={tag} disabled={!(tooltip && differs)}>{label}</Tooltip>;
+  const differs = truncated || valueShortened;
+  const label = (
+    <span
+      className={`tag-string${differs ? ' tag-string--truncated' : ''}`}
+      onDoubleClick={handleReplace}
+    >
+      {variant === 'row' ? <strong>{renderParts(pathParts)}</strong> : renderParts(pathParts)}
+      {valueNode}
+    </span>
+  );
+
+  return <Tooltip content={tag} disabled={editing || !(tooltip && differs)}>{label}</Tooltip>;
 }

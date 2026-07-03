@@ -3,7 +3,7 @@ import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, firstFreeSlot, getEffectiveAttributes } from '../../logic/agents.js';
 import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
-import { parseTag } from '../../logic/tags.js';
+import { parseTag, buildTag } from '../../logic/tags.js';
 import { getConsumedTagPaths, isTagConsumed } from '../../logic/tagUI.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import { useTagUIConfig } from '../../hooks/useTagUIConfig.js';
@@ -16,8 +16,10 @@ import { flashAgentCard } from '../../logic/dom.js';
 
 // Task activity chips show the resolved task name (plain text); every other
 // tag renders through TagLabel's chip variant. Both truncate to the card's
-// measured budget with the full string in a tooltip.
-function TagChip({ tagStr, active, maxChars, onRemove }) {
+// measured budget with the full string in a tooltip. Attribute chips pass
+// `onValueCommit`/`onReplace` to make the value editable (issue #75); task
+// chips omit them (their label is a task name, not an editable tag).
+function TagChip({ tagStr, active, maxChars, onRemove, onValueCommit, onReplace }) {
   const parsed = parseTag(tagStr);
   const { state } = useGame();
   const task = parsed.segments[0] === 'task'
@@ -27,7 +29,7 @@ function TagChip({ tagStr, active, maxChars, onRemove }) {
     <span className={`tag${active ? ' tag--active' : ''}`}>
       {task
         ? <TruncatedText text={task.name} maxChars={maxChars} />
-        : <TagLabel tag={tagStr} maxChars={maxChars} />}
+        : <TagLabel tag={tagStr} maxChars={maxChars} onValueCommit={onValueCommit} onReplace={onReplace} />}
       <Tooltip content="Remove">
         <span className="x" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
       </Tooltip>
@@ -164,6 +166,23 @@ export default function AgentCard({ agent }) {
     return task && !task.isComplete;
   });
 
+  // Editable-tag wiring (issue #75) for an attribute chip. Committing a value
+  // rewrites the tag in place (order preserved — the path is unchanged, so it
+  // can't collide with another entry); replacing removes the old tag then
+  // applies whatever the registry returns.
+  const attrEditProps = (tag, index) => {
+    const { segments, modifier } = parseTag(tag);
+    return {
+      onValueCommit: (value) => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: {
+        attributes: agent.attributes.map((current, i) => i === index ? buildTag(segments, value, modifier) : current),
+      } }),
+      onReplace: () => openTagRegistry({ onApply: (newTag) => {
+        dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index });
+        dispatch({ type: 'TAG_APPLY', target: { type: 'agent', id: agent.id }, tag: newTag });
+      } }),
+    };
+  };
+
   let foundCurrent = false;
 
   return (
@@ -278,6 +297,7 @@ export default function AgentCard({ agent }) {
                     active={isAttributeActive(tag, agent, state.tasks)}
                     maxChars={maxChars}
                     onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
+                    {...attrEditProps(tag, index)}
                   />
                 ))}
               <Tooltip content="Add attribute">

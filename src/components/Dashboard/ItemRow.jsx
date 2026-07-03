@@ -1,5 +1,6 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
+import { parseTag, buildTag } from '../../logic/tags.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import EditableSpan from '../EditableSpan.jsx';
 import TagLabel from '../TagLabel.jsx';
@@ -37,6 +38,21 @@ export default function ItemRow({ item }) {
   const handleAddAttr = (e) => {
     e.stopPropagation();
     openTagRegistry({ target: { type: 'item', id: item.id } });
+  };
+
+  // Editable-tag wiring (issue #75): rewrite a value in place (order preserved),
+  // or replace the whole tag via the registry (remove the old one, apply the new).
+  const attrEditProps = (tag, index) => {
+    const { segments, modifier } = parseTag(tag);
+    return {
+      onValueCommit: (value) => dispatch({ type: 'INVENTORY_UPDATE_ITEM', id: item.id, changes: {
+        attributes: item.attributes.map((current, i) => i === index ? buildTag(segments, value, modifier) : current),
+      } }),
+      onReplace: () => openTagRegistry({ onApply: (newTag) => {
+        dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index });
+        dispatch({ type: 'TAG_APPLY', target: { type: 'item', id: item.id }, tag: newTag });
+      } }),
+    };
   };
 
   return (
@@ -103,7 +119,7 @@ export default function ItemRow({ item }) {
           {!item.attributes.length && <span className="empty-inline">—</span>}
           {item.attributes.map((tag, index) => (
             <span key={index} className="tag">
-              <TagLabel tag={tag} maxChars={maxChars} />
+              <TagLabel tag={tag} maxChars={maxChars} {...attrEditProps(tag, index)} />
               <Tooltip content="Remove">
                 <span className="x" onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index }); }}>×</span>
               </Tooltip>
