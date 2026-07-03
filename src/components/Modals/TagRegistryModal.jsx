@@ -48,12 +48,14 @@ function splitDraftValue(draft) {
  * to a callback (library preset drafts) and elevates the overlay above the
  * library panel.
  *
- * ADD registers a structure path; APPLY assigns the draft to its destination.
- * With no target/onApply (TopBar open), APPLY arms selection mode via
- * `setPendingApply` and the next board-entity click receives the tag/condition.
+ * ADD registers a structure path; APPLY assigns the draft to its destination,
+ * registering the path first if it's new (plain drafts only — patterns are
+ * never registry keys). With no target/onApply (TopBar open), APPLY arms
+ * selection mode via `setPendingApply` and the next board-entity click
+ * receives the tag/condition.
  *
- * Side effects: dispatches `TAG_APPLY` / `TASK_CONDITION_ADD` / registry
- * mutations; closes itself via `closeTagRegistry`.
+ * Side effects: dispatches `TAGREG_ADD_PATH` / `TAG_APPLY` / `TASK_CONDITION_ADD`;
+ * closes itself via `closeTagRegistry`.
  */
 export default function TagRegistryModal() {
   const { tagRegistryProps, closeTagRegistry, setPendingApply } = useUI();
@@ -144,17 +146,18 @@ export default function TagRegistryModal() {
     };
   }, [draft]);
 
-  // APPLY validity: a plain draft must name an existing registry path; a pattern
-  // must match at least one registry path AND have a condition destination
-  // (condition mode, or the global open where it arms condition selection).
-  // Condition-mode special case: a bare '=target' draft (empty path) is a valid
-  // "any agent" link (tagPath null).
+  // APPLY validity: a plain draft names a path — new paths are registered on
+  // APPLY (see registerDraftPath), so it need not already exist. A pattern must
+  // match at least one registry path AND have a condition destination (condition
+  // mode, or the global open where it arms condition selection). Condition-mode
+  // special case: a bare '=target' draft (empty path) is a valid "any agent"
+  // link (tagPath null).
   const canApply = useMemo(() => {
     const { path } = splitDraftValue(draft);
     if (!draft.trim()) return false;
     if (isPattern) return (isConditionMode || isGlobal) && patternMatchesRegistry(registry, path);
     if (isConditionMode && !path) return true; // '=20' → general condition
-    return pathExists(registry, parseTag(draft).segments);
+    return parseTag(draft).segments.length > 0;
   }, [draft, isPattern, isConditionMode, isGlobal, registry]);
 
   const toggle = (pathStr) => setExpanded(prev => {
@@ -202,6 +205,16 @@ export default function TagRegistryModal() {
     setDraft('');
   };
 
+  // Registers a not-yet-registered segment path before APPLY hands the draft to
+  // its destination, so a brand-new tag is defined and assigned in one action.
+  // No-ops for paths already in the registry ('' included — a pattern's segments
+  // or a bare '=target' condition draft never reach here with content).
+  const registerDraftPath = (segments) => {
+    if (segments.length && !pathExists(registry, segments)) {
+      dispatch({ type: 'TAGREG_ADD_PATH', segments });
+    }
+  };
+
   // Assigns the draft to its destination and closes. Condition drafts become
   // templates; pattern drafts (global only) arm condition selection mode; plain
   // drafts compose modifier + path + value into a tag for onApply / TAG_APPLY /
@@ -210,11 +223,13 @@ export default function TagRegistryModal() {
     if (!canApply) return;
     if (isConditionMode || isPattern) {
       const template = conditionTemplateFromDraft(draft);
+      if (!isPattern && template.tracker.tagPath) registerDraftPath(parseTag(template.tracker.tagPath).segments);
       if (onApply) onApply(template);
       else if (target) dispatch({ type: 'TASK_CONDITION_ADD', id: target.id, template });
       else setPendingApply({ kind: 'condition', template });
     } else {
       const parsed = parseTag(draft.trim());
+      registerDraftPath(parsed.segments);
       const tag = buildTag(parsed.segments, parsed.value, modifier || null);
       if (onApply) onApply(tag);
       else if (target) dispatch({ type: 'TAG_APPLY', target, tag });
