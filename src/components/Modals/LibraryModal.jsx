@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useCallback } from 'react';
 import Modal from './Modal.jsx';
+import Tooltip from '../Tooltip.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
 import { usePresets } from '../../hooks/usePresets.js';
@@ -100,7 +101,9 @@ export default function LibraryModal() {
                   style={config.rowIcon(preset) ? { backgroundImage: `url("${config.rowIcon(preset)}")` } : {}}
                 />
                 <span className="library-row-name">{highlight(preset.name, query.trim())}</span>
-                <span className="x" title="Delete preset" onClick={e => handleDelete(e, preset.id)}>×</span>
+                <Tooltip content="Delete preset">
+                  <span className="x" onClick={e => handleDelete(e, preset.id)}>×</span>
+                </Tooltip>
               </div>
             ))}
             {ready && (
@@ -125,12 +128,13 @@ export default function LibraryModal() {
             autoFocus
           />
           <button className="ctrl" onClick={() => fileInputRef.current?.click()}>LOAD</button>
-          <button
-            className="ctrl"
-            title="Click: save selected. Right click: save filtered list."
-            onClick={handleSave}
-            onContextMenu={handleSave}
-          >SAVE</button>
+          <Tooltip content="Click: save selected. Right click: save filtered list.">
+            <button
+              className="ctrl"
+              onClick={handleSave}
+              onContextMenu={handleSave}
+            >SAVE</button>
+          </Tooltip>
           <button className="ctrl" disabled={!draft} onClick={handleAdd}>ADD</button>
           <input
             ref={fileInputRef}

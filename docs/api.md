@@ -529,7 +529,13 @@ on hover and keyboard focus; hides on leave, blur, and Escape. Portals to
 `document.body`, centered above the anchor, viewport-clamped, flipping below
 when cramped (`.tooltip--below`). Width capped by the `--tooltip-max-width`
 token with word wrap. Child event handlers are merged, never clobbered.
-Native `title=` attributes should migrate to this component over time.
+
+All in-app hover hints go through this component (issue #73 migrated the last
+native `title=` attributes). The sole intentional exception is `title` on
+`<option>` elements (`TagRegistryModal`'s modifier picker): options render in
+the OS-native dropdown, which a portal tooltip cannot anchor to. Wrapping an
+`EditableSpan` is safe — it composes an injected `onFocus`/`onBlur` ahead of
+its own select-all / commit handlers rather than letting them be clobbered.
 
 ### `<TagLabel tag maxChars? variant? truncate? tooltip? shorthand? />`
 

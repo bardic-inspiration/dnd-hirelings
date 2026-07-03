@@ -2,6 +2,7 @@ import { useGame } from '../../../state/GameContext.jsx';
 import { useUI } from '../../../state/UIContext.jsx';
 import { defaultConditionName } from '../../../logic/conditions.js';
 import EditableSpan from '../../EditableSpan.jsx';
+import Tooltip from '../../Tooltip.jsx';
 
 /**
  * One condition row: click-to-edit name, interpolated progress bar,
@@ -31,12 +32,13 @@ function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
 
   return (
     <div className={`condition-item${done ? ' condition-item--done' : ''}`}>
-      <EditableSpan
-        className="condition-item-name"
-        title={condition.tracker.tagPath ?? 'any agent'}
-        value={condition.name}
-        onCommit={commitName}
-      />
+      <Tooltip content={condition.tracker.tagPath ?? 'any agent'}>
+        <EditableSpan
+          className="condition-item-name"
+          value={condition.name}
+          onCommit={commitName}
+        />
+      </Tooltip>
       <div className="condition-item-bottom">
         <div className="condition-item-bar">
           <div
@@ -87,7 +89,9 @@ export default function ProgressSection({ task }) {
       <div className="tag-label">CONDITIONS</div>
       <div className="condition-list">
         {!conditions.length && (
-          <div className="task-tag-list-empty" title="Completes after one worked tick">—</div>
+          <Tooltip content="Completes after one worked tick">
+            <div className="task-tag-list-empty">—</div>
+          </Tooltip>
         )}
         {conditions.map(condition => (
           <ConditionRow

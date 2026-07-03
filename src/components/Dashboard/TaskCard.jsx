@@ -5,6 +5,7 @@ import { resetConditions } from '../../logic/conditions.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import EditableSpan from '../EditableSpan.jsx';
 import TagLabel from '../TagLabel.jsx';
+import Tooltip from '../Tooltip.jsx';
 import ProgressSection from './TaskSections/ProgressSection.jsx';
 import RequirementsSection from './TaskSections/RequirementsSection.jsx';
 import ResultsSection from './TaskSections/ResultsSection.jsx';
@@ -97,9 +98,11 @@ export default function TaskCard({ task }) {
           value={task.name}
           onCommit={v => dispatch({ type: 'TASK_UPDATE', id: task.id, changes: { name: v || 'NEW TASK' } })}
         />
-        <span className="task-toggle" title="Expand / collapse" onClick={handleToggle}>
-          {expanded ? '−' : '+'}
-        </span>
+        <Tooltip content="Expand / collapse">
+          <span className="task-toggle" onClick={handleToggle}>
+            {expanded ? '−' : '+'}
+          </span>
+        </Tooltip>
       </div>
 
       <TaskProgressBar task={task} />
@@ -126,11 +129,12 @@ export default function TaskCard({ task }) {
 
         <div className="task-status-row action-row">
           <span className="tag-label">STATUS:</span>
-          <button
-            className="tag-add"
-            title={task.isComplete ? 'Reset task' : 'Mark complete'}
-            onClick={handleComplete}
-          >{task.isComplete ? '↻' : '✓'}</button>
+          <Tooltip content={task.isComplete ? 'Reset task' : 'Mark complete'}>
+            <button
+              className="tag-add"
+              onClick={handleComplete}
+            >{task.isComplete ? '↻' : '✓'}</button>
+          </Tooltip>
           <span>{task.isComplete ? 'COMPLETE' : 'INCOMPLETE'}</span>
           <button className="delete-btn" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_DUPLICATE', id: task.id }); }}>⎘ COPY</button>
           <button className="delete-btn" onClick={e => {

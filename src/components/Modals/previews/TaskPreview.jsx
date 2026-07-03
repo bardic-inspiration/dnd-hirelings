@@ -4,6 +4,7 @@ import { mergeAttribute } from '../../../logic/tags.js';
 import { useCharBudget } from '../../../hooks/useCharBudget.js';
 import EditableSpan from '../../EditableSpan.jsx';
 import TagLabel from '../../TagLabel.jsx';
+import Tooltip from '../../Tooltip.jsx';
 
 // One editable tag list (requirements / attributes). Reuses the task-card
 // section/tag classes but writes to the draft via onChange. Only the section
@@ -88,7 +89,9 @@ export default function TaskPreview({ draft, onChange }) {
         />
       </div>
 
-      <div className="task-preview-frame" title="Map (coming soon)" />
+      <Tooltip content="Map (coming soon)">
+        <div className="task-preview-frame" />
+      </Tooltip>
 
       <div className="task-body">
         <div className="tag-label">DESCRIPTION</div>

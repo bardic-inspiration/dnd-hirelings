@@ -8,6 +8,7 @@ import { saveStateToFile, loadStateFromFile } from '../../logic/session.js';
 import { saveEventLogToFile } from '../../logic/eventLog.js';
 import EditableSpan from '../EditableSpan.jsx';
 import HoldButton from './HoldButton.jsx';
+import Tooltip from '../Tooltip.jsx';
 
 export default function TopBar({ onPlay, onStop, onAdvance }) {
   const { state, dispatch } = useGame();
@@ -92,11 +93,12 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
           <span className="combo-glyph">▶</span>
           <span className="combo-value mono">{session.rateMultiplier}</span>
         </HoldButton>
-        <button
-          className={`ctrl${!playing ? ' ctrl--active' : ''}`}
-          onClick={onStop}
-          title="Pause"
-        >⏸</button>
+        <Tooltip content="Pause">
+          <button
+            className={`ctrl${!playing ? ' ctrl--active' : ''}`}
+            onClick={onStop}
+          >⏸</button>
+        </Tooltip>
         <HoldButton
           className="ctrl ctrl--combo"
           onClick={onAdvance}
@@ -109,14 +111,15 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
       </div>
 
       {/* Palette picker */}
-      <button
-        className="palette-switch"
-        title={PALETTES[palette].label}
-        onClick={e => { e.stopPropagation(); handleTogglePalette(); }}
-      >
-        <span className={`palette-switch-cell${palette === 'light' ? ' palette-switch-cell--filled' : ''}`}>☼</span>
-        <span className={`palette-switch-cell${palette === 'dark' ? ' palette-switch-cell--filled' : ''}`}>☽</span>
-      </button>
+      <Tooltip content={PALETTES[palette].label}>
+        <button
+          className="palette-switch"
+          onClick={e => { e.stopPropagation(); handleTogglePalette(); }}
+        >
+          <span className={`palette-switch-cell${palette === 'light' ? ' palette-switch-cell--filled' : ''}`}>☼</span>
+          <span className={`palette-switch-cell${palette === 'dark' ? ' palette-switch-cell--filled' : ''}`}>☽</span>
+        </button>
+      </Tooltip>
 
       {/* Session controls */}
       <div className="inset-panel session-controls right">
@@ -127,7 +130,9 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
           LOAD
           <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleLoad} />
         </label>
-        <button className="ctrl" onClick={handleSaveLog} title="Export the per-day progress event log as CSV">LOG</button>
+        <Tooltip content="Export the per-day progress event log as CSV">
+          <button className="ctrl" onClick={handleSaveLog}>LOG</button>
+        </Tooltip>
         <button className="ctrl" onClick={() => openTagRegistry()}>TAG REGISTRY</button>
         <button className="ctrl" onClick={openConfig}>SETTINGS</button>
       </div>
