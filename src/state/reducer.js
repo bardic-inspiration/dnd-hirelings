@@ -374,9 +374,9 @@ export function reducer(state, action) {
     // Applies a tag to any board entity; the single assignment path for the tag
     // registry's APPLY button and selection mode. Routing into a field is the
     // entity's concern: tasks sort by modifier via `routeTaskTag` (`req`/`block`
-    // → requirements) and APPEND; agents/items always take attributes and
-    // dedupe-merge by path (`mergeAttribute`) — the historical asymmetry between
-    // task tag lists and attribute lists is preserved deliberately.
+    // → requirements, else attributes). Every entity dedupe-merges by identity
+    // key (`mergeAttribute`): one instance of any tag string per field, the
+    // incoming value replacing an existing one (issue #82).
     case 'TAG_APPLY': {
       const { target, tag } = action;
       let next = state;
@@ -402,7 +402,7 @@ export function reducer(state, action) {
           ...state,
           tasks: state.tasks.map(task => task.id !== target.id ? task : {
             ...task,
-            [field]: [...(task[field] || []), tag],
+            [field]: mergeAttribute(task[field] || [], tag),
           }),
         };
       }

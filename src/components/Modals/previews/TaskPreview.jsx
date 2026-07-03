@@ -1,5 +1,6 @@
 import { useUI } from '../../../state/UIContext.jsx';
 import { routeTaskTag } from '../../../logic/tasks.js';
+import { mergeAttribute } from '../../../logic/tags.js';
 import { useCharBudget } from '../../../hooks/useCharBudget.js';
 import EditableSpan from '../../EditableSpan.jsx';
 import TagLabel from '../../TagLabel.jsx';
@@ -16,8 +17,10 @@ function TagListSection({ label, addLabel, field, draft, onChange }) {
 
   const handleAdd = () => openTagRegistry({
     onApply: (tag) => {
+      // Dedupe-merge so re-adding a tag string replaces its value rather than
+      // stacking a hidden duplicate (issue #82), matching the board reducer.
       const route = routeTaskTag(tag);
-      onChange({ [route]: [...(draft[route] || []), tag] });
+      onChange({ [route]: mergeAttribute(draft[route] || [], tag) });
     },
   });
 
