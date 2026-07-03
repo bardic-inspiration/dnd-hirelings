@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
-import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, hasSlotSchema, getEffectiveAttributes } from '../../logic/agents.js';
+import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, firstFreeSlot, getEffectiveAttributes } from '../../logic/agents.js';
 import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
 import { parseTag } from '../../logic/tags.js';
 import { getConsumedTagPaths, isTagConsumed } from '../../logic/tagUI.js';
@@ -111,17 +111,15 @@ export default function AgentCard({ agent }) {
     const existing = state.inventory.find(item => item.name.trim().toLowerCase() === name.trim().toLowerCase());
     if (existing) setSelectedItemId(existing.id);
   };
-  // Right-click a bag item: bind it into the agent.
+  // Right-click a bag item: bind it into the agent. Slot names come from the
+  // card config (tagUI.yml → cards.agentCard.slots), not the tag registry
+  // (issue #84). Fill the first unoccupied slot; with none configured or all
+  // full, the item binds without a slot, so binding never dead-ends.
   const bindItem = (e, name) => {
     e.preventDefault();
     e.stopPropagation();
-    if (hasSlotSchema(agent)) {
-      // TODO: agent has a slot schema — prompt the user to choose a Slot for this
-      // item before binding. Slot schemas are not implemented yet.
-    } else {
-      // No slot schema: bind without a slot.
-      dispatch({ type: 'AGENT_BIND_ITEM', id: agent.id, itemName: name });
-    }
+    const slot = firstFreeSlot(cardConfig.slots, boundItems);
+    dispatch({ type: 'AGENT_BIND_ITEM', id: agent.id, itemName: name, slot });
   };
   // Right-click a bound item: unbind it back to the bag.
   const unbindItem = (e, slot, name) => {

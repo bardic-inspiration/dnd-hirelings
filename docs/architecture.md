@@ -111,6 +111,14 @@ renders a set of **standard UI elements** whose value sources are assigned in
 | `bars` | `(current, max)` tuples as ratio bars | the pre-existing vital-bar format; current value editable when writable |
 | `fields` | labelled editable values | writes back through the source |
 | `values` | read-only `LABEL: value` entries | label = last path segment |
+| `slots` | bind slot names for the card's item slots | not a value source — see below |
+
+`slots` is a plain list of bind slot names (e.g. `weapon`, `armor`). It is the
+**sole source** of a card's slot names — they are no longer hardcoded in the tag
+registry (issue #84). Binding an item fills the first unoccupied configured slot
+(`firstFreeSlot`), producing a `bind:<slot>:item:<name>` tag; with no slots
+configured (or all full) the item binds without a slot. `parseTagUIConfig`
+lowercases slot names so they compose cleanly into tag paths.
 
 A source is a tag-like path: `dynamic:<key>` reads a computed stat from
 `computeDynamicAttributes`; a bare field name (`rate`) reads an agent scalar;

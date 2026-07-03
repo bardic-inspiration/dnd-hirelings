@@ -201,7 +201,7 @@ isAttributeActive(attrTag: string, agent: Agent, tasks: Task[]): boolean
 agentsAssignedTo(taskId: string, agents: Agent[]): Agent[]
 getPersonalItems(activities: string[]): { name: string, quantity: number, tag: string }[]
 getBoundItems(activities: string[]): { slot: string|null, name: string, tag: string }[]
-hasSlotSchema(agent: Agent): boolean
+firstFreeSlot(slots: string[], boundItems: { slot: string|null }[]): string|null  // first unoccupied configured bind slot, else null
 collectAllHeldItems(activities: string[]): { [name: string]: number }
 getEffectiveAttributes(agentAttributes: string[], activities: string[], inventory: InventoryItem[]): string[]
 mergeItemQty(activities: string[], name: string, delta: number): string[]

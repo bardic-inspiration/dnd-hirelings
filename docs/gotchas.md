@@ -40,7 +40,9 @@ Two distinct, deliberately separated concepts operate on items:
 
 **Slot is optional.** `bind:item:<name>` has no slot; `bind:<slot>:item:<name>` is slotted. `getBoundItems` parses both, returning `slot: null` for the former.
 
-> ⚠️ **Needs clarification:** the per-agent **slot schema** that would constrain binding (which slots exist, what each accepts) is **not implemented**. `hasSlotSchema(agent)` is a stub that always returns `false`, so the bind flow currently always takes the no-slot branch (`bind:item:<name>`). When slot schemas land, the `if (hasSlotSchema(agent))` branch in `AgentCard`'s bind handler should prompt for a slot.
+**Slot names come from config, not the tag registry.** A card's bind slots are listed under `cards.<card>.slots` in `config/tagUI.yml` (issue #84); the tag registry's `bind` node is an empty structure skeleton. Binding fills the first unoccupied configured slot (`firstFreeSlot(cardConfig.slots, boundItems)`); when a card defines no slots, or all are full, the item binds without one.
+
+> ⚠️ **Needs clarification:** slot assignment is currently **positional** — the first free slot in config order — with no notion of which item *type* a slot accepts (a shield could land in `weapon`). A per-slot **acceptance schema** (which items each slot allows) is not yet implemented; when it lands, `firstFreeSlot` should be replaced by a type-aware chooser in `AgentCard`'s bind handler.
 
 ---
 
