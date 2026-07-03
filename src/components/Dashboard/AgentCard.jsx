@@ -94,6 +94,9 @@ export default function AgentCard({ agent }) {
   // card's width. The ref sits on the ATTRIBUTES list; collapse keeps the
   // last measurement.
   const { ref: tagListRef, maxChars } = useCharBudget('tag-chip');
+  // The name span measures its own (flex) width; its budget end-truncates the
+  // displayed name so an overlong name never spills past the header.
+  const { ref: nameRef, maxChars: nameMaxChars } = useCharBudget('agent-name');
 
   // Give `quantity` units of the selected item to this agent (clamped to stock by
   // the reducer). Used by left-click (1) and the right-click quantity input. The
@@ -208,6 +211,9 @@ export default function AgentCard({ agent }) {
         <EditableSpan
           className="agent-name"
           value={agent.name}
+          singleLine
+          maxChars={nameMaxChars}
+          innerRef={nameRef}
           onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { name: v || 'NEW HIRELING' } })}
         />
         <Tooltip content={isCollapsed ? 'Expand' : 'Collapse'}>
