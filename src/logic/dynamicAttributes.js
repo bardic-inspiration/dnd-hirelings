@@ -21,10 +21,17 @@ function getTagSub(attributes, seg0) {
   return null;
 }
 
-// Computes the XP threshold needed to reach the given level.
-function xpForLevel(lvl) {
-  // Invert: level_xp = 0.5*(1+sqrt(1+xp/125)) → xp = 125*((2*lvl-1)^2-1)
-  return 125 * ((2 * lvl - 1) ** 2 - 1);
+/**
+ * Computes the XP threshold needed to reach the given level.
+ *
+ * Inverts the level formula: `level_xp = 0.5*(1+sqrt(1+xp/125))` →
+ * `xp = 125*((2*level-1)² - 1)`.
+ *
+ * @param {number} level - Target level
+ * @returns {number} Total XP required to reach that level
+ */
+export function xpForLevel(level) {
+  return 125 * ((2 * level - 1) ** 2 - 1);
 }
 
 /**
@@ -41,9 +48,13 @@ function xpForLevel(lvl) {
  *   - classBonus: −1 sorcerer/wizard, +1 fighter/paladin/ranger, +2 barbarian, 0 otherwise
  * - Proficiency: `2 + floor((level - 1) / 4)`
  *
+ * XP is also exposed relative to the current level (`xpLvl` earned past the
+ * level threshold, out of `xpLvlMax`) so ratio displays can track per-level
+ * progress — `xpProgress` equals `xpLvl / xpLvlMax`.
+ *
  * @param {Agent} agent - `agent.hp === null` means "at full health"
  * @param {InventoryItem[]} [inventory] - Used to resolve `bonus,*` tags on bound items
- * @returns {{ xp: number, level: number, xpProgress: number, proficiency: number, ac: number, hp: number, hpMax: number }}
+ * @returns {{ xp: number, level: number, xpProgress: number, xpLvl: number, xpLvlMax: number, proficiency: number, ac: number, hp: number, hpMax: number }}
  */
 export function computeDynamicAttributes(agent, inventory = []) {
   const attrs = getEffectiveAttributes(agent.attributes ?? [], agent.activities ?? [], inventory);
@@ -59,9 +70,9 @@ export function computeDynamicAttributes(agent, inventory = []) {
   // XP progress toward next level (0–1)
   const xpThisLevel = xpForLevel(level);
   const xpNextLevel = xpForLevel(level + 1);
-  const xpProgress  = xpNextLevel > xpThisLevel
-    ? Math.min(1, (xp - xpThisLevel) / (xpNextLevel - xpThisLevel))
-    : 1;
+  const xpLvl       = xp - xpThisLevel;
+  const xpLvlMax    = xpNextLevel - xpThisLevel;
+  const xpProgress  = xpLvlMax > 0 ? Math.min(1, xpLvl / xpLvlMax) : 1;
 
   // Proficiency bonus: 2 at level 1, +1 every 4 levels
   const proficiency = 2 + Math.floor((level - 1) / 4);
@@ -80,5 +91,5 @@ export function computeDynamicAttributes(agent, inventory = []) {
   const hpMax     = Math.max(1, 10 + (5 + classBonus + conMod) * level);
   const hp        = agent.hp !== null && agent.hp !== undefined ? agent.hp : hpMax;
 
-  return { xp, level, xpProgress, proficiency, ac, hp, hpMax };
+  return { xp, level, xpProgress, xpLvl, xpLvlMax, proficiency, ac, hp, hpMax };
 }

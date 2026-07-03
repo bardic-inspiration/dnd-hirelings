@@ -1,0 +1,37 @@
+# Tag UI config — assigns tag-value sources to the standard configurable
+# UI elements on cards, instead of hardcoding which attributes each card shows.
+#
+# Fetched at runtime (it ships in the deployed bundle as-is, so edits here take
+# effect without a rebuild). Parsed and validated by src/logic/tagUI.js;
+# consumed via src/hooks/useTagUIConfig.js. See docs/architecture.md
+# → "Configurable Card Elements".
+#
+# Source grammar (each entry is a tag-like path):
+#   dynamic:<key>      computed stat from computeDynamicAttributes
+#                      (level, hp, hp-max, xp, xp-lvl, xp-lvl-max, ac, pb)
+#   <field>            bare agent scalar field (rate)
+#   <seg>:<seg>...     any attribute tag path; resolves to that tag's numeric
+#                      value on the agent (e.g. skill:arcana)
+#
+# Elements:
+#   medallion  single value beside the agent name; visible when collapsed
+#   boxes      squares above the bars, 4 per row, one value each
+#   bars       (current, max) tuples rendered as ratio bars; also accepts the
+#              string form "(current, max)"
+#   fields     editable single values (writes back to the source)
+#   values     read-only "LABEL: value" entries
+#
+# A source that cannot be resolved to a number on an agent renders as an
+# empty element flashing the warning color.
+cards:
+  agentCard:
+    medallion: "dynamic:level"
+    boxes: []
+    bars:
+      - ["dynamic:hp", "dynamic:hp-max"]
+      - ["dynamic:xp-lvl", "dynamic:xp-lvl-max"]
+    fields:
+      - "rate"
+    values:
+      - "dynamic:ac"
+      - "dynamic:pb"
