@@ -124,7 +124,7 @@ function normalizeResults(r) {
 }
 
 // Migrates tag strings from older formats to the current grammar.
-function migrateTag(tag) {
+export function migrateTag(tag) {
   if (typeof tag !== 'string') return tag;
   // Strip legacy '#' sigil from pre-path-based format.
   if (tag.startsWith('#')) tag = tag.slice(1);
