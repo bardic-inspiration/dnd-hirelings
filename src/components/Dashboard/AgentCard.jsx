@@ -158,7 +158,15 @@ export default function AgentCard({ agent }) {
       onClick={handleCardClick}
       onContextMenu={handleCardContextMenu}
     >
-      {/* ── ALWAYS VISIBLE ───────────────────────────────────────── */}
+      {/*
+        Elements render in a single standard order regardless of visibility:
+        Name · Portrait · Rate · Bars · AC/PB · Description · Attributes · Bag ·
+        Bound · Tasks · Copy|Delete. The hidden-when-collapsed elements fall into
+        two contiguous runs around the always-visible Bars, so two `!isCollapsed`
+        guards suffice. Collapsed cards therefore show just Name + Bars.
+      */}
+
+      {/* 1. Name (always visible; hosts the collapse toggle) */}
       <div className="agent-card-header">
         <EditableSpan
           className="agent-name"
@@ -174,6 +182,35 @@ export default function AgentCard({ agent }) {
         </button>
       </div>
 
+      {!isCollapsed && (
+        <>
+          {/* 2. Portrait */}
+          <div
+            className="agent-icon"
+            title="Click to set image"
+            style={agent.icon ? { backgroundImage: `url("${agent.icon}")` } : {}}
+            onClick={handleIconClick}
+          >
+            {!agent.icon && 'NO IMAGE'}
+          </div>
+
+          {/* 3. Editable Values (Rate) */}
+          <div className="agent-rate">
+            <EditableSpan
+              className="value"
+              value={String(agent.rate)}
+              onCommit={v => { const n = parseFloat(v); dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rate: isNaN(n) ? 0 : n } }); }}
+            />
+            <EditableSpan
+              className="unit"
+              value={agent.rateUnit}
+              onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rateUnit: v } })}
+            />
+          </div>
+        </>
+      )}
+
+      {/* 4. Bars (always visible) */}
       <div className="agent-vitals">
         <div className="vital-bar">
           <div className="vital-bar-fill vital-bar-fill--hp" style={{ width: `${Math.min(1, dyn.hp / dyn.hpMax) * 100}%` }} />
@@ -201,36 +238,15 @@ export default function AgentCard({ agent }) {
         </div>
       </div>
 
-      {/* ── HIDDEN WHEN COLLAPSED ────────────────────────────────── */}
       {!isCollapsed && (
-        <div className="agent-hidden-when-collapsed">
+        <>
+          {/* 5. Non-Editable Values (AC/PB) */}
           <div className="vital-stats-row">
             <span>AC: {dyn.ac}</span>
             <span>PB: +{dyn.proficiency}</span>
           </div>
 
-          <div
-            className="agent-icon"
-            title="Click to set image"
-            style={agent.icon ? { backgroundImage: `url("${agent.icon}")` } : {}}
-            onClick={handleIconClick}
-          >
-            {!agent.icon && 'NO IMAGE'}
-          </div>
-
-          <div className="agent-rate">
-            <EditableSpan
-              className="value"
-              value={String(agent.rate)}
-              onCommit={v => { const n = parseFloat(v); dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rate: isNaN(n) ? 0 : n } }); }}
-            />
-            <EditableSpan
-              className="unit"
-              value={agent.rateUnit}
-              onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rateUnit: v } })}
-            />
-          </div>
-
+          {/* 6. Description */}
           <EditableSpan
             className="agent-desc"
             value={agent.description}
@@ -238,7 +254,7 @@ export default function AgentCard({ agent }) {
             onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { description: v } })}
           />
 
-          {/* Attributes */}
+          {/* 7. Attributes */}
           <div className="tag-section">
             <div className="tag-label">ATTRIBUTES</div>
             <div className="tag-list" ref={tagListRef}>
@@ -258,7 +274,7 @@ export default function AgentCard({ agent }) {
             </div>
           </div>
 
-          {/* Bag — select an inventory item, then left-click the card to give 1 or right-click to give a chosen quantity. */}
+          {/* 8. Bag — select an inventory item, then left-click the card to give 1 or right-click to give a chosen quantity. */}
           <div className="tag-section">
             <div className="tag-label">BAG</div>
             <div className="tag-list">
@@ -295,7 +311,7 @@ export default function AgentCard({ agent }) {
             )}
           </div>
 
-          {/* Bound — right-click a chip to unbind it back to the bag. */}
+          {/* 9. Bound — right-click a chip to unbind it back to the bag. */}
           {boundItems.length > 0 && (
             <div className="tag-section">
               <div className="tag-label">BOUND</div>
@@ -315,7 +331,7 @@ export default function AgentCard({ agent }) {
             </div>
           )}
 
-          {/* Tasks */}
+          {/* 10. Tasks */}
           <div className="tag-section">
             <div className="tag-label">TASKS</div>
             <div className="tag-list">
@@ -336,7 +352,7 @@ export default function AgentCard({ agent }) {
             </div>
           </div>
 
-          {/* Actions */}
+          {/* 11. Copy | Delete */}
           <div className="tag-section action-row">
             <button className="delete-btn" title="Duplicate hireling" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_DUPLICATE', id: agent.id }); }}>⎘ COPY</button>
             <button className="delete-btn" onClick={e => {
@@ -344,7 +360,7 @@ export default function AgentCard({ agent }) {
               if (confirm(`Delete hireling "${agent.name}"?`)) dispatch({ type: 'AGENT_DELETE', id: agent.id });
             }}>× DELETE</button>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

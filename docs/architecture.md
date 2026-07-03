@@ -95,6 +95,22 @@ Two persistent selections in UIContext drive the same "pick a source, then click
 - **`selectedTaskId`** — selecting a task highlights agent cards as assignable / not, and clicking a card assigns it.
 - **`selectedItemId`** — selecting an inventory item (`ItemRow`) arms a single **place-item** flow routed through the `ITEM_PLACE` reducer action. Agent cards become give-targets (`.agent-card--give-target`) and the BankPanel becomes a sell-target (`.bank-panel--sellable`). On an agent card, **left-click gives 1**, **right-click opens an inline quantity input**; clicking the BankPanel sells 1. The selection persists so you can give/sell repeatedly, clearing only on a true clickout (handled in App.jsx, which excludes `.agent-card`, `.item-row`, and `.bank-panel`) or once the stack is depleted. The two modes are mutually exclusive — give-target highlighting takes priority over task-assignment highlighting.
 
+### Agent Card Rendering Order
+
+`AgentCard` renders its elements in one fixed **standard order**, independent of
+which are always-visible and which are hidden when the card is collapsed:
+
+`Name · Portrait · Rate (editable values) · Bars (HP/XP) · AC/PB (non-editable
+values) · Description · Attributes · Bag · Bound · Tasks · Copy | Delete`
+
+Only Name and Bars are always visible; the rest are hidden when collapsed. Because
+those hidden elements fall into two contiguous runs around the always-visible Bars
+(Portrait + Rate before; everything from AC/PB onward after), the JSX expresses the
+whole card as that flat sequence with just **two `!isCollapsed` guards** — no
+wrapper element and no per-element conditional. A collapsed card therefore shows
+exactly Name + Bars. Preserve this order when adding card elements (e.g. future
+editable/non-editable values slot in with their group).
+
 ### Real-time Interpolated Display
 
 The game clock advances in discrete ticks (one `setInterval` per play interval). Between ticks, a `requestAnimationFrame` loop in `usePlayClock` calls `updateClockDisplayDOM()`, which directly manipulates the DOM to interpolate the clock year/day display and task progress bars. This bypasses React state for the interpolation so 60fps visuals don't force 60fps re-renders.
