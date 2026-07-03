@@ -376,11 +376,14 @@ body {
 
 .agent-name {
   flex: 1;
+  min-width: 0;            /* shrink below content so a long name can't push the toggle */
   font-size: var(--fs-base);
   font-weight: 700;
   outline: none;
   color: var(--fg);
   line-height: 1.2;
+  white-space: nowrap;     /* no line breaks — edits stay single-line, no distortion */
+  overflow: hidden;        /* backstop clip behind the end-ellipsis truncation */
 }
 .agent-card--assignable .agent-name,
 .agent-card--give-target .agent-name { color: var(--highlight); }
@@ -749,7 +752,7 @@ body {
 .agent-card-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
 }
 
