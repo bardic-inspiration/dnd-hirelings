@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
-import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, hasSlotSchema } from '../../logic/agents.js';
+import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, hasSlotSchema, getEffectiveAttributes } from '../../logic/agents.js';
 import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
 import { parseTag } from '../../logic/tags.js';
+import { getConsumedTagPaths, isTagConsumed } from '../../logic/tagUI.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
+import { useTagUIConfig } from '../../hooks/useTagUIConfig.js';
+import { CardMedallion, StatBox, StatBar, StatField, StatValue } from './AgentCardElements.jsx';
 import EditableSpan from '../EditableSpan.jsx';
 import TagLabel from '../TagLabel.jsx';
 import TruncatedText from '../TruncatedText.jsx';
@@ -71,6 +74,17 @@ export default function AgentCard({ agent }) {
   const personalItems   = getPersonalItems(agent.activities);
   const boundItems      = getBoundItems(agent.activities);
   const dyn = computeDynamicAttributes(agent, state.inventory);
+  // Configurable elements (medallion/boxes/bars/fields/values) resolve their
+  // sources against this shared context; attribute-path sources read the
+  // effective (bonus-applied) tags, matching how dyn itself is computed.
+  const cardConfig = useTagUIConfig('agentCard');
+  const elementContext = {
+    agent,
+    dyn,
+    attributes: getEffectiveAttributes(agent.attributes ?? [], agent.activities ?? [], state.inventory),
+  };
+  // Tags assigned to a configured element render there, not as chips.
+  const consumedPaths = getConsumedTagPaths(cardConfig);
   // One measured budget serves every chip list on the card — they share the
   // card's width. The ref sits on the ATTRIBUTES list; collapse keeps the
   // last measurement.
@@ -160,14 +174,17 @@ export default function AgentCard({ agent }) {
     >
       {/*
         Elements render in a single standard order regardless of visibility:
-        Name · Portrait · Rate · Bars · AC/PB · Description · Attributes · Bag ·
-        Bound · Tasks · Copy|Delete. The hidden-when-collapsed elements fall into
-        two contiguous runs around the always-visible Bars, so two `!isCollapsed`
-        guards suffice. Collapsed cards therefore show just Name + Bars.
+        Name · Portrait · Fields · Boxes · Bars · Values · Description ·
+        Attributes · Bag · Bound · Tasks · Copy|Delete. The hidden-when-collapsed
+        elements fall into two contiguous runs around the always-visible Bars, so
+        two `!isCollapsed` guards suffice. Collapsed cards therefore show just
+        Name (+ Medallion) + Bars. Which value each configurable element tracks
+        comes from public/config/tagUI.yml (see useTagUIConfig).
       */}
 
-      {/* 1. Name (always visible; hosts the collapse toggle) */}
+      {/* 1. Name (always visible; hosts the medallion and collapse toggle) */}
       <div className="agent-card-header">
+        {cardConfig.medallion && <CardMedallion source={cardConfig.medallion} context={elementContext} />}
         <EditableSpan
           className="agent-name"
           value={agent.name}
@@ -194,59 +211,49 @@ export default function AgentCard({ agent }) {
             {!agent.icon && 'NO IMAGE'}
           </div>
 
-          {/* 3. Editable Values (Rate) */}
-          <div className="agent-rate">
-            <EditableSpan
-              className="value"
-              value={String(agent.rate)}
-              onCommit={v => { const n = parseFloat(v); dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rate: isNaN(n) ? 0 : n } }); }}
-            />
-            <EditableSpan
-              className="unit"
-              value={agent.rateUnit}
-              onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { rateUnit: v } })}
-            />
-          </div>
+          {/* 3. Fields (editable values) */}
+          {cardConfig.fields.map(source => (
+            <StatField key={source} source={source} context={elementContext} />
+          ))}
+
+          {/* 4. Boxes (above the bars) */}
+          {cardConfig.boxes.length > 0 && (
+            <div className="stat-box-grid">
+              {cardConfig.boxes.map((source, i) => (
+                <StatBox key={`${source}-${i}`} source={source} context={elementContext} />
+              ))}
+            </div>
+          )}
         </>
       )}
 
-      {/* 4. Bars (always visible) */}
-      <div className="agent-vitals">
-        <div className="vital-bar">
-          <div className="vital-bar-fill vital-bar-fill--hp" style={{ width: `${Math.min(1, dyn.hp / dyn.hpMax) * 100}%` }} />
-          <EditableSpan
-            className="vital-bar-label"
-            value={String(dyn.hp)}
-            onCommit={v => {
-              const n = parseInt(v, 10);
-              dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { hp: isNaN(n) ? null : Math.max(0, n) } });
-            }}
-          />
-          <span className="vital-bar-max">/ {dyn.hpMax}</span>
+      {/* 5. Bars (always visible) */}
+      {cardConfig.bars.length > 0 && (
+        <div className="agent-vitals">
+          {cardConfig.bars.map(([current, max], i) => (
+            <StatBar
+              key={`${current}-${max}-${i}`}
+              current={current}
+              max={max}
+              context={elementContext}
+              fillVariant={i % 2 === 0 ? 'primary' : 'secondary'}
+            />
+          ))}
         </div>
-        <div className="vital-bar">
-          <div className="vital-bar-fill vital-bar-fill--xp" style={{ width: `${dyn.xpProgress * 100}%` }} />
-          <EditableSpan
-            className="vital-bar-label"
-            value={String(dyn.xp)}
-            onCommit={v => {
-              const n = parseInt(v, 10);
-              dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { xp: isNaN(n) ? 0 : Math.max(0, n) } });
-            }}
-          />
-          <span className="vital-bar-max">LVL {dyn.level}</span>
-        </div>
-      </div>
+      )}
 
       {!isCollapsed && (
         <>
-          {/* 5. Non-Editable Values (AC/PB) */}
-          <div className="vital-stats-row">
-            <span>AC: {dyn.ac}</span>
-            <span>PB: +{dyn.proficiency}</span>
-          </div>
+          {/* 6. Values (read-only) */}
+          {cardConfig.values.length > 0 && (
+            <div className="stat-value-row">
+              {cardConfig.values.map((source, i) => (
+                <StatValue key={`${source}-${i}`} source={source} context={elementContext} />
+              ))}
+            </div>
+          )}
 
-          {/* 6. Description */}
+          {/* 7. Description */}
           <EditableSpan
             className="agent-desc"
             value={agent.description}
@@ -254,19 +261,22 @@ export default function AgentCard({ agent }) {
             onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { description: v } })}
           />
 
-          {/* 7. Attributes */}
+          {/* 8. Attributes — tags shown by a configured element are omitted here */}
           <div className="tag-section">
             <div className="tag-label">ATTRIBUTES</div>
             <div className="tag-list" ref={tagListRef}>
-              {agent.attributes.map((tag, index) => (
-                <TagChip
-                  key={index}
-                  tagStr={tag}
-                  active={isAttributeActive(tag, agent, state.tasks)}
-                  maxChars={maxChars}
-                  onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
-                />
-              ))}
+              {agent.attributes
+                .map((tag, index) => ({ tag, index }))
+                .filter(({ tag }) => !isTagConsumed(tag, consumedPaths))
+                .map(({ tag, index }) => (
+                  <TagChip
+                    key={index}
+                    tagStr={tag}
+                    active={isAttributeActive(tag, agent, state.tasks)}
+                    maxChars={maxChars}
+                    onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
+                  />
+                ))}
               <button className="tag-add" title="Add attribute" onClick={e => {
                 e.stopPropagation();
                 openTagRegistry({ target: { type: 'agent', id: agent.id } });
@@ -274,7 +284,7 @@ export default function AgentCard({ agent }) {
             </div>
           </div>
 
-          {/* 8. Bag — select an inventory item, then left-click the card to give 1 or right-click to give a chosen quantity. */}
+          {/* 9. Bag — select an inventory item, then left-click the card to give 1 or right-click to give a chosen quantity. */}
           <div className="tag-section">
             <div className="tag-label">BAG</div>
             <div className="tag-list">
@@ -311,7 +321,7 @@ export default function AgentCard({ agent }) {
             )}
           </div>
 
-          {/* 9. Bound — right-click a chip to unbind it back to the bag. */}
+          {/* 10. Bound — right-click a chip to unbind it back to the bag. */}
           {boundItems.length > 0 && (
             <div className="tag-section">
               <div className="tag-label">BOUND</div>
@@ -331,7 +341,7 @@ export default function AgentCard({ agent }) {
             </div>
           )}
 
-          {/* 10. Tasks */}
+          {/* 11. Tasks */}
           <div className="tag-section">
             <div className="tag-label">TASKS</div>
             <div className="tag-list">
@@ -352,7 +362,7 @@ export default function AgentCard({ agent }) {
             </div>
           </div>
 
-          {/* 11. Copy | Delete */}
+          {/* 12. Copy | Delete */}
           <div className="tag-section action-row">
             <button className="delete-btn" title="Duplicate hireling" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_DUPLICATE', id: agent.id }); }}>⎘ COPY</button>
             <button className="delete-btn" onClick={e => {

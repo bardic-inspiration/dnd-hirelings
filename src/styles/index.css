@@ -39,6 +39,7 @@
 
   --line:      1px;
   --gap:       8px;
+  --stat-square: 34px;   /* medallion / stat-box side: ~1/4 of the card's min content width */
   --radius-lg: 10px;
   --radius:    7px;
   --radius-sm: 5px;
@@ -374,6 +375,7 @@ body {
 }
 
 .agent-name {
+  flex: 1;
   font-size: var(--fs-base);
   font-weight: 700;
   outline: none;
@@ -403,7 +405,7 @@ body {
 .agent-icon:hover { border-color: var(--dim); }
 
 /* ============================================================
-   AGENT VITALS (HP bar, XP bar, AC/PB row)
+   AGENT VITALS (ratio bars — sources assigned via tagUI.yml)
    ============================================================ */
 .agent-vitals {
   display: flex;
@@ -427,8 +429,9 @@ body {
   transition: width 0.3s ease;
 }
 
-.vital-bar-fill--hp  { background: #c0454a; }
-.vital-bar-fill--xp  { background: var(--highlight); opacity: var(--fill-opacity); }
+/* Fill palette cycles by bar index: even-indexed bars primary, odd secondary. */
+.vital-bar-fill--primary   { background: #c0454a; }
+.vital-bar-fill--secondary { background: var(--highlight); opacity: var(--fill-opacity); }
 
 .vital-bar-label {
   position: relative;
@@ -450,7 +453,52 @@ body {
   color: var(--dim);
 }
 
-.vital-stats-row {
+/* ============================================================
+   CONFIGURABLE CARD ELEMENTS (tag UI)
+   Standard value displays assigned to tag sources via
+   public/config/tagUI.yml. An element whose source can't resolve
+   to a number renders empty in its --invalid state: a warning
+   flash, with the warn color kept on its chrome.
+   ============================================================ */
+.medallion,
+.stat-box {
+  width: var(--stat-square);
+  height: var(--stat-square);
+  flex-shrink: 0;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--dimmer);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-base);
+  font-family: monospace;
+  font-weight: 700;
+}
+
+.stat-box-grid {
+  display: grid;
+  grid-template-columns: repeat(4, var(--stat-square));
+  gap: 4px;
+}
+
+.stat-field {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+  font-size: var(--fs-sm);
+}
+.stat-field .value { outline: none; min-width: 16px; font-weight: 600; }
+.stat-field .unit  { color: var(--dim); outline: none; min-width: 30px; }
+
+.stat-field-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--dim);
+}
+
+.stat-value-row {
   display: flex;
   justify-content: space-between;
   font-size: var(--fs-xs);
@@ -458,6 +506,23 @@ body {
   padding: 0 2px;
   color: var(--dim);
 }
+
+@keyframes flash-warn {
+  0%   { background-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+  100% { background-color: transparent; }
+}
+
+.medallion--invalid,
+.stat-box--invalid,
+.stat-field--invalid,
+.stat-value--invalid,
+.vital-bar--invalid {
+  border-color: var(--warn);
+  color: var(--warn);
+  animation: flash-warn 0.65s ease-out;
+}
+/* Bars have no border; keep the resting warn hint without a layout shift. */
+.vital-bar--invalid { box-shadow: inset 0 0 0 var(--line) var(--warn); }
 
 .agent-rate {
   display: flex;

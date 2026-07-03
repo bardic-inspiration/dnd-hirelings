@@ -254,10 +254,40 @@ updateClockDisplayDOM(state: GameState, tickInfo: TickInfo): void
 
 ```js
 computeDynamicAttributes(agent: Agent, inventory?: InventoryItem[]): {
-  xp: number, level: number, xpProgress: number,
+  xp: number, level: number, xpProgress: number, xpLvl: number, xpLvlMax: number,
   proficiency: number, ac: number, hp: number, hpMax: number
 }
+xpForLevel(level: number): number   // total XP threshold for a level
 ```
+
+`xpLvl` / `xpLvlMax` express XP relative to the current level (earned past the
+threshold / span to the next level); `xpProgress === xpLvl / xpLvlMax`.
+
+### `src/logic/tagUI.js`
+
+Pure tier of the configurable card element system (config: `public/config/tagUI.yml`).
+
+```js
+EMPTY_CARD_CONFIG   // frozen { medallion: null, boxes: [], bars: [], fields: [], values: [] }
+parseTagUIConfig(ymlText: string): { cards: { [cardName]: CardConfig } }
+resolveTagSource(source: string, context: { agent, dyn, attributes }): {
+  label: string,            // last path segment, uppercased
+  value: number|null,
+  valid: boolean,           // false → element renders empty in warning state
+  set: ((value) => changes)|null,   // AGENT_UPDATE changes when writable
+  unitField: string|null    // editable unit sibling field (e.g. 'rateUnit')
+}
+getConsumedTagPaths(cardConfig: CardConfig): Set<string>  // lowercase seg:seg paths
+isTagConsumed(tag: string, consumedPaths: Set<string>): boolean  // plain tags only
+```
+
+Source grammar (resolution order): `dynamic:<key>` (computed stat: `level`,
+`hp`, `hp-max`, `xp`, `xp-lvl`, `xp-lvl-max`, `ac`, `pb`), bare agent field
+(`rate`), else an attribute tag path matched case-insensitively against the
+agent's effective attributes (its `=value` must be numeric).
+`parseTagUIConfig` is lenient: malformed sections degrade to empty element
+lists, and bar entries accept `[current, max]` lists or `"(current, max)"`
+strings; it throws only on unparseable YAML.
 
 ### `src/logic/time.js`
 
@@ -470,6 +500,15 @@ serves all instances; re-renders only when the whole-character budget
 changes. Returns `fallbackChars` until the first usable measurement and keeps
 the last budget while hidden. Throws on an unknown component key.
 
+### `useTagUIConfig(cardName: string)` → `CardConfig`
+
+Returns one card's element assignments (`{ medallion, boxes, bars, fields,
+values }`) from `public/config/tagUI.yml`. The file is fetched and parsed once
+per page load (module-level cache shared by all cards); until the fetch
+settles — or if it fails, or the card has no entry — returns
+`EMPTY_CARD_CONFIG`, so callers render unconditionally. A failed fetch or
+unparseable file logs a `console.warn` and degrades to bare cards.
+
 ---
 
 ## Shared Components
@@ -536,6 +575,25 @@ when truncated.
 
 Click-to-edit inline span used across cards and rows (pre-existing; see the
 component's JSDoc for the full prop set).
+
+### Card elements (`src/components/Dashboard/AgentCardElements.jsx`)
+
+The standard configurable card elements, each rendering one source string from
+the tag UI config against a shared resolution `context`
+(`{ agent, dyn, attributes }`); see `src/logic/tagUI.js` for resolution.
+An invalid source renders the element with no value in its `--invalid` state
+(warning flash); the native `title` always exposes the assigned source.
+
+```jsx
+<CardMedallion source context />          // square badge beside the name; visible collapsed
+<StatBox source context />                // square value box, rows of four above the bars
+<StatBar current max context fillVariant /> // ratio bar; editable current when writable
+<StatField source context />              // labelled editable value (+ unit for `rate`)
+<StatValue source context />              // read-only "LABEL: value"
+```
+
+`StatBar`, `StatField` dispatch `AGENT_UPDATE` with the resolution's `set`
+changes on commit; non-numeric input is ignored.
 
 ---
 
