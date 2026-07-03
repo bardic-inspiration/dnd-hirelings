@@ -383,6 +383,7 @@ tier or a different exponent symbol) without code changes.
 TAG_LABEL_VARIANTS: { [variant: string]: { modifierText, segmentText, valueText, modifierSeparator, segmentSeparator, valueSeparator } }
 computeCharBudget({ widthPx, fontSizePx, charWidthRatio, allowancePx?, minChars?, fallbackChars }): number
 truncateMiddle(text: string, maxChars: number): { text: string, truncated: boolean }
+truncateEnd(text: string, maxChars: number): { text: string, truncated: boolean }
 truncateTagParts(parsed: ParsedTag, maxChars?: number, options?: { variant?: 'chip'|'row', shorthand?: boolean, config?: TruncationConfig }):
   { parts: TagLabelPart[], text: string, truncated: boolean, valueShortened: boolean }
 // TagLabelPart = { kind: 'modifier'|'separator'|'segment'|'value'|'placeholder', text: string,
@@ -398,7 +399,9 @@ always preserving the tag's structure. Pass `Infinity` to disable truncation.
 `MATCH_MODE_REGISTRY`): `chip` renders the literal tag string, `row` renders
 the pretty uppercase block-row style (registry modifier prefixes, `_`/`-` as
 spaces). Truncation measures the transformed text, so budgets are exact for
-what renders. `truncateMiddle` is the plain-text sibling (middle ellipsis);
+what renders. `truncateMiddle` and `truncateEnd` are the plain-text siblings —
+middle ellipsis (keeps head and tail) and end ellipsis (keeps the leading
+`maxChars-1`, e.g. agent names where the prefix identifies the string);
 `computeCharBudget` is the pure math behind the `useCharBudget` hook.
 
 ---
@@ -592,8 +595,14 @@ when truncated.
 
 ### `<EditableSpan value onCommit ... />`
 
-Click-to-edit inline span used across cards and rows (pre-existing; see the
-component's JSDoc for the full prop set).
+Click-to-edit inline span used across cards and rows (see the component's JSDoc
+for the full prop set). While unfocused it shows the value end-truncated to
+`maxChars` (`truncateEnd`); focus reveals the full value for editing and blur
+re-truncates. `singleLine` forbids line breaks — Enter always commits
+(Shift+Enter included) and pasted/committed whitespace collapses to spaces — so
+the name span stays one line and never distorts the card during entry.
+`innerRef` forwards a ref onto the span (the agent name passes a `useCharBudget`
+measuring ref so the span's own width sets its budget).
 
 ### Card elements (`src/components/Dashboard/AgentCardElements.jsx`)
 
