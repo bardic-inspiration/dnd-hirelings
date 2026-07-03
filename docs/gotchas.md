@@ -78,7 +78,7 @@ The Tag Registry modal's search highlighting also runs on this engine: the build
 The registry modal (`TagRegistryModal.jsx`) is the only authoring surface — the old TagBuilder/ConditionBuilder modals are gone. Two distinct verbs share its input:
 
 - **ADD** (Enter) mutates registry *structure* only: it never touches an agent, task, or item.
-- **APPLY** assigns the draft to a destination and closes. Plain drafts must name an existing registry path; condition mode turns the draft into a `ConditionTemplate` (`path=target`, target defaults to 1; a bare `=20` makes an "any agent" condition).
+- **APPLY** assigns the draft to a destination and closes. Plain drafts just need a non-empty path — a path not yet in the registry is registered first (`registerDraftPath`), so a brand-new tag is defined and assigned in one action; condition mode turns the draft into a `ConditionTemplate` (`path=target`, target defaults to 1; a bare `=20` makes an "any agent" condition, registering nothing).
 
 Destination resolution, in order: `onApply` callback (library preset drafts — the overlay gets `--elevated` z-200 to stack above the library's z-100) → `target` entity (dispatch) → **selection mode**.
 
