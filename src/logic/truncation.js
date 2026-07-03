@@ -79,6 +79,24 @@ export function truncateMiddle(text, maxChars) {
 }
 
 /**
+ * End-ellipsis truncation for plain text. Keeps the leading `maxChars-1`
+ * characters and marks the dropped tail with a single trailing `…`. Used where
+ * the start of the string identifies it and a middle ellipsis would hide the
+ * meaningful prefix (agent names — `Very-long-name-mephistopheles` →
+ * `Very-long-name-mephisto…`). Text at or under the budget is returned
+ * unchanged; pass `Infinity` to disable.
+ *
+ * @param {string} text
+ * @param {number} maxChars - Whole-character budget, inclusive of the ellipsis
+ * @returns {{ text: string, truncated: boolean }}
+ */
+export function truncateEnd(text, maxChars) {
+  if (text.length <= maxChars) return { text, truncated: false };
+  if (maxChars <= 1) return { text: '…', truncated: true };
+  return { text: `${text.slice(0, maxChars - 1)}…`, truncated: true };
+}
+
+/**
  * Structural tag truncation. Renders a parsed tag into typed display parts
  * that fit `maxChars` (pass `Infinity` to disable), always preserving the
  * tag's structure. The decision ladder, first fit wins:

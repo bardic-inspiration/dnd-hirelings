@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseTag } from './tags.js';
-import { computeCharBudget, truncateMiddle, truncateTagParts } from './truncation.js';
+import { computeCharBudget, truncateMiddle, truncateEnd, truncateTagParts } from './truncation.js';
 
 describe('computeCharBudget', () => {
   const base = { fontSizePx: 9, charWidthRatio: 0.55, allowancePx: 30, minChars: 10, fallbackChars: 24 };
@@ -34,6 +34,24 @@ describe('truncateMiddle', () => {
   it('degrades to a bare ellipsis at tiny budgets', () => {
     expect(truncateMiddle('abcdef', 1)).toEqual({ text: '…', truncated: true });
     expect(truncateMiddle('abcdef', 0)).toEqual({ text: '…', truncated: true });
+  });
+});
+
+describe('truncateEnd', () => {
+  it('returns fitting text unchanged', () => {
+    expect(truncateEnd('short', 10)).toEqual({ text: 'short', truncated: false });
+    expect(truncateEnd('exact', 5)).toEqual({ text: 'exact', truncated: false });
+    expect(truncateEnd('anything', Infinity).truncated).toBe(false);
+  });
+
+  it('keeps the leading characters and marks the dropped tail (issue example)', () => {
+    expect(truncateEnd('Very-long-name-mephistopheles', 24))
+      .toEqual({ text: 'Very-long-name-mephisto…', truncated: true });
+  });
+
+  it('degrades to a bare ellipsis at tiny budgets', () => {
+    expect(truncateEnd('abcdef', 1)).toEqual({ text: '…', truncated: true });
+    expect(truncateEnd('abcdef', 0)).toEqual({ text: '…', truncated: true });
   });
 });
 

@@ -42,6 +42,7 @@ charBudget:
     mono: 0.62
   minChars: 10
   components:
-    tag-chip: { font: ui,   allowancePx: 30, fallbackChars: 24 }  # .tag pill: padding + gap + remove affordance
-    tag-row:  { font: mono, allowancePx: 24, fallbackChars: 40 }  # .tag-list-item: padding + gap + remove affordance
-    text:     { font: ui,   allowancePx: 30, fallbackChars: 24 }  # generic TruncatedText inside chips
+    tag-chip:   { font: ui,   allowancePx: 30, fallbackChars: 24 }  # .tag pill: padding + gap + remove affordance
+    tag-row:    { font: mono, allowancePx: 24, fallbackChars: 40 }  # .tag-list-item: padding + gap + remove affordance
+    text:       { font: ui,   allowancePx: 30, fallbackChars: 24 }  # generic TruncatedText inside chips
+    agent-name: { font: ui,   allowancePx: 4,  fallbackChars: 20 }  # bold name span (its own width; no padding)
