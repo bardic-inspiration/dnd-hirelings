@@ -105,11 +105,13 @@ Two deliberate semantics to know:
 
 ---
 
-## Item Quantity Merge on Rename
+## Identical Inventory Items Auto-Stack (name + tags)
 
-When an inventory item is renamed via `INVENTORY_UPDATE_ITEM`, the reducer calls `mergeInventoryByName` to pool quantities if another item with the same (case-insensitive) name already exists. This is intentional but can surprise users — renaming "SWORD" to "DAGGER" when a "DAGGER" already exists will silently combine the two stacks.
+Two inventory rows are "the same item" when they share a case-insensitive **name** *and* the same **tag set** (order-insensitive) — same name with differing tags stays a separate row (issue #91). Whenever an item's identity could change, the reducer re-normalizes the whole inventory through `mergeInventoryByIdentity`, folding any later row into the first one it matches and summing quantities (the survivor keeps its other fields). This runs on `INVENTORY_ADD`, on `INVENTORY_UPDATE_ITEM` when `name` **or** `attributes` changed, on `INVENTORY_REMOVE_ATTRIBUTE`, and on `TAG_APPLY` to an item. Non-identity edits (quantity, value, description) skip the merge, and unnamed `NEW ITEM` placeholders never stack (so fresh blanks stay distinct until named).
 
-The same merge happens when `AGENT_DELETE` returns held items: if the agent was carrying an item already in inventory, the quantities are summed rather than creating a duplicate row.
+> ⚠️ **The merge fires on *every* identity edit, not just when you finish.** Because it runs after each individual tag add/remove/value-edit and each rename, an item that becomes *momentarily* identical to another row merges at that instant — even if you were mid-way through editing it toward a different final state. Example: giving item A the same single tag another row already has will stack them immediately, before you add A's second, distinguishing tag. There is intentionally no debounce or explicit "merge duplicates" step; identical-means-identical is evaluated eagerly. If a workflow needs to pass through a transient duplicate, edit the distinguishing field first.
+
+A related but separate pooling happens when `AGENT_DELETE` and `AGENT_RETURN_ITEM` return held items: those match by **name only** (bag items carry no tags), summing into an existing row rather than creating a duplicate. This predates the identity merge and is deliberately name-based, so returning a tagless "ROPE" pools into an existing "ROPE" regardless of its tags.
 
 ---
 
