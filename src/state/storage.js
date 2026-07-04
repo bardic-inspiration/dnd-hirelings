@@ -19,6 +19,7 @@ export const STORAGE_KEYS = {
   PRESETS: (type) => `dnd-hirelings-presets-${type}-v1`,
   CARD_EXPANSION: 'dnd-hirelings-card-expansion-v1',
   OPEN_MODALS: 'dnd-hirelings-open-modals-v1',
+  CONFIG_OVERLAYS: 'dnd-hirelings-config-overlays-v1',
 };
 
 // Reads the persisted `{ [modalName]: props }` map (issue #81). Any corrupt or
@@ -59,6 +60,42 @@ export function saveOpenModal(name, props) {
     else delete map[name];
     if (Object.keys(map).length) localStorage.setItem(STORAGE_KEYS.OPEN_MODALS, JSON.stringify(map));
     else localStorage.removeItem(STORAGE_KEYS.OPEN_MODALS);
+  } catch {
+    // ignore quota / availability errors — persistence is best-effort
+  }
+}
+
+/**
+ * Loads the persisted config-overlay map (`{ [fileId]: rawDoc }`) — in-app edits
+ * to runtime config files, shadowing the fetched base documents (see
+ * ConfigContext). Corrupt or non-object payloads degrade to an empty map, and
+ * each entry must itself be a plain mapping to survive.
+ *
+ * @returns {Object<string, object>}
+ */
+export function loadConfigOverlays() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.CONFIG_OVERLAYS) || '{}');
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    return Object.fromEntries(Object.entries(raw).filter(
+      ([, doc]) => doc && typeof doc === 'object' && !Array.isArray(doc),
+    ));
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Persists the config-overlay map to localStorage, dropping the key when no
+ * overlays remain. Best-effort: storage errors are swallowed so a full/blocked
+ * quota never breaks the UI.
+ *
+ * @param {Object<string, object>} overlays - `{ [fileId]: rawDoc }`
+ */
+export function saveConfigOverlays(overlays) {
+  try {
+    if (Object.keys(overlays).length) localStorage.setItem(STORAGE_KEYS.CONFIG_OVERLAYS, JSON.stringify(overlays));
+    else localStorage.removeItem(STORAGE_KEYS.CONFIG_OVERLAYS);
   } catch {
     // ignore quota / availability errors — persistence is best-effort
   }
