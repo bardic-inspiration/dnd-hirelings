@@ -2,6 +2,7 @@ node_modules/
 dist/
 dev/
 .claude/
+.vite/
 
 # Pre-conversion image sources kept locally for re-export; not served or bundled.
 public/assets/*/originals/

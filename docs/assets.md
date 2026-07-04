@@ -39,8 +39,6 @@ The font is declared once in `src/styles/index.css` under `font-family: 'BNBrick
 
 > ⚠️ **Naming:** The `@font-face` family is named `BNBrickHouse` but its `src` loads `BNBreezy.woff2`/`.otf`. The family name and the file name disagree for historical reasons; renaming one to match the other would be clearer but touches the single `#page-title-text` consumer.
 
-> ⚠️ **Needs clarification:** `public/assets/UI/` also contains `asdf.jpg`, `nwn1991.png`, `NeverwinterHarbor.webp`, and `51ee039753f64232a46c60ef.webp`, none of which are referenced anywhere in `src/`, `public/presets/`, or `index.html`. They appear to be leftover scratch files and are candidates for deletion.
-
 ---
 
 ## `originals/` Subfolders
