@@ -273,7 +273,9 @@ export function getEffectiveAttributes(agentAttributes, activities, inventory) {
     const key = parsed.segments.join(':').toLowerCase();
     if (!(key in bonusMap)) return attr;
     applied.add(key);
-    return buildTag(parsed.segments, (parseFloat(parsed.value) ?? 0) + bonusMap[key], null);
+    // `|| 0` (not `??`) because a valueless attribute parses to NaN, which `??`
+    // would pass through — a matched bonus must treat a missing value as 0.
+    return buildTag(parsed.segments, (parseFloat(parsed.value) || 0) + bonusMap[key], null);
   });
 
   for (const [key, val] of Object.entries(bonusMap)) {
