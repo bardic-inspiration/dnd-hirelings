@@ -228,17 +228,34 @@ repo root — **outside `public/`** — and is inlined at build time through a V
 
 The tag UI config takes the **other** loading path: it lives in `public/`, ships
 with the deployed bundle as-is, and is fetched + parsed once per page load by
-`useTagUIConfig`. Consequences:
+`ConfigContext` (consumed through `useTagUIConfig`). Consequences:
 
 - Editing it in a deployed build **does** take effect — on the next reload, no rebuild needed. This is the point: which values a card displays is user-facing configuration, not build input.
 - Validation is therefore lenient, the reverse of `truncation.yml`: a missing/unparseable file degrades to bare cards with a `console.warn`; a malformed section degrades to no elements of that kind; an unresolvable *source* renders its element empty in the warning state. Nothing throws.
 - Editing invalid values is silently ignored at commit time: a non-numeric entry in an editable bar label or field snaps back to the resolved value. Notably, clearing the HP bar label **no longer resets HP to full** (the old hardcoded bar's `NaN → null` behavior); set the value explicitly instead.
+- **A Configuration Modal overlay shadows the file completely.** Once the file is edited in-app, the whole edited document (not a diff) is stored under `CONFIG_OVERLAYS` and wins over the deployed file — including any *later* edits to the deployed file — until RESET drops the overlay. If a deployed config change doesn't seem to apply, check for an overlay first.
 
 > ⚠️ **Needs clarification:** The spec sizes medallion and boxes as "1/4 of agent card width, square, fixed dimensions" — but card width is fluid (`minmax(160px, 1fr)` grid). Implemented as a fixed `--stat-square: 34px` side (≈¼ of the *minimum* card content width), so the squares don't grow with the card.
 
 > ⚠️ **Needs clarification:** "Element flashes warning color" for invalid sources is implemented as a one-shot flash on render plus persistent warn-colored chrome (border/text), not a continuous pulse.
 
 > ⚠️ **Needs clarification:** The spec says elements display "any integer" tag value; the resolver accepts any finite number, since `rate` (a field source) is fractional (e.g. `1.5` gp/day).
+
+---
+
+## Configuration Modal: Warnings Never Block, SAVE Never Writes `public/`
+
+The Configuration Modal (TopBar → CONFIG, `ConfigModal.jsx` — it replaced the
+old SETTINGS number-inputs modal) edits the **raw** config documents, guided by
+per-file schemas (see `docs/architecture.md` → "Runtime Configuration System").
+The soft-enforcement traps to know:
+
+- **Schema warnings are advisory.** An unknown key or a failing value renders warn-red with a tooltip but is kept, saved, and exported. The one exception is state-bound sections (SESSION): a value its kind's `check` rejects (e.g. a non-numeric or sub-minimum `rateMultiplier`) is **not committed** — that guard protects the running clock math, not the schema.
+- **SAVE exports a YAML file; it cannot write `public/config/`.** The browser has no path to the served file — SAVE hands you `<fileId>.yml` to drop back into `public/config/` yourself. Until then, your edits live only in the localStorage overlay (and vanish with browser storage).
+- **YAML comments are lost on SAVE.** Exports are regenerated from data via `yaml.dump` under a one-line generated header; the shipped `tagUI.yml` doc-comment block does not round-trip. Keep the canonical commented file in git.
+- **LOAD is lenient-but-warn**, mirroring the file's runtime contract: it rejects only unparseable YAML or a non-mapping root. A document that mismatches the schema imports fine and lights up warnings in the tree.
+- **RESET is per-section** and means two different things: for a file section it drops the overlay (reverting to the deployed file); for SESSION it commits the manifest defaults through the reducer (and restarts the play clock via the `restartPlay` effect).
+- Deleting a registry path that a `tagSource` value references doesn't break anything — the value just gains a "not in the registry" warning, consistent with tag-registry soft enforcement.
 
 ---
 

@@ -24,12 +24,14 @@ All persistent state is stored in `localStorage`. Every key is defined in the `S
 
 | Key | `STORAGE_KEYS` field | Default | Description |
 |-----|----------------------|---------|-------------|
-| `dnd-hirelings-state-v3` | `STATE` | `DEFAULT_STATE` from `storage.js` | Full serialized game state (agents, tasks, inventory, session, tagRegistry). Loaded on startup; saved on every state change. |
+| `dnd-hirelings-state-v4` | `STATE` | `DEFAULT_STATE` from `storage.js` | Full serialized game state (agents, tasks, inventory, session, tagRegistry). Loaded on startup; saved on every state change. Falls back to the legacy v3 key (`STATE_LEGACY`) on first read; `normalizeState` migrates the old format. |
 | `dnd-hirelings-palette-v1` | `PALETTE` | `'dark'` | Name of the active color theme. One of: `light`, `dark`. On first read, falls back to the legacy unversioned key `dnd-hirelings-palette`. |
 | `dnd-hirelings-presets-agents-v1` | `PRESETS('agents')` | `[]` | User-authored agent presets. Bundled (standard) presets are not stored here. |
 | `dnd-hirelings-presets-tasks-v1` | `PRESETS('tasks')` | `[]` | User-authored task presets. |
 | `dnd-hirelings-presets-items-v1` | `PRESETS('items')` | `[]` | User-authored item presets. |
 | `dnd-hirelings-card-expansion-v1` | `CARD_EXPANSION` | `{ agent: [], task: [], item: [] }` | Per-type Sets (serialized as arrays) of card IDs toggled away from their default expand/collapse state. Loaded into `UIContext`; saved on every toggle. |
+| `dnd-hirelings-open-modals-v1` | `OPEN_MODALS` | `{}` | Open props per persistence-enabled modal (`MODAL_PERSISTENCE` in `UIContext`), so a refresh reopens whatever was open. Function-carrying props are never stored. |
+| `dnd-hirelings-config-overlays-v1` | `CONFIG_OVERLAYS` | `{}` | Per-file runtime-config overlays (`{ [fileId]: rawDoc }`) — Configuration Modal edits shadowing the fetched `public/config/*.yml` base documents. Loaded into `ConfigContext`; saved on every edit; an entry is removed on RESET. |
 
 ## Scripts
 
@@ -47,7 +49,7 @@ npm run test:watch # Run vitest in watch mode
 |---------|---------|------|
 | `react` | ^18.3.1 | UI framework |
 | `react-dom` | ^18.3.1 | DOM renderer |
-| `js-yaml` | ^4.2.0 | YAML serialization for the tag registry and build-time config parsing |
+| `js-yaml` | ^4.2.0 | YAML serialization for the tag registry, runtime config files (Configuration Modal), and build-time config parsing |
 | `vite` | ^8.0.16 | Build tool and dev server |
 | `@vitejs/plugin-react` | ^5.2.0 | JSX transform and React fast-refresh |
 | `vitest` | ^4.1.9 | Unit test runner (dev only; pure logic/constants tiers, node environment) |
