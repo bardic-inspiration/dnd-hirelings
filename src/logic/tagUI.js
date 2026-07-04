@@ -39,6 +39,40 @@ const AGENT_FIELD_SOURCES = {
   rate: { set: (value) => ({ rate: value }), unitField: 'rateUnit' },
 };
 
+/** Known `dynamic:<key>` source keys, exposed for schema autocomplete/validation. */
+export const DYNAMIC_SOURCE_KEYS = Object.freeze(Object.keys(DYNAMIC_SOURCE_REGISTRY));
+
+/** Known bare agent-field source names, exposed for schema autocomplete/validation. */
+export const AGENT_FIELD_SOURCE_KEYS = Object.freeze(Object.keys(AGENT_FIELD_SOURCES));
+
+/**
+ * Config-editor schema for `public/config/tagUI.yml` (see logic/configEditor.js
+ * for the descriptor grammar). Any card name is a valid key under `cards:`, but
+ * each card's element set is closed — unknown elements draw a soft warning in
+ * the Configuration Modal without being rejected.
+ */
+export const TAG_UI_SCHEMA = {
+  kind: 'map',
+  closed: true,
+  keys: {
+    cards: {
+      kind: 'map',
+      anyKey: {
+        kind: 'map',
+        closed: true,
+        keys: {
+          medallion: { kind: 'scalar', value: 'tagSource', nullable: true },
+          boxes:     { kind: 'list', item: { kind: 'scalar', value: 'tagSource' } },
+          bars:      { kind: 'list', item: { kind: 'tuple', size: 2, item: { kind: 'scalar', value: 'tagSource' } } },
+          fields:    { kind: 'list', item: { kind: 'scalar', value: 'tagSource' } },
+          values:    { kind: 'list', item: { kind: 'scalar', value: 'tagSource' } },
+          slots:     { kind: 'list', item: { kind: 'scalar', value: 'slug' } },
+        },
+      },
+    },
+  },
+};
+
 // Normalizes one bar entry into a [current, max] source tuple. Accepts a
 // two-element list or the spec's string form "(current, max)". Anything else
 // still yields a tuple (of empty strings) so the element renders — and flags
@@ -65,7 +99,8 @@ function normalizeSourceList(list) {
 }
 
 /**
- * Parses a tag UI YAML config into normalized per-card element assignments.
+ * Normalizes a parsed tag UI config document (plain object from `yaml.load`)
+ * into per-card element assignments.
  *
  * Lenient by design — the file is a deployed, user-editable asset, so
  * malformed sections degrade to empty element lists instead of throwing.
@@ -74,13 +109,11 @@ function normalizeSourceList(list) {
  * decides validity, so a bad source renders its element in the warning state.
  * `slots` is a plain string list of bind slot names (lowercased).
  *
- * @param {string} ymlText - Raw YAML text of a tag UI config
+ * @param {object} root - Raw config document (e.g. from `yaml.load` or the config overlay)
  * @returns {{ cards: Object<string, typeof EMPTY_CARD_CONFIG> }} Normalized
  *   config; `cards` maps card names (e.g. `agentCard`) to element assignments
- * @throws {Error} If the text is not parseable YAML (caller decides fallback)
  */
-export function parseTagUIConfig(ymlText) {
-  const root = yaml.load(ymlText);
+export function normalizeTagUIDoc(root) {
   const isMapping = (value) => value && typeof value === 'object' && !Array.isArray(value);
   const cardsIn = isMapping(root) && isMapping(root.cards) ? root.cards : {};
   const cards = {};
@@ -98,6 +131,18 @@ export function parseTagUIConfig(ymlText) {
     };
   }
   return { cards };
+}
+
+/**
+ * Parses tag UI YAML text into normalized per-card element assignments.
+ * Thin wrapper over `normalizeTagUIDoc` for callers holding raw YAML.
+ *
+ * @param {string} ymlText - Raw YAML text of a tag UI config
+ * @returns {{ cards: Object<string, typeof EMPTY_CARD_CONFIG> }}
+ * @throws {Error} If the text is not parseable YAML (caller decides fallback)
+ */
+export function parseTagUIConfig(ymlText) {
+  return normalizeTagUIDoc(yaml.load(ymlText));
 }
 
 /**
