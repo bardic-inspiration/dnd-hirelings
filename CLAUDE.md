@@ -38,11 +38,11 @@ When spawning subagents or workflow agents:
 - Observe modern best practices for coding and annotation
 
 ### Dependencies: 
-Before adding any external tool or library, evaluate if the task can be completed using the existing environment. 
-Request approval before introducing new dependencies.
+- Before adding any external tool or library, evaluate if the task can be completed using the existing environment. 
+- Request approval before introducing new dependencies.
 
 ### Development Practices: 
-After implementing and/or refactoring features, prune resulting dead code and delete resulting obsolete files.
+- After implementing and/or refactoring features, prune resulting dead code and delete resulting obsolete files.
 
 ### Documentation:
 - Every exported function, hook, context, and component gets a JSDoc comment covering purpose, params, return value, and side effects.
@@ -53,6 +53,6 @@ After implementing and/or refactoring features, prune resulting dead code and de
 - Use full words for all variable names — no single-letter abbreviations except `i` per the rule above.
 
 ## Git:
-Commit messages: 50–100 characters.
-Atomic commits. One logical unit per commit.
-When addressing issues, ensure PRs close them on merge.
+- Commit messages: 50–100 characters.
+- Atomic commits. One logical unit per commit.
+- When addressing issues, ensure PRs close them on merge.
