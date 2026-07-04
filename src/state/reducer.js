@@ -101,6 +101,14 @@ function mergeInventoryByIdentity(inventory) {
   return out;
 }
 
+// How many copies a create action mints. Absent/invalid resolves to 1, so the
+// dashboard's single-add buttons keep dispatching `{ type }` with no `count`;
+// the library's shopping-list order (issue #92) passes the row's quantity.
+const createCount = (count) => {
+  const whole = Math.floor(Number(count));
+  return Number.isFinite(whole) && whole > 0 ? whole : 1;
+};
+
 export function reducer(state, action) {
   switch (action.type) {
 
@@ -109,12 +117,14 @@ export function reducer(state, action) {
       return { ...state, session: { ...state.session, ...action.payload } };
 
     /* ---------- Agents ---------- */
-    case 'AGENT_CREATE':
-      return { ...state, agents: [...state.agents, {
+    case 'AGENT_CREATE': {
+      const created = Array.from({ length: createCount(action.count) }, () => ({
         ...DEFAULT_AGENT,
         ...(action.preset ? pickAgentFields(action.preset) : null),
         id: uid(), createdAt: now(), lastAssigned: null, activities: [],
-      }] };
+      }));
+      return { ...state, agents: [...state.agents, ...created] };
+    }
 
     case 'AGENT_UPDATE':
       return { ...state, agents: state.agents.map(agent => agent.id !== action.id ? agent : { ...agent, ...action.changes }) };
@@ -243,22 +253,21 @@ export function reducer(state, action) {
     }
 
     /* ---------- Tasks ---------- */
-    case 'TASK_CREATE':
-      return {
-        ...state,
-        tasks: [...state.tasks, {
-          name: 'NEW TASK',
-          description: '',
-          requirements: [],
-          attributes: [],
-          ...(action.preset ? pickTaskFields(action.preset) : null),
-          id: uid(),
-          conditions: (action.preset?.conditions ?? []).map(conditionFromTemplate),
-          results: { ...DEFAULT_RESULTS, items: [], agents: [] },
-          isComplete: false,
-          createdAt: now(),
-        }],
-      };
+    case 'TASK_CREATE': {
+      const created = Array.from({ length: createCount(action.count) }, () => ({
+        name: 'NEW TASK',
+        description: '',
+        requirements: [],
+        attributes: [],
+        ...(action.preset ? pickTaskFields(action.preset) : null),
+        id: uid(),
+        conditions: (action.preset?.conditions ?? []).map(conditionFromTemplate),
+        results: { ...DEFAULT_RESULTS, items: [], agents: [] },
+        isComplete: false,
+        createdAt: now(),
+      }));
+      return { ...state, tasks: [...state.tasks, ...created] };
+    }
 
     case 'TASK_UPDATE':
       return { ...state, tasks: state.tasks.map(task => task.id !== action.id ? task : { ...task, ...action.changes }) };
@@ -362,7 +371,10 @@ export function reducer(state, action) {
 
     /* ---------- Inventory ---------- */
     case 'INVENTORY_ADD': {
-      const incoming = { ...DEFAULT_ITEM, ...(action.preset ? pickItemFields(action.preset) : null), id: uid() };
+      const base = { ...DEFAULT_ITEM, ...(action.preset ? pickItemFields(action.preset) : null) };
+      // A shopping-list order of N copies stacks into one row: N packs of the
+      // preset's own quantity (issue #92). N defaults to 1 for a plain add.
+      const incoming = { ...base, quantity: base.quantity * createCount(action.count), id: uid() };
       // Append then normalize: an identical existing row absorbs the new item
       // instead of duplicating (issue #91).
       return { ...state, inventory: mergeInventoryByIdentity([...state.inventory, incoming]) };

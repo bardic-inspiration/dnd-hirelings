@@ -239,6 +239,12 @@ The library modal merges two preset pools:
 
 Editing a standard preset implicitly forks it into the user pool. `usePresets` in `src/hooks/usePresets.js` manages this; mutation functions guard that only `source === 'user'` entries are ever written back.
 
+### Library Shopping List (Orders)
+
+The library modal is a **cart**, not a single-picker (issue #92). Every row carries an editable order count (`src/components/Modals/LibraryModal.jsx` keeps a `quantities` map keyed by preset id): left-clicking a row adds one copy, right-clicking removes one (clamped at 0), and the count is also directly type-editable, displayed through `formatCount` so large numbers never spill. A row with count > 0 renders selected; the row open in the preview pane for editing is marked independently (`--focused`). Editing a standard preset forks it and carries its cart count onto the fork, so a customized item keeps its place in the order.
+
+`ADD` submits the whole cart at once. The modal builds a transport-agnostic **order** document (`buildOrder` in `src/logic/order.js`) — `{ type, lines: { preset, quantity }[] }` — from every row with a positive count (the full preset list, so an active search filter never drops a queued row), then hands it to `submitOrder`, the single point that expands lines into `AGENT_CREATE` / `TASK_CREATE` / `INVENTORY_ADD` dispatches (each carrying its line's `quantity` as a copy count). Because the order is plain serializable data resembling the preset files, wiring it to a server backend later means swapping only `submitOrder`. For items, a count of _N_ stacks _N_ packs of the preset's own quantity into one inventory row; for agents and tasks, _N_ mints _N_ distinct entities.
+
 ### Text Display Library
 
 A small cross-tier library keeps long strings and large numbers from spilling their containers (issue #69), designed so **future components get safe display by default and opt out per prop**:

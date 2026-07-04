@@ -155,6 +155,21 @@ Presets loaded from the bundled JSON files get `source: 'standard'`; user preset
 
 ---
 
+## Library Order Copy Count (`count`)
+
+`AGENT_CREATE`, `TASK_CREATE`, and `INVENTORY_ADD` all accept an optional `count` (the library shopping-list order quantity — issue #92). It defaults to 1, so the dashboard's single-add buttons keep dispatching `{ type }` with no `count`. `createCount()` in `reducer.js` floors it and falls back to 1 for anything non-positive or non-finite.
+
+The three types read `count` differently, on purpose:
+
+- **Items** — `count` multiplies the preset's own `quantity` into **one** stacked row (`quantity × count`), so a count of 3 on a quantity-20 preset adds 60. This is O(1) and handles the large counts the editable field allows.
+- **Agents / Tasks** — `count` mints that many **distinct** entities via `Array.from({ length: count })`.
+
+> ⚠️ Because agent/task counts allocate one entity per copy, an absurd count (e.g. millions) will allocate a matching array — the item path multiplies instead and is unaffected. The UI intentionally does not cap the count; item quantities (gold, arrows) legitimately reach the large numbers `formatCount` exists to display.
+
+> ⚠️ **Needs clarification:** Issue #92 specifies the editable quantity field "for items and agents." Tasks were given the same field for consistency with the issue's overview ("select multiple items, agents **or tasks** … all at once") and to keep the modal uniform; a task order of _N_ creates _N_ task instances. Confirm this is the intended task behavior.
+
+---
+
 ## `timeStep` Clamped to < 30 Days
 
 `normalizeState` resets `timeStep` to `1` if the stored value is `>= 30` (or non-numeric / non-positive). This prevents accidentally-large steps from causing severe game-clock jumps on load. `timeStep` is stored as a `number`; legacy string values are coerced via `parseFloat`. If you need larger step sizes, this guard in `storage.js:normalizeState` must be changed:

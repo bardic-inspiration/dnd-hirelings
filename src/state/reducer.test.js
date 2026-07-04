@@ -81,6 +81,46 @@ describe('INVENTORY_ADD stacking (issue #91)', () => {
   });
 });
 
+describe('shopping-list copy count (issue #92)', () => {
+  const ids = (rows) => new Set(rows.map(row => row.id));
+
+  it('AGENT_CREATE mints `count` distinct agents', () => {
+    const state = reducer({ agents: [] }, { type: 'AGENT_CREATE', preset: { name: 'Guard' }, count: 3 });
+    expect(state.agents).toHaveLength(3);
+    expect(state.agents.every(agent => agent.name === 'Guard')).toBe(true);
+    expect(ids(state.agents).size).toBe(3);
+  });
+
+  it('AGENT_CREATE without a count still creates exactly one', () => {
+    expect(reducer({ agents: [] }, { type: 'AGENT_CREATE' }).agents).toHaveLength(1);
+  });
+
+  it('TASK_CREATE mints `count` distinct tasks', () => {
+    const state = reducer({ tasks: [] }, { type: 'TASK_CREATE', preset: { name: 'Escort' }, count: 2 });
+    expect(state.tasks).toHaveLength(2);
+    expect(ids(state.tasks).size).toBe(2);
+  });
+
+  it('INVENTORY_ADD stacks `count` packs of the preset quantity into one row', () => {
+    const state = reducer({ inventory: [] },
+      { type: 'INVENTORY_ADD', preset: { name: 'Arrow', quantity: 20 }, count: 3 });
+    expect(state.inventory).toHaveLength(1);
+    expect(state.inventory[0].quantity).toBe(60);
+  });
+
+  it('INVENTORY_ADD without a count adds a single pack', () => {
+    const state = reducer({ inventory: [] },
+      { type: 'INVENTORY_ADD', preset: { name: 'Rope', quantity: 2 } });
+    expect(state.inventory[0].quantity).toBe(2);
+  });
+
+  it('a non-positive or invalid count falls back to one copy', () => {
+    expect(reducer({ agents: [] }, { type: 'AGENT_CREATE', count: 0 }).agents).toHaveLength(1);
+    expect(reducer({ agents: [] }, { type: 'AGENT_CREATE', count: -4 }).agents).toHaveLength(1);
+    expect(reducer({ tasks: [] }, { type: 'TASK_CREATE', count: NaN }).tasks).toHaveLength(1);
+  });
+});
+
 describe('inventory identity merge on edit (issue #91)', () => {
   const inv = (items) => ({ inventory: items, tagRegistry: {} });
   const twoPotions = () => inv([

@@ -1417,10 +1417,13 @@ body {
   transition: border-color 0.1s, background 0.1s;
 }
 .library-row:hover { background: var(--highlight-bg); }
+/* In the cart (ordered count > 0). */
 .library-row--selected {
   border-color: var(--highlight);
   background: var(--highlight-bg);
 }
+/* Open in the preview pane for editing (independent of cart state). */
+.library-row--focused { box-shadow: inset 3px 0 0 var(--highlight); }
 
 .library-row-icon {
   width: 26px;
@@ -1441,6 +1444,22 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Per-row order count (issue #92): click-to-edit, right-aligned, dim at zero. */
+.library-row-qty {
+  display: inline-block;
+  flex-shrink: 0;
+  min-width: 2.5em;
+  padding: 0 4px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: text;
+}
+.library-row-qty:hover { background: var(--dimmer); }
+.library-row-qty--zero { color: var(--dim); }
 
 .library-row .x {
   color: var(--border);
