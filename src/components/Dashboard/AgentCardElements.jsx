@@ -1,10 +1,10 @@
 import { useGame } from '../../state/GameContext.jsx';
-import { resolveTagSource } from '../../logic/cardUI.js';
+import { resolveTagSource } from '../../logic/UI.js';
 import { formatCount } from '../../logic/format.js';
 import EditableSpan from '../EditableSpan.jsx';
 
 // Standard configurable card elements. Each one takes a `source` string from
-// the card UI config plus the per-card resolution `context`
+// the UI config plus the per-card resolution `context`
 // ({ agent, dyn, attributes }) and renders one value. An unresolvable source
 // renders the element with no value in the `--invalid` state (warning flash);
 // the native title always exposes the assigned source string.
@@ -22,7 +22,7 @@ function commitValue(dispatch, agentId, resolution, rawInput) {
  * collapsed.
  *
  * @param {object} props
- * @param {string} props.source - Card UI source string (e.g. `"dynamic:level"`)
+ * @param {string} props.source - UI source string (e.g. `"dynamic:level"`)
  * @param {object} props.context - Resolution context `{ agent, dyn, attributes }`
  * @returns {JSX.Element}
  */
@@ -39,7 +39,7 @@ export function CardMedallion({ source, context }) {
  * Square single-value box; boxes sit in rows of four above the bars.
  *
  * @param {object} props
- * @param {string} props.source - Card UI source string
+ * @param {string} props.source - UI source string
  * @param {object} props.context - Resolution context `{ agent, dyn, attributes }`
  * @returns {JSX.Element}
  */
@@ -97,7 +97,7 @@ export function StatBar({ current, max, context, fillVariant }) {
  * a second editable span. Read-only sources render as plain text.
  *
  * @param {object} props
- * @param {string} props.source - Card UI source string
+ * @param {string} props.source - UI source string
  * @param {object} props.context - Resolution context `{ agent, dyn, attributes }`
  * @returns {JSX.Element} Dispatches `AGENT_UPDATE` on edits
  */
@@ -131,7 +131,7 @@ export function StatField({ source, context }) {
  * (e.g. `"dynamic:ac"` → `AC: 12`).
  *
  * @param {object} props
- * @param {string} props.source - Card UI source string
+ * @param {string} props.source - UI source string
  * @param {object} props.context - Resolution context `{ agent, dyn, attributes }`
  * @returns {JSX.Element}
  */

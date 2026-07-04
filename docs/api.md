@@ -268,17 +268,17 @@ xpForLevel(level: number): number   // total XP threshold for a level
 `xpLvl` / `xpLvlMax` express XP relative to the current level (earned past the
 threshold / span to the next level); `xpProgress === xpLvl / xpLvlMax`.
 
-### `src/logic/cardUI.js`
+### `src/logic/UI.js`
 
-Pure tier of the configurable card element system (config: `public/config/cardUI.yml`).
+Pure tier of the configurable card element system (config: `public/config/UI.yml`).
 
 ```js
 EMPTY_CARD_CONFIG   // frozen { medallion: null, boxes: [], bars: [], fields: [], values: [], slots: [] }
 DYNAMIC_SOURCE_KEYS       // frozen list of known dynamic:<key> source keys
 AGENT_FIELD_SOURCE_KEYS   // frozen list of known bare agent-field sources
-CARD_UI_SCHEMA            // config-editor schema descriptor for cardUI.yml
-normalizeCardUIDoc(doc: object): { cards: { [cardName]: CardConfig } }
-parseCardUIConfig(ymlText: string): { cards: { [cardName]: CardConfig } }  // yaml.load + normalize
+UI_SCHEMA            // config-editor schema descriptor for UI.yml
+normalizeUIDoc(doc: object): { cards: { [cardName]: CardConfig } }
+parseUIConfig(ymlText: string): { cards: { [cardName]: CardConfig } }  // yaml.load + normalize
 resolveTagSource(source: string, context: { agent, dyn, attributes }): {
   label: string,            // last path segment, uppercased
   value: number|null,
@@ -294,9 +294,9 @@ Source grammar (resolution order): `dynamic:<key>` (computed stat: `level`,
 `hp`, `hp-max`, `xp`, `xp-lvl`, `xp-lvl-max`, `ac`, `pb`), bare agent field
 (`rate`), else an attribute tag path matched case-insensitively against the
 agent's effective attributes (its `=value` must be numeric).
-`normalizeCardUIDoc` is lenient: malformed sections degrade to empty element
+`normalizeUIDoc` is lenient: malformed sections degrade to empty element
 lists, and bar entries accept `[current, max]` lists or `"(current, max)"`
-strings; `parseCardUIConfig` throws only on unparseable YAML.
+strings; `parseUIConfig` throws only on unparseable YAML.
 
 ### `src/logic/time.js`
 
@@ -581,12 +581,12 @@ serves all instances; re-renders only when the whole-character budget
 changes. Returns `fallbackChars` until the first usable measurement and keeps
 the last budget while hidden. Throws on an unknown component key.
 
-### `useCardUIConfig(cardName: string)` → `CardConfig`
+### `useUIConfig(cardName: string)` → `CardConfig`
 
 Returns one card's element assignments (`{ medallion, boxes, bars, fields,
-values, slots }`) from the live cardUI config document — the deployed
-`public/config/cardUI.yml` merged with any Configuration Modal overlay, read
-from `ConfigContext` and normalized via `normalizeCardUIDoc`. Because the
+values, slots }`) from the live UI config document — the deployed
+`public/config/UI.yml` merged with any Configuration Modal overlay, read
+from `ConfigContext` and normalized via `normalizeUIDoc`. Because the
 document lives in React state, in-app config edits re-render consumers
 immediately. Until the base fetch settles — or if it fails, or the card has no
 entry — returns `EMPTY_CARD_CONFIG`, so callers render unconditionally. A
@@ -689,8 +689,8 @@ measuring ref so the span's own width sets its budget).
 ### Card elements (`src/components/Dashboard/AgentCardElements.jsx`)
 
 The standard configurable card elements, each rendering one source string from
-the card UI config against a shared resolution `context`
-(`{ agent, dyn, attributes }`); see `src/logic/cardUI.js` for resolution.
+the UI config against a shared resolution `context`
+(`{ agent, dyn, attributes }`); see `src/logic/UI.js` for resolution.
 An invalid source renders the element with no value in its `--invalid` state
 (warning flash); the native `title` always exposes the assigned source.
 

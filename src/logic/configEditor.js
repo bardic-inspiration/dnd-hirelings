@@ -18,7 +18,7 @@ import yaml from 'js-yaml';
 import { parseTag } from './tags.js';
 import { pathExists } from './tagRegistry.js';
 import { downloadFile } from './download.js';
-import { DYNAMIC_SOURCE_KEYS, AGENT_FIELD_SOURCE_KEYS } from './cardUI.js';
+import { DYNAMIC_SOURCE_KEYS, AGENT_FIELD_SOURCE_KEYS } from './UI.js';
 
 const isMapping = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -74,7 +74,7 @@ function registryPaths(tagRegistry) {
 }
 
 // Soft-validates one tag-source string against the source grammar
-// (see logic/cardUI.js): dynamic:<key>, bare agent field, or attribute tag path.
+// (see logic/UI.js): dynamic:<key>, bare agent field, or attribute tag path.
 // A bare single segment may also be a one-segment tag path, so it only warns
 // when it is neither a known field nor a registered path.
 function checkTagSource(value, context) {
@@ -411,7 +411,7 @@ export function serializeConfigDoc(doc) {
  * dialog / download fallback. Suggested filename is `<fileId>.yml` so the
  * export drops straight back into `public/config/`.
  *
- * @param {string} fileId - Manifest id of the config file (e.g. `'cardUI'`)
+ * @param {string} fileId - Manifest id of the config file (e.g. `'ui'`)
  * @param {object} doc - Raw config document
  * @returns {Promise<void>}
  */

@@ -1,9 +1,11 @@
-# Card UI config — assigns tag-value sources to the standard configurable
-# UI elements on cards, instead of hardcoding which attributes each card shows.
+# UI config — assigns tag-value sources to the standard configurable runtime
+# UI components, instead of hardcoding which attributes each one shows.
+# Currently the only category is `cards:` (per-card elements); future
+# component categories can live alongside it as sibling top-level keys.
 #
 # Fetched at runtime (it ships in the deployed bundle as-is, so edits here take
-# effect without a rebuild). Parsed and validated by src/logic/cardUI.js;
-# consumed via src/hooks/useCardUIConfig.js. See docs/architecture.md
+# effect without a rebuild). Parsed and validated by src/logic/UI.js;
+# consumed via src/hooks/useUIConfig.js. See docs/architecture.md
 # → "Configurable Card Elements".
 #
 # Source grammar (each entry is a tag-like path):

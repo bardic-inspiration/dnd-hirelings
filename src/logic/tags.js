@@ -25,7 +25,7 @@ export const TAG_REGISTRY = {
   tool: {}, trait: {}, class: {}, race: {}, level: {}, item: {},
   // `bind` slots an item into the agent. Slot is optional (`bind:item:<name>`).
   // Slot NAMES are not hardcoded here — they are configured per card under
-  // `cards.<card>.slots` in config/cardUI.yml (see logic/cardUI.js), so the registry
+  // `cards.<card>.slots` in config/UI.yml (see logic/UI.js), so the registry
   // stays a pure structure skeleton (issue #84).
   bind: {},
 };

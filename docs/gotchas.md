@@ -40,7 +40,7 @@ Two distinct, deliberately separated concepts operate on items:
 
 **Slot is optional.** `bind:item:<name>` has no slot; `bind:<slot>:item:<name>` is slotted. `getBoundItems` parses both, returning `slot: null` for the former.
 
-**Slot names come from config, not the tag registry.** A card's bind slots are listed under `cards.<card>.slots` in `config/cardUI.yml` (issue #84); the tag registry's `bind` node is an empty structure skeleton. Binding fills the first unoccupied configured slot (`firstFreeSlot(cardConfig.slots, boundItems)`); when a card defines no slots, or all are full, the item binds without one.
+**Slot names come from config, not the tag registry.** A card's bind slots are listed under `cards.<card>.slots` in `config/UI.yml` (issue #84); the tag registry's `bind` node is an empty structure skeleton. Binding fills the first unoccupied configured slot (`firstFreeSlot(cardConfig.slots, boundItems)`); when a card defines no slots, or all are full, the item binds without one.
 
 > ⚠️ **Needs clarification:** slot assignment is currently **positional** — the first free slot in config order — with no notion of which item *type* a slot accepts (a shield could land in `weapon`). A per-slot **acceptance schema** (which items each slot allows) is not yet implemented; when it lands, `firstFreeSlot` should be replaced by a type-aware chooser in `AgentCard`'s bind handler.
 
@@ -239,11 +239,11 @@ repo root — **outside `public/`** — and is inlined at build time through a V
 
 ---
 
-## `public/config/cardUI.yml` is Runtime Input (the Opposite Convention)
+## `public/config/UI.yml` is Runtime Input (the Opposite Convention)
 
-The card UI config takes the **other** loading path: it lives in `public/`, ships
+The UI config takes the **other** loading path: it lives in `public/`, ships
 with the deployed bundle as-is, and is fetched + parsed once per page load by
-`ConfigContext` (consumed through `useCardUIConfig`). Consequences:
+`ConfigContext` (consumed through `useUIConfig`). Consequences:
 
 - Editing it in a deployed build **does** take effect — on the next reload, no rebuild needed. This is the point: which values a card displays is user-facing configuration, not build input.
 - Validation is therefore lenient, the reverse of `truncation.yml`: a missing/unparseable file degrades to bare cards with a `console.warn`; a malformed section degrades to no elements of that kind; an unresolvable *source* renders its element empty in the warning state. Nothing throws.
@@ -267,7 +267,7 @@ The soft-enforcement traps to know:
 
 - **Schema warnings are advisory.** An unknown key or a failing value renders warn-red with a tooltip but is kept, saved, and exported. The one exception is state-bound sections (SESSION): a value its kind's `check` rejects (e.g. a non-numeric or sub-minimum `rateMultiplier`) is **not committed** — that guard protects the running clock math, not the schema.
 - **SAVE exports a YAML file; it cannot write `public/config/`.** The browser has no path to the served file — SAVE hands you `<fileId>.yml` to drop back into `public/config/` yourself. Until then, your edits live only in the localStorage overlay (and vanish with browser storage).
-- **YAML comments are lost on SAVE.** Exports are regenerated from data via `yaml.dump` under a one-line generated header; the shipped `cardUI.yml` doc-comment block does not round-trip. Keep the canonical commented file in git.
+- **YAML comments are lost on SAVE.** Exports are regenerated from data via `yaml.dump` under a one-line generated header; the shipped `UI.yml` doc-comment block does not round-trip. Keep the canonical commented file in git.
 - **LOAD is lenient-but-warn**, mirroring the file's runtime contract: it rejects only unparseable YAML or a non-mapping root. A document that mismatches the schema imports fine and lights up warnings in the tree.
 - **RESET is per-section** and means two different things: for a file section it drops the overlay (reverting to the deployed file); for SESSION it commits the manifest defaults through the reducer (and restarts the play clock via the `restartPlay` effect).
 - Deleting a registry path that a `tagSource` value references doesn't break anything — the value just gains a "not in the registry" warning, consistent with tag-registry soft enforcement.

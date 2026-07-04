@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCardUIConfig, resolveTagSource, getConsumedTagPaths, isTagConsumed, EMPTY_CARD_CONFIG } from './cardUI.js';
+import { parseUIConfig, resolveTagSource, getConsumedTagPaths, isTagConsumed, EMPTY_CARD_CONFIG } from './UI.js';
 import { computeDynamicAttributes } from './dynamicAttributes.js';
 
 const FULL_YML = `
@@ -21,9 +21,9 @@ cards:
       - armor
 `;
 
-describe('parseCardUIConfig', () => {
+describe('parseUIConfig', () => {
   it('normalizes a full config, including both bar tuple forms', () => {
-    const { cards } = parseCardUIConfig(FULL_YML);
+    const { cards } = parseUIConfig(FULL_YML);
     expect(cards.agentCard).toEqual({
       medallion: 'dynamic:level',
       boxes: ['skill:arcana'],
@@ -38,12 +38,12 @@ describe('parseCardUIConfig', () => {
   });
 
   it('lowercases slot names and drops non-string / blank entries', () => {
-    const { cards } = parseCardUIConfig('cards:\n  agentCard:\n    slots: ["Head", "", { x: 1 }, "FEET"]\n');
+    const { cards } = parseUIConfig('cards:\n  agentCard:\n    slots: ["Head", "", { x: 1 }, "FEET"]\n');
     expect(cards.agentCard.slots).toEqual(['head', 'feet']);
   });
 
   it('defaults missing element sections to empty assignments', () => {
-    const { cards } = parseCardUIConfig('cards:\n  agentCard:\n    fields: ["rate"]\n');
+    const { cards } = parseUIConfig('cards:\n  agentCard:\n    fields: ["rate"]\n');
     expect(cards.agentCard.medallion).toBeNull();
     expect(cards.agentCard.boxes).toEqual([]);
     expect(cards.agentCard.bars).toEqual([]);
@@ -52,17 +52,17 @@ describe('parseCardUIConfig', () => {
   });
 
   it('keeps a malformed bar entry as an (invalid) tuple instead of dropping the element', () => {
-    const { cards } = parseCardUIConfig('cards:\n  agentCard:\n    bars: [42]\n');
+    const { cards } = parseUIConfig('cards:\n  agentCard:\n    bars: [42]\n');
     expect(cards.agentCard.bars).toEqual([['', '']]);
   });
 
   it('degrades a structurally wrong root to no cards', () => {
-    expect(parseCardUIConfig('just a scalar').cards).toEqual({});
-    expect(parseCardUIConfig('cards: [not, a, mapping]').cards).toEqual({});
+    expect(parseUIConfig('just a scalar').cards).toEqual({});
+    expect(parseUIConfig('cards: [not, a, mapping]').cards).toEqual({});
   });
 
   it('throws on unparseable YAML so the caller can choose a fallback', () => {
-    expect(() => parseCardUIConfig('cards: [unclosed')).toThrow();
+    expect(() => parseUIConfig('cards: [unclosed')).toThrow();
   });
 });
 

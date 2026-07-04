@@ -9,7 +9,7 @@ config/
 └── truncation.yml    # Text display config (build-time YAML; see Text Display Library below)
 public/
 └── config/
-    └── cardUI.yml    # Card element → tag source assignments (runtime YAML; see Configurable Card Elements below)
+    └── UI.yml    # Card element → tag source assignments (runtime YAML; see Configurable Card Elements below)
 src/
 ├── main.jsx          # React bootstrap; mounts providers
 ├── App.jsx           # Root shell; owns modal rendering, global click handler, tag-apply selection mode
@@ -100,11 +100,11 @@ Two persistent selections in UIContext drive the same "pick a source, then click
 - **`selectedTaskId`** — selecting a task highlights agent cards as assignable / not, and clicking a card assigns it.
 - **`selectedItemId`** — selecting an inventory item (`ItemRow`) arms a single **place-item** flow routed through the `ITEM_PLACE` reducer action. Agent cards become give-targets (`.agent-card--give-target`) and the BankPanel becomes a sell-target (`.bank-panel--sellable`). On an agent card, **left-click gives 1**, **right-click opens an inline quantity input**; clicking the BankPanel sells 1. The selection persists so you can give/sell repeatedly, clearing only on a true clickout (handled in App.jsx, which excludes `.agent-card`, `.item-row`, and `.bank-panel`) or once the stack is depleted. The two modes are mutually exclusive — give-target highlighting takes priority over task-assignment highlighting.
 
-### Configurable Card Elements (card UI)
+### Configurable Card Elements (UI config)
 
 Instead of hardcoding which agent attributes the card displays, `AgentCard`
 renders a set of **standard UI elements** whose value sources are assigned in
-`public/config/cardUI.yml` (issue: agent card configurable UI elements):
+`public/config/UI.yml` (issue: agent card configurable UI elements):
 
 | Element | Renders | Notes |
 |---------|---------|-------|
@@ -119,14 +119,14 @@ renders a set of **standard UI elements** whose value sources are assigned in
 **sole source** of a card's slot names — they are no longer hardcoded in the tag
 registry (issue #84). Binding an item fills the first unoccupied configured slot
 (`firstFreeSlot`), producing a `bind:<slot>:item:<name>` tag; with no slots
-configured (or all full) the item binds without a slot. `parseCardUIConfig`
+configured (or all full) the item binds without a slot. `parseUIConfig`
 lowercases slot names so they compose cleanly into tag paths.
 
 A source is a tag-like path: `dynamic:<key>` reads a computed stat from
 `computeDynamicAttributes`; a bare field name (`rate`) reads an agent scalar;
 any other path reads the numeric `=value` of the matching effective attribute
 tag. Resolution, config normalization, and write-back mapping live in
-`src/logic/cardUI.js`; `useCardUIConfig(cardName)` reads the live document from
+`src/logic/UI.js`; `useUIConfig(cardName)` reads the live document from
 `ConfigContext` (fetched base file merged with any Configuration Modal
 overlay — see "Runtime Configuration System" below), so in-app edits re-render
 cards immediately. Because the file lives in `public/`, it ships with the
@@ -158,7 +158,7 @@ Three cooperating pieces:
   single registration point. Adding a config file = one entry + one schema.
   Two entry kinds:
   - `kind: 'file'` — a runtime YAML asset under `public/config/` (e.g.
-    `cardUI`), fetched by `ConfigContext` and shadowed by a localStorage
+    `ui`), fetched by `ConfigContext` and shadowed by a localStorage
     overlay.
   - `kind: 'state'` — a virtual section bound to live game state via
     `binding: { select, commit, effects, defaults }` (e.g. `session`, the old
@@ -171,7 +171,7 @@ Three cooperating pieces:
   the user-edit **overlay**: a whole-document replacement persisted under
   `STORAGE_KEYS.CONFIG_OVERLAYS`. `getDoc(id)` returns `overlay ?? base ?? {}`;
   because documents live in React state, modal edits live-apply to every
-  consumer (e.g. `useCardUIConfig` → `AgentCard`). RESET drops the overlay.
+  consumer (e.g. `useUIConfig` → `AgentCard`). RESET drops the overlay.
 - **Editor logic** — `src/logic/configEditor.js` is the pure tier: schema
   walking (`schemaNodeAt`), tree flattening for the editor view
   (`flattenConfigDoc`, insertion-order-preserving — deliberately separate from
@@ -181,7 +181,7 @@ Three cooperating pieces:
   YAML file I/O (`configSave`/`configLoad` via the shared `downloadFile`).
 
 Schema descriptors are tiny recursive objects colocated with their file's
-logic (`CARD_UI_SCHEMA` in `cardUI.js`, `SESSION_SCHEMA` in `configRegistry.js`):
+logic (`UI_SCHEMA` in `UI.js`, `SESSION_SCHEMA` in `configRegistry.js`):
 
 ```js
 // node := { kind: 'map', keys?, anyKey?, closed? }
