@@ -2,17 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Model Selection
+When spawning subagents or workflow agents:
+- Haiku 4.5: Exploration
+- Sonnet 5: Analysis, reporting, file/code search, documentation, browser automation
+- Opus 4.8: Refactoring, complex execution, code review
+- Fable 5: Architecture, planning, new features, orchestration
+
 ## Project Overview
-
 - **Guild Manager** is a single-page dashboard for managing NPC agents in roleplaying games. 
-- Players create **agents**, assign **tasks**, and operate a **game clock** that drives automated progress.
+- Players create **agents**, assign **tasks**, transact **items**, and operate a **game clock** that drives automated progress.
 
-## UI principles: 
-- Minimalist: Less is more. No duplicate functions.
+## UI Principles: 
 - Versatile: Components serve multiple functions.
-- Modular
-- Intuitive
 - Transparent: UI structure mirrors data schema
+- Modular: Components are pluggable and reusable.
+- Configurable
+- Consistent: Reuse standard styles and processes throughout.
+- Anticipate and solve text spillage
 - No page scroll
 
 ### CSS class naming (flat compound):
@@ -20,13 +27,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - No bare unnamespaced state classes. Cross-cutting utilities (`.mono`, `.bright`, `.dim`, `.label`, `.value`, `.right`) are the only exception.
 - Index variables: `index` for named params/props; `i` only in short inline `.map()` callbacks; never `idx`.
 
-## Engineering principles: 
+## Engineering Principles:
 - Legible code
-- "Don't Repeat Yourself"
-- Configurable
-- Extensible
+- DRY
+- Build reusable functions for the entire program that unite it structurally
+- Project schema export communicable data
+- Data structures resemble each other, forming a flexible and transmutable namespace
+- Features are extensible and pluggable
 - Modular architecture
-- Lightweight
 - Observe modern best practices for coding and annotation
 
 ### Dependencies: 
@@ -47,3 +55,4 @@ After implementing and/or refactoring features, prune resulting dead code and de
 ## Git:
 Commit messages: 50–100 characters.
 Atomic commits. One logical unit per commit.
+When addressing issues, ensure PRs close them on merge.
