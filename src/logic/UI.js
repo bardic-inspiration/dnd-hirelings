@@ -1,8 +1,8 @@
-// Tag UI system — maps configurable card UI elements (medallion, boxes, bars,
-// fields, values) to tag-value sources, replacing hardcoded attribute displays.
-// The config lives in public/config/tagUI.yml (runtime-fetched by
-// hooks/useTagUIConfig.js); this module is the pure tier: config parsing,
-// source resolution, and consumed-tag bookkeeping.
+// UI system — maps configurable runtime UI components (currently just cards:
+// medallion, boxes, bars, fields, values) to tag-value sources, replacing
+// hardcoded attribute displays. The config lives in public/config/UI.yml
+// (runtime-fetched by hooks/useUIConfig.js); this module is the pure tier:
+// config parsing, source resolution, and consumed-tag bookkeeping.
 import yaml from 'js-yaml';
 import { parseTag, buildTag, mergeAttribute } from './tags.js';
 
@@ -46,12 +46,13 @@ export const DYNAMIC_SOURCE_KEYS = Object.freeze(Object.keys(DYNAMIC_SOURCE_REGI
 export const AGENT_FIELD_SOURCE_KEYS = Object.freeze(Object.keys(AGENT_FIELD_SOURCES));
 
 /**
- * Config-editor schema for `public/config/tagUI.yml` (see logic/configEditor.js
- * for the descriptor grammar). Any card name is a valid key under `cards:`, but
- * each card's element set is closed — unknown elements draw a soft warning in
- * the Configuration Modal without being rejected.
+ * Config-editor schema for `public/config/UI.yml` (see logic/configEditor.js
+ * for the descriptor grammar). Currently just the `cards:` section — any card
+ * name is a valid key, but each card's element set is closed — unknown
+ * elements draw a soft warning in the Configuration Modal without being
+ * rejected.
  */
-export const TAG_UI_SCHEMA = {
+export const UI_SCHEMA = {
   kind: 'map',
   closed: true,
   keys: {
@@ -99,7 +100,7 @@ function normalizeSourceList(list) {
 }
 
 /**
- * Normalizes a parsed tag UI config document (plain object from `yaml.load`)
+ * Normalizes a parsed UI config document (plain object from `yaml.load`)
  * into per-card element assignments.
  *
  * Lenient by design — the file is a deployed, user-editable asset, so
@@ -113,7 +114,7 @@ function normalizeSourceList(list) {
  * @returns {{ cards: Object<string, typeof EMPTY_CARD_CONFIG> }} Normalized
  *   config; `cards` maps card names (e.g. `agentCard`) to element assignments
  */
-export function normalizeTagUIDoc(root) {
+export function normalizeUIDoc(root) {
   const isMapping = (value) => value && typeof value === 'object' && !Array.isArray(value);
   const cardsIn = isMapping(root) && isMapping(root.cards) ? root.cards : {};
   const cards = {};
@@ -134,15 +135,15 @@ export function normalizeTagUIDoc(root) {
 }
 
 /**
- * Parses tag UI YAML text into normalized per-card element assignments.
- * Thin wrapper over `normalizeTagUIDoc` for callers holding raw YAML.
+ * Parses UI config YAML text into normalized per-card element assignments.
+ * Thin wrapper over `normalizeUIDoc` for callers holding raw YAML.
  *
- * @param {string} ymlText - Raw YAML text of a tag UI config
+ * @param {string} ymlText - Raw YAML text of a UI config
  * @returns {{ cards: Object<string, typeof EMPTY_CARD_CONFIG> }}
  * @throws {Error} If the text is not parseable YAML (caller decides fallback)
  */
-export function parseTagUIConfig(ymlText) {
-  return normalizeTagUIDoc(yaml.load(ymlText));
+export function parseUIConfig(ymlText) {
+  return normalizeUIDoc(yaml.load(ymlText));
 }
 
 /**
@@ -157,7 +158,7 @@ export function parseTagUIConfig(ymlText) {
  * A source is `valid` only when it yields a finite number; per the config
  * contract, invalid sources display no value and flash the warning color.
  *
- * @param {string} source - Source string from the tag UI config
+ * @param {string} source - Source string from the UI config
  * @param {object} context - Per-agent resolution context
  * @param {Agent} context.agent - The agent (raw fields + raw attributes)
  * @param {object} context.dyn - Output of `computeDynamicAttributes(agent, …)`

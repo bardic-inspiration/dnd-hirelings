@@ -10,7 +10,7 @@
 // for the descriptor grammar). Bindings keep the manifest pure: `effects` maps
 // keys to effect NAMES, which the modal host resolves to callbacks.
 
-import { TAG_UI_SCHEMA } from './tagUI.js';
+import { UI_SCHEMA } from './UI.js';
 
 /**
  * Schema for the SESSION section (state-bound): the game-speed numbers the old
@@ -59,18 +59,18 @@ export const CONFIG_FILES = [
     },
   },
   {
-    id: 'tagUI',
-    label: 'TAG UI',
+    id: 'ui',
+    label: 'UI',
     kind: 'file',
-    url: '/config/tagUI.yml',
-    schema: TAG_UI_SCHEMA,
+    url: '/config/UI.yml',
+    schema: UI_SCHEMA,
   },
 ];
 
 /**
  * Looks up a manifest entry by id.
  *
- * @param {string} id - Config file id (e.g. `'tagUI'`)
+ * @param {string} id - Config file id (e.g. `'ui'`)
  * @returns {object|null}
  */
 export function configFileById(id) {

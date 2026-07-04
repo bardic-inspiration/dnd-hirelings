@@ -4,10 +4,10 @@ import { useUI } from '../../state/UIContext.jsx';
 import { isAttributeActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, firstFreeSlot, getEffectiveAttributes } from '../../logic/agents.js';
 import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
 import { parseTag, buildTag } from '../../logic/tags.js';
-import { getConsumedTagPaths, isTagConsumed } from '../../logic/tagUI.js';
+import { getConsumedTagPaths, isTagConsumed } from '../../logic/UI.js';
 import { formatCount } from '../../logic/format.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
-import { useTagUIConfig } from '../../hooks/useTagUIConfig.js';
+import { useUIConfig } from '../../hooks/useUIConfig.js';
 import { CardMedallion, StatBox, StatBar, StatField, StatValue } from './AgentCardElements.jsx';
 import EditableSpan from '../EditableSpan.jsx';
 import TagLabel from '../TagLabel.jsx';
@@ -83,7 +83,7 @@ export default function AgentCard({ agent }) {
   // Configurable elements (medallion/boxes/bars/fields/values) resolve their
   // sources against this shared context; attribute-path sources read the
   // effective (bonus-applied) tags, matching how dyn itself is computed.
-  const cardConfig = useTagUIConfig('agentCard');
+  const cardConfig = useUIConfig('agentCard');
   const elementContext = {
     agent,
     dyn,
@@ -121,7 +121,7 @@ export default function AgentCard({ agent }) {
     if (existing) setSelectedItemId(existing.id);
   };
   // Right-click a bag item: bind it into the agent. Slot names come from the
-  // card config (tagUI.yml → cards.agentCard.slots), not the tag registry
+  // card config (UI.yml → cards.agentCard.slots), not the tag registry
   // (issue #84). Fill the first unoccupied slot; with none configured or all
   // full, the item binds without a slot, so binding never dead-ends.
   const bindItem = (e, name) => {
@@ -203,7 +203,7 @@ export default function AgentCard({ agent }) {
         elements fall into two contiguous runs around the always-visible Bars, so
         two `!isCollapsed` guards suffice. Collapsed cards therefore show just
         Name (+ Medallion) + Bars. Which value each configurable element tracks
-        comes from public/config/tagUI.yml (see useTagUIConfig).
+        comes from public/config/UI.yml (see useUIConfig).
       */}
 
       {/* 1. Name (always visible; hosts the medallion and collapse toggle) */}

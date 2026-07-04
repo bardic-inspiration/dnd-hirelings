@@ -200,7 +200,7 @@ export function getBoundItems(activities) {
 /**
  * Returns the first configured bind slot not already occupied by a bound item,
  * or `null` when the card defines no slots or they are all full. Slot names come
- * from the card config (`tagUI.yml → cards.<card>.slots`), never the tag registry
+ * from the card config (`UI.yml → cards.<card>.slots`), never the tag registry
  * (issue #84). Callers fall back to a slotless bind on `null`, so binding never
  * dead-ends.
  *

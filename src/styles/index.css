@@ -408,7 +408,7 @@ body {
 .agent-icon:hover { border-color: var(--dim); }
 
 /* ============================================================
-   AGENT VITALS (ratio bars — sources assigned via tagUI.yml)
+   AGENT VITALS (ratio bars — sources assigned via UI.yml)
    ============================================================ */
 .agent-vitals {
   display: flex;
@@ -457,9 +457,9 @@ body {
 }
 
 /* ============================================================
-   CONFIGURABLE CARD ELEMENTS (tag UI)
+   CONFIGURABLE CARD ELEMENTS (UI config)
    Standard value displays assigned to tag sources via
-   public/config/tagUI.yml. An element whose source can't resolve
+   public/config/UI.yml. An element whose source can't resolve
    to a number renders empty in its --invalid state: a warning
    flash, with the warn color kept on its chrome.
    ============================================================ */
