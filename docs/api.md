@@ -123,16 +123,16 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 | Action | Fields | Description |
 |--------|--------|-------------|
 | `INVENTORY_ADD` | `{ preset?: ItemPreset }` | Add item from blank or preset; stacks onto an existing row with the same name **and** the same tag set (issue #91). Differing tags → a separate row; unnamed `NEW ITEM` placeholders never stack |
-| `INVENTORY_UPDATE_ITEM` | `{ id, changes: Partial<InventoryItem> }` | Patch item; renaming triggers quantity merge if name collides |
+| `INVENTORY_UPDATE_ITEM` | `{ id, changes: Partial<InventoryItem> }` | Patch item; an identity change (name **or** attributes) re-normalizes the inventory via `mergeInventoryByIdentity`, so an item edited to match another row stacks onto it (issue #91). Other field edits skip the merge |
 | `INVENTORY_REMOVE_ITEM` | `{ id }` | Delete item from inventory |
-| `INVENTORY_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index from item |
+| `INVENTORY_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index from item; re-normalizes the inventory, so an item left matching another row stacks onto it (issue #91) |
 | `ITEM_PLACE` | `{ target: { type: 'agent'\|'bank', id? }, itemId: string, quantity?: number }` | Draw `quantity` (default 1, clamped to stock) of a selected item from inventory and route it: `agent` gives into the agent's bag (`mergeItemQty`); `bank` sells it (value × qty → gold). The single click-highlight-assign path shared by give (AgentCard) and sell (BankPanel). Depleted items stay in the list (grayed) |
 
 ### Tags
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `TAG_APPLY` | `{ target: { type: 'agent'\|'task'\|'item', id }, tag: string }` | Apply a tag to any board entity; the single assignment path for the registry's APPLY button and selection mode. Tasks route by modifier (`routeTaskTag`: `req`/`block` → `requirements`, else `attributes`). Every entity dedupe-merges into its target field (`mergeAttribute`): one instance per tag string, incoming value wins (issue #82). Registers the tag's path |
+| `TAG_APPLY` | `{ target: { type: 'agent'\|'task'\|'item', id }, tag: string }` | Apply a tag to any board entity; the single assignment path for the registry's APPLY button and selection mode. Tasks route by modifier (`routeTaskTag`: `req`/`block` → `requirements`, else `attributes`). Every entity dedupe-merges into its target field (`mergeAttribute`): one instance per tag string, incoming value wins (issue #82). Applying to an item re-normalizes the inventory, so an item whose new tag makes it match another row stacks onto it (issue #91). Registers the tag's path |
 
 ### Tag Registry
 

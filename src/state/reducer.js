@@ -83,18 +83,20 @@ const sameAttributes = (a = [], b = []) => {
 const sameItemIdentity = (a, b) =>
   a.name.trim().toLowerCase() === b.name.trim().toLowerCase() && sameAttributes(a.attributes, b.attributes);
 
-function mergeInventoryByName(inventory) {
+// Canonical inventory normalizer: folds every item sharing another's identity
+// (name + tag set) into the first occurrence, summing quantities and keeping the
+// survivor's other fields. Order is preserved. Run after any mutation that can
+// change an item's identity — an add, a rename, or a tag edit — so identical
+// items always collapse to one row, whether they arrived identical or were later
+// edited to match (issue #91). Unnamed "NEW ITEM" placeholders never stack, so
+// fresh blanks stay distinct until the player names them.
+function mergeInventoryByIdentity(inventory) {
   const out = [];
-  const indexByName = new Map();
   for (const item of inventory) {
-    const key = item.name.trim().toLowerCase();
-    const at = key === DEFAULT_ITEM_NAME.toLowerCase() ? undefined : indexByName.get(key);
-    if (at === undefined) {
-      indexByName.set(key, out.length);
-      out.push({ ...item });
-    } else {
-      out[at] = { ...out[at], quantity: out[at].quantity + item.quantity };
-    }
+    const isPlaceholder = item.name.trim().toLowerCase() === DEFAULT_ITEM_NAME.toLowerCase();
+    const existing = isPlaceholder ? undefined : out.find(kept => sameItemIdentity(kept, item));
+    if (existing) existing.quantity += item.quantity;
+    else out.push({ ...item });
   }
   return out;
 }
@@ -361,35 +363,32 @@ export function reducer(state, action) {
     /* ---------- Inventory ---------- */
     case 'INVENTORY_ADD': {
       const incoming = { ...DEFAULT_ITEM, ...(action.preset ? pickItemFields(action.preset) : null), id: uid() };
-      // Stack an identical item (same name + same tags) onto its existing row
-      // instead of duplicating (issue #91). Unnamed placeholders never stack, so
-      // freshly added blanks stay distinct until the player names them.
-      const isPlaceholder = incoming.name.trim().toLowerCase() === DEFAULT_ITEM_NAME.toLowerCase();
-      const existing = isPlaceholder ? undefined : state.inventory.find(item => sameItemIdentity(item, incoming));
-      if (existing) {
-        return { ...state, inventory: state.inventory.map(item =>
-          item === existing ? { ...item, quantity: item.quantity + incoming.quantity } : item) };
-      }
-      return { ...state, inventory: [...state.inventory, incoming] };
+      // Append then normalize: an identical existing row absorbs the new item
+      // instead of duplicating (issue #91).
+      return { ...state, inventory: mergeInventoryByIdentity([...state.inventory, incoming]) };
     }
 
     case 'INVENTORY_UPDATE_ITEM': {
       const next = state.inventory.map(item => item.id !== action.id ? item : { ...item, ...action.changes });
-      // Renaming may collide with an existing item; pool quantities by name.
-      return { ...state, inventory: 'name' in action.changes ? mergeInventoryByName(next) : next };
+      // Editing an item's identity (name or tag set) may make it match another
+      // row, so re-normalize to pool quantities (issue #91). Other field edits
+      // (quantity, value, description) can't change identity — skip the merge.
+      const identityChanged = 'name' in action.changes || 'attributes' in action.changes;
+      return { ...state, inventory: identityChanged ? mergeInventoryByIdentity(next) : next };
     }
 
     case 'INVENTORY_REMOVE_ITEM':
       return { ...state, inventory: state.inventory.filter(item => item.id !== action.id) };
 
-    case 'INVENTORY_REMOVE_ATTRIBUTE':
-      return {
-        ...state,
-        inventory: state.inventory.map(item => item.id !== action.id ? item : {
-          ...item,
-          attributes: item.attributes.filter((_, index) => index !== action.index),
-        }),
-      };
+    case 'INVENTORY_REMOVE_ATTRIBUTE': {
+      // Removing a tag changes the item's identity, so re-normalize: the edit
+      // may leave it matching another row, which should then stack (issue #91).
+      const next = state.inventory.map(item => item.id !== action.id ? item : {
+        ...item,
+        attributes: item.attributes.filter((_, index) => index !== action.index),
+      });
+      return { ...state, inventory: mergeInventoryByIdentity(next) };
+    }
 
     /* ---------- Tags ---------- */
     // Applies a tag to any board entity; the single assignment path for the tag
@@ -410,12 +409,14 @@ export function reducer(state, action) {
           }),
         };
       } else if (target.type === 'item') {
+        // Adding a tag changes the item's identity, so re-normalize: it may now
+        // match another row and should stack (issue #91).
         next = {
           ...state,
-          inventory: state.inventory.map(item => item.id !== target.id ? item : {
+          inventory: mergeInventoryByIdentity(state.inventory.map(item => item.id !== target.id ? item : {
             ...item,
             attributes: mergeAttribute(item.attributes, tag),
-          }),
+          })),
         };
       } else if (target.type === 'task') {
         const field = routeTaskTag(tag);
