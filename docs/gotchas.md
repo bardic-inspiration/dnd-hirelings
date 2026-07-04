@@ -125,15 +125,13 @@ This means:
 
 ---
 
-## Asset Loading Gate Overlays (does not unmount) the App
+## Asset Loading Never Blocks or Interrupts the App
 
-`AssetProvider` draws a full-screen "LOADING" overlay *on top of* the app while any URL registered via `useRegisterAssets` is still pending. `usePalette` registers the background image for the active theme on mount, so first paint is visually gated on that image loading. On a slow connection or a missing image, the overlay stays up until the image 404s (which still resolves the gate via `onerror`).
+There is **no** global asset gate. The theme background is a decorative CSS background (`--bg-image`), applied by the `index.html` bootstrap script before React mounts and `<link rel="preload">`-ed there too, so it downloads immediately and paints over the solid `--bg` fill as it arrives. The app is fully interactive underneath the whole time.
 
-The children are **always mounted** — the overlay is layered over them, never swapped in. This matters: assets register from post-mount effects, so gating by swapping `children` for the loading screen (the old behavior) unmounted and remounted the whole tree the instant the first batch registered, reading as a spurious page refresh that also discarded ephemeral UI state such as an open modal (issue #81). Keep the overlay approach; do not gate by conditionally rendering `children`.
+This replaced an earlier full-screen "LOADING" overlay (an `AssetProvider` gated on the background via `useRegisterAssets`). Issue #81 had already stopped that overlay from *unmounting* the tree — but because assets register from post-mount effects, the overlay still popped up *after* first paint and covered already-rendered UI (including an open modal), reading as a spurious page refresh mid-session. Gating first paint on a purely decorative image was the wrong trade, so the gate (`AssetContext` / `useRegisterAssets`) was removed entirely (issue #90). Do not reintroduce a blocking overlay for decorative assets.
 
-Adding more `useRegisterAssets` calls elsewhere will add to this blocking set. Use `useAssetGroup` (local, modal-scoped) for images that can load lazily.
-
-On repeat visits the background is already in the HTTP cache (via the `<link rel="preload">` injected by `index.html`), so `AssetContext` checks `img.complete` synchronously after setting `src` and resolves the gate immediately — no LOADING flash. `settle` guards against double-resolution (the cached path and the async `onload` can both fire), so this is safe for the uncached first-load case too.
+Modal pickers still preload their own thumbnails via `useAssetGroup` — purely local per-image state that reveals each thumbnail as it settles and never blocks the surrounding app. Reach for it (not a global gate) if a future surface needs to preload images.
 
 ---
 

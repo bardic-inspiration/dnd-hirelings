@@ -76,15 +76,6 @@ System"): the fetched base YAML of every `kind: 'file'` entry in
 | `resetDoc` | `(id: string) => void` | Drop the overlay, reverting to the deployed file |
 | `isOverridden` | `(id: string) => boolean` | Whether an overlay currently shadows the base |
 
-### `useAssets()` → `{ registerAssets, isReady }`
-
-Global asset load gate. Used by `useRegisterAssets`.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `registerAssets` | `(urls: string[]) => void` | Register URLs; blocks render until they settle |
-| `isReady` | `boolean` | False while any registered URL is still pending |
-
 ---
 
 ## Reducer Actions
@@ -550,11 +541,7 @@ The picker modals render every cell immediately and consult `readySet.has(url)` 
 
 ### `usePalette()`
 
-Side-effect hook. Reads the stored palette name, applies it to `:root` CSS custom properties, and registers the background image URL with the global asset gate. No return value.
-
-### `useRegisterAssets(urls: string[])`
-
-Registers the URL list with `AssetProvider` once on mount. No return value.
+Side-effect hook. Applies the stored palette name to `:root` CSS custom properties on mount. The theme background is a decorative CSS background (`--bg-image`) preloaded in `index.html`, not a gated asset — it never blocks the app (issue #90). No return value.
 
 ### `useCharBudget(component: string)` → `{ ref, maxChars }`
 

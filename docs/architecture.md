@@ -38,14 +38,15 @@ This makes them independently testable and safe to call from both React hooks an
 
 ### 2. State tier (`src/state/`)
 
-Four React contexts:
+Three React contexts:
 
 | Context | Contents | Persisted |
 |---------|----------|-----------|
 | `GameContext` | `{ state, dispatch }` — the full game world via `useReducer` | Yes, localStorage on every change |
 | `UIContext` | Mostly ephemeral UI state: selection, modal props, playing flag | Card expand/collapse, plus each persistence-enabled modal's open state (`MODAL_PERSISTENCE`); rest ephemeral |
 | `ConfigContext` | Runtime config documents: fetched base YAML per manifest entry + user-edit overlay | Overlays only (`CONFIG_OVERLAYS`); base docs re-fetched per load |
-| `AssetContext` | Image load registry; overlays a LOADING screen (app stays mounted) until assets settle | No |
+
+Images load without any blocking gate: the theme background is a decorative CSS background preloaded in `index.html`, and modal pickers preload their thumbnails locally via `useAssetGroup` (issue #90).
 
 `GameContext` follows the Redux pattern: a single normalized state tree, a single reducer, dispatch-only mutations. The reducer is in `reducer.js`; persistence is in `storage.js`.
 

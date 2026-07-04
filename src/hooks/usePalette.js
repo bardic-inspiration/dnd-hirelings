@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { PALETTES } from '../constants/palettes.js';
 import { STORAGE_KEYS } from '../state/storage.js';
-import { useRegisterAssets } from './useRegisterAssets.js';
 
 // Legacy key written before palette was versioned; read as fallback during migration.
 const PALETTE_KEY_LEGACY = 'dnd-hirelings-palette';
@@ -45,16 +44,13 @@ export function getStoredPalette() {
 }
 
 /**
- * Applies the stored theme on mount and registers the background image with the
- * global asset gate so the app doesn't render before the background has loaded.
+ * Applies the stored theme on mount. The theme background is a decorative CSS
+ * background (`--bg-image`), preloaded in `index.html` and painted over the solid
+ * `--bg` fill as it arrives — so it never blocks or interrupts the app (issue #90).
  * No return value — purely a side-effect hook.
  */
 export function usePalette() {
-  const storedName = getStoredPalette();
-  const palette = PALETTES[storedName] || PALETTES.dark;
-  useRegisterAssets(palette.backgroundImage ? [palette.backgroundImage] : []);
-
   useEffect(() => {
-    applyPalette(storedName);
+    applyPalette(getStoredPalette());
   }, []);
 }
