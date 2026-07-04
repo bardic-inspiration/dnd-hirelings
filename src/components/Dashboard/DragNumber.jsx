@@ -9,7 +9,7 @@ const PX_PER_UNIT = 12;
 // dragging vertically (up = increase, down = decrease) by `step` per PX_PER_UNIT.
 // Unlike usePressHoldDrag (drag-only), a plain click falls through to the inline
 // editor, so pointerdown is not prevent-defaulted.
-export default function DragNumber({ value, onChange, onCommit, className, step = 1, min }) {
+export default function DragNumber({ value, onChange, onCommit, className, step = 1, min, format }) {
   const startY    = useRef(0);
   const lastDelta = useRef(0);
   const dragging  = useRef(false);
@@ -67,7 +67,7 @@ export default function DragNumber({ value, onChange, onCommit, className, step 
         onPointerDown={onPointerDown}
         onClickCapture={onClickCapture}
       >
-        <EditableSpan className={className} value={String(value)} onCommit={onCommit} />
+        <EditableSpan className={className} value={String(value)} onCommit={onCommit} format={format} />
       </span>
     </Tooltip>
   );

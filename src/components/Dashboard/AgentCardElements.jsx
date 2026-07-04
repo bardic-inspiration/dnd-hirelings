@@ -1,5 +1,6 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { resolveTagSource } from '../../logic/tagUI.js';
+import { formatCount } from '../../logic/format.js';
 import EditableSpan from '../EditableSpan.jsx';
 
 // Standard configurable card elements. Each one takes a `source` string from
@@ -29,7 +30,7 @@ export function CardMedallion({ source, context }) {
   const resolution = resolveTagSource(source, context);
   return (
     <div className={`medallion${resolution.valid ? '' : ' medallion--invalid'}`} title={source}>
-      {resolution.valid && resolution.value}
+      {resolution.valid && formatCount(resolution.value)}
     </div>
   );
 }
@@ -46,7 +47,7 @@ export function StatBox({ source, context }) {
   const resolution = resolveTagSource(source, context);
   return (
     <div className={`stat-box${resolution.valid ? '' : ' stat-box--invalid'}`} title={source}>
-      {resolution.valid && resolution.value}
+      {resolution.valid && formatCount(resolution.value)}
     </div>
   );
 }
@@ -79,10 +80,11 @@ export function StatBar({ current, max, context, fillVariant }) {
             ? <EditableSpan
                 className="vital-bar-label"
                 value={String(currentRes.value)}
+                format={formatCount}
                 onCommit={rawInput => commitValue(dispatch, context.agent.id, currentRes, rawInput)}
               />
-            : <span className="vital-bar-label">{currentRes.value}</span>}
-          <span className="vital-bar-max">/ {maxRes.value}</span>
+            : <span className="vital-bar-label">{formatCount(currentRes.value)}</span>}
+          <span className="vital-bar-max">/ {formatCount(maxRes.value)}</span>
         </>
       )}
     </div>
@@ -109,9 +111,10 @@ export function StatField({ source, context }) {
         ? <EditableSpan
             className="value"
             value={String(resolution.value)}
+            format={formatCount}
             onCommit={rawInput => commitValue(dispatch, context.agent.id, resolution, rawInput)}
           />
-        : <span className="value">{resolution.value}</span>)}
+        : <span className="value">{formatCount(resolution.value)}</span>)}
       {resolution.unitField && (
         <EditableSpan
           className="unit"
@@ -136,7 +139,7 @@ export function StatValue({ source, context }) {
   const resolution = resolveTagSource(source, context);
   return (
     <span className={`stat-value${resolution.valid ? '' : ' stat-value--invalid'}`} title={source}>
-      {resolution.label}: {resolution.valid && resolution.value}
+      {resolution.label}: {resolution.valid && formatCount(resolution.value)}
     </span>
   );
 }

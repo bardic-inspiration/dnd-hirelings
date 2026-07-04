@@ -420,6 +420,7 @@ loadPresetsFromFile(file: File): Promise<object[]>
 ```js
 formatNumberShorthand(value: number, config?: NumberShorthandConfig): string
 formatGold(value: number, config?: NumberShorthandConfig): string
+formatCount(value: number | string, config?: NumberShorthandConfig): string
 ```
 
 Table-driven number shorthand (`1.42K`, `56.5K`, `1.25M`, `6.00B`; three
@@ -432,9 +433,14 @@ string (`"NaN"`) is the safeguard of last resort: it renders for anything no
 notation can represent — NaN, ±Infinity, non-numbers, failed parses — and
 for past-the-table values when `exponent` is disabled or absent. `formatGold`
 keeps the bank's one-decimal display below the first tier and switches to
-shorthand above it. The default table is `TRUNCATION_CONFIG.numberShorthand`
-(from `config/truncation.yml`); pass a `config` to extend it (e.g. a `T`
-tier or a different exponent symbol) without code changes.
+shorthand above it. `formatCount` is the general display helper for any count or
+stat number that could overflow its UI slot (item quantities/values, agent
+stats, condition progress/target, reward amounts — issue #93): numeric input
+runs through `formatNumberShorthand`, while an empty or non-numeric string passes
+through unchanged so an editable span keeps its raw/placeholder text. The default
+table is `TRUNCATION_CONFIG.numberShorthand` (from `config/truncation.yml`); pass
+a `config` to extend it (e.g. a `T` tier or a different exponent symbol) without
+code changes.
 
 ### `src/logic/truncation.js`
 
@@ -654,9 +660,10 @@ when truncated.
 ### `<EditableSpan value onCommit ... />`
 
 Click-to-edit inline span used across cards and rows (see the component's JSDoc
-for the full prop set). While unfocused it shows the value end-truncated to
-`maxChars` (`truncateEnd`); focus reveals the full value for editing and blur
-re-truncates. `singleLine` forbids line breaks — Enter always commits
+for the full prop set). While unfocused it shows the value passed through
+`format` (identity by default; pass `formatCount` for compact numbers — issue
+#93) and end-truncated to `maxChars` (`truncateEnd`); focus reveals the full raw
+value for editing and blur re-formats/re-truncates. `singleLine` forbids line breaks — Enter always commits
 (Shift+Enter included) and pasted/committed whitespace collapses to spaces — so
 the name span stays one line and never distorts the card during entry.
 `innerRef` forwards a ref onto the span (the agent name passes a `useCharBudget`
@@ -679,7 +686,9 @@ An invalid source renders the element with no value in its `--invalid` state
 ```
 
 `StatBar`, `StatField` dispatch `AGENT_UPDATE` with the resolution's `set`
-changes on commit; non-numeric input is ignored.
+changes on commit; non-numeric input is ignored. Every displayed stat number
+goes through `formatCount`, so large values render compactly (`1.42K`) instead
+of spilling their slot (issue #93); editing an editable one reveals the raw value.
 
 ---
 

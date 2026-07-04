@@ -5,6 +5,7 @@ import { isAttributeActive, tryAssignTask, validateAssignment, getPersonalItems,
 import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
 import { parseTag, buildTag } from '../../logic/tags.js';
 import { getConsumedTagPaths, isTagConsumed } from '../../logic/tagUI.js';
+import { formatCount } from '../../logic/format.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import { useTagUIConfig } from '../../hooks/useTagUIConfig.js';
 import { CardMedallion, StatBox, StatBar, StatField, StatValue } from './AgentCardElements.jsx';
@@ -328,7 +329,7 @@ export default function AgentCard({ agent }) {
                     onContextMenu={e => bindItem(e, name)}
                   >
                     <TruncatedText text={name} maxChars={maxChars} />
-                    {quantity > 1 && <span className="tag-value"> ×{quantity}</span>}
+                    {quantity > 1 && <span className="tag-value"> ×{formatCount(quantity)}</span>}
                   </span>
                 </Tooltip>
               ))}

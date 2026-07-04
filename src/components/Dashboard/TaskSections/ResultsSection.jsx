@@ -1,4 +1,5 @@
 import { useGame } from '../../../state/GameContext.jsx';
+import { formatCount } from '../../../logic/format.js';
 import EditableSpan from '../../EditableSpan.jsx';
 
 function updateResults(dispatch, task, changes) {
@@ -27,7 +28,7 @@ function ItemRow({ item, index, dispatch, task, results }) {
         <strong>ITEM:</strong>{' '}
         <EditableSpan value={item.name} placeholder="item" onCommit={setName} />
         {' ×'}
-        <EditableSpan value={String(item.quantity)} onCommit={setQty} />
+        <EditableSpan value={String(item.quantity)} format={formatCount} onCommit={setQty} />
       </span>
       <span className="x" onClick={e => { e.stopPropagation(); remove(); }}>×</span>
     </div>
@@ -57,7 +58,7 @@ function AgentRow({ spawn, index, dispatch, task, results }) {
         <strong>HIRELING:</strong>{' '}
         <EditableSpan value={tmpl.name || ''} placeholder="hireling" onCommit={setName} />
         {' ×'}
-        <EditableSpan value={String(spawn.quantity ?? 1)} onCommit={setQty} />
+        <EditableSpan value={String(spawn.quantity ?? 1)} format={formatCount} onCommit={setQty} />
       </span>
       <span className="x" onClick={e => { e.stopPropagation(); remove(); }}>×</span>
     </div>
@@ -93,7 +94,7 @@ export default function ResultsSection({ task }) {
         <div className="tag-list-item">
           <span className="tag-content">
             <strong>GOLD</strong>{' ='}
-            <EditableSpan value={String(results.gold ?? 0)} onCommit={setGold} />
+            <EditableSpan value={String(results.gold ?? 0)} format={formatCount} onCommit={setGold} />
           </span>
         </div>
         {results.items.map((item, index) => (

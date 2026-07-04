@@ -1,6 +1,7 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { parseTag, buildTag } from '../../logic/tags.js';
+import { formatCount } from '../../logic/format.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import EditableSpan from '../EditableSpan.jsx';
 import TagLabel from '../TagLabel.jsx';
@@ -78,6 +79,7 @@ export default function ItemRow({ item }) {
           className="item-qty mono"
           value={item.quantity}
           min={0}
+          format={formatCount}
           onChange={n => update({ quantity: n })}
           onCommit={handleQty}
         />
@@ -85,6 +87,7 @@ export default function ItemRow({ item }) {
           <DragNumber
             value={item.value}
             min={0}
+            format={formatCount}
             onChange={n => update({ value: n })}
             onCommit={handleValue}
           /> GP

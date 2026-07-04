@@ -8,15 +8,18 @@ import { truncateEnd } from '../logic/truncation.js';
  * the DOM while the span is not focused, so in-progress edits are never
  * clobbered by re-renders or RAF writes.
  *
- * Display vs. edit text: while unfocused the span shows the value truncated to
- * `maxChars` (end ellipsis); on focus it reveals the full value so the user
- * always edits the real string, and re-truncates on blur.
+ * Display vs. edit text: while unfocused the span shows the value passed through
+ * `format` (e.g. compact number shorthand) and truncated to `maxChars` (end
+ * ellipsis); on focus it reveals the full raw value so the user always edits the
+ * real string, and re-formats/re-truncates on blur.
  *
  * @param {object} props
  * @param {string} props.value - Current text content
  * @param {(value: string) => void} props.onCommit - Called with the trimmed text when it changed
  * @param {string} [props.className]
  * @param {string} [props.placeholder] - Rendered via CSS `data-placeholder` when empty
+ * @param {(text: string) => string} [props.format] - Maps the raw value to its unfocused
+ *   display text (e.g. `formatCount` for large numbers); editing always shows the raw value
  * @param {number} [props.maxChars=Infinity] - Character budget for the unfocused display
  *   (usually from `useCharBudget`); the full value is always shown while editing
  * @param {boolean} [props.singleLine=false] - Forbid line breaks: Enter always commits
@@ -29,7 +32,7 @@ import { truncateEnd } from '../logic/truncation.js';
  *   internal commit-on-blur
  * Remaining props (e.g. `data-*` attributes) are forwarded onto the span.
  */
-export default function EditableSpan({ value, onCommit, className, placeholder, maxChars = Infinity, singleLine = false, innerRef, onFocus, onBlur, ...rest }) {
+export default function EditableSpan({ value, onCommit, className, placeholder, format = (text) => text, maxChars = Infinity, singleLine = false, innerRef, onFocus, onBlur, ...rest }) {
   const ref = useRef(null);
   const originalRef = useRef(value || '');
 
@@ -40,7 +43,8 @@ export default function EditableSpan({ value, onCommit, className, placeholder, 
     else if (innerRef) innerRef.current = element;
   };
 
-  const displayText = truncateEnd(value || '', maxChars).text;
+  // Unfocused display: raw value formatted (e.g. number shorthand) then truncated.
+  const displayText = truncateEnd(format(value || ''), maxChars).text;
 
   // Sync the truncated display to the DOM only when not focused (an in-progress
   // edit already holds the full value and must not be clobbered).
@@ -81,10 +85,10 @@ export default function EditableSpan({ value, onCommit, className, placeholder, 
     const raw = singleLine ? ref.current.textContent.replace(/\s+/g, ' ') : ref.current.textContent;
     const committed = raw.trim();
     if (committed !== originalRef.current.trim()) onCommit(committed);
-    // Restore the truncated display; the effect won't fire when `value` is
-    // unchanged, so re-truncate here explicitly. Reset the scroll left by
-    // editing so the leading (identifying) characters are always shown.
-    ref.current.textContent = truncateEnd(committed, maxChars).text;
+    // Restore the formatted, truncated display; the effect won't fire when
+    // `value` is unchanged, so re-derive it here explicitly. Reset the scroll
+    // left by editing so the leading (identifying) characters are always shown.
+    ref.current.textContent = truncateEnd(format(committed), maxChars).text;
     ref.current.scrollLeft = 0;
   };
 
