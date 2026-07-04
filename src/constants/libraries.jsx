@@ -43,7 +43,7 @@ export const LIBRARY_CONFIGS = {
     }),
     rowIcon: (p) => p.icon,
     Preview: AgentPreview,
-    toCreateAction: (preset) => ({ type: 'AGENT_CREATE', preset }),
+    toCreateAction: (preset, count = 1) => ({ type: 'AGENT_CREATE', preset, count }),
   },
 
   task: {
@@ -66,7 +66,7 @@ export const LIBRARY_CONFIGS = {
     }),
     rowIcon: () => '',
     Preview: TaskPreview,
-    toCreateAction: (preset) => ({ type: 'TASK_CREATE', preset }),
+    toCreateAction: (preset, count = 1) => ({ type: 'TASK_CREATE', preset, count }),
   },
 
   item: {
@@ -86,6 +86,6 @@ export const LIBRARY_CONFIGS = {
     }),
     rowIcon: (p) => p.icon,
     Preview: ItemPreview,
-    toCreateAction: (preset) => ({ type: 'INVENTORY_ADD', preset }),
+    toCreateAction: (preset, count = 1) => ({ type: 'INVENTORY_ADD', preset, count }),
   },
 };

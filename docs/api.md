@@ -92,7 +92,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `AGENT_CREATE` | `{ preset?: AgentPreset }` | Create agent from blank or preset |
+| `AGENT_CREATE` | `{ preset?: AgentPreset, count?: number }` | Create `count` agents (default 1) from blank or preset. `count > 1` is the library's shopping-list order (issue #92) |
 | `AGENT_UPDATE` | `{ id, changes: Partial<Agent> }` | Patch agent fields |
 | `AGENT_DELETE` | `{ id }` | Delete agent; returns held items to inventory |
 | `AGENT_DUPLICATE` | `{ id }` | Deep-copy agent; clears activities and timestamps |
@@ -107,7 +107,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `TASK_CREATE` | `{ preset?: TaskPreset }` | Create task from blank or preset |
+| `TASK_CREATE` | `{ preset?: TaskPreset, count?: number }` | Create `count` tasks (default 1) from blank or preset |
 | `TASK_UPDATE` | `{ id, changes: Partial<Task> }` | Patch task fields |
 | `TASK_DELETE` | `{ id }` | Delete task; removes all agent assignments |
 | `TASK_DUPLICATE` | `{ id }` | Deep-copy task; resets progress and completion |
@@ -122,7 +122,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `INVENTORY_ADD` | `{ preset?: ItemPreset }` | Add item from blank or preset; stacks onto an existing row with the same name **and** the same tag set (issue #91). Differing tags → a separate row; unnamed `NEW ITEM` placeholders never stack |
+| `INVENTORY_ADD` | `{ preset?: ItemPreset, count?: number }` | Add an item from blank or preset. `count` (default 1) stacks that many packs of the preset's own `quantity` into one row (a shopping-list order of `count` — issue #92). Then stacks onto an existing row with the same name **and** the same tag set (issue #91). Differing tags → a separate row; unnamed `NEW ITEM` placeholders never stack |
 | `INVENTORY_UPDATE_ITEM` | `{ id, changes: Partial<InventoryItem> }` | Patch item; an identity change (name **or** attributes) re-normalizes the inventory via `mergeInventoryByIdentity`, so an item edited to match another row stacks onto it (issue #91). Other field edits skip the merge |
 | `INVENTORY_REMOVE_ITEM` | `{ id }` | Delete item from inventory |
 | `INVENTORY_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index from item; re-normalizes the inventory, so an item left matching another row stacks onto it (issue #91) |
@@ -414,6 +414,23 @@ savePresetToFile(preset: object, type?: string): Promise<void>
 savePresetListToFile(presets: object[], type?: string): Promise<void>
 loadPresetsFromFile(file: File): Promise<object[]>
 ```
+
+### `src/logic/order.js`
+
+```js
+buildOrder(type: string, lines: { preset: object, quantity: number }[]): Order
+submitOrder(order: Order, dispatch: (action) => void, config: LibraryConfig): number
+```
+
+The library modal's shopping-list transport layer (issue #92). `buildOrder`
+turns the modal's candidate rows into a serializable `Order`
+(`{ type, lines: { preset, quantity }[] }`), keeping only rows with a positive
+count, flooring quantities to whole copies, and stripping runtime bookkeeping
+(`id`/`source`) from each line's preset so the document resembles the preset
+files the library already reads and writes. `submitOrder` is the **sole**
+coupling between an order and the reducer: it dispatches one `config.toCreateAction(preset, quantity)`
+per line. The `Order` shape is deliberately endpoint-agnostic — retargeting it
+to a server backend later means replacing only `submitOrder`, not the modal.
 
 ### `src/logic/format.js`
 
