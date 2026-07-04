@@ -62,6 +62,20 @@ interface TagRegistryProps {       // all fields optional
 >
 > ⚠️ **Needs clarification:** The deviation Sets retain IDs of deleted entities (harmless, but grows unbounded over the app's lifetime). Pruning is deferred because `UIContext` has no access to the live entity list; a future reducer-side or startup reconciliation could clear orphaned IDs.
 
+### `useConfig()` → `ConfigContext`
+
+Runtime config documents (see `docs/architecture.md` → "Runtime Configuration
+System"): the fetched base YAML of every `kind: 'file'` entry in
+`CONFIG_FILES`, shadowed by a per-file user-edit overlay persisted under
+`STORAGE_KEYS.CONFIG_OVERLAYS`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `getDoc` | `(id: string) => object` | The raw merged document: `overlay ?? base ?? {}` |
+| `updateDoc` | `(id: string, nextDoc: object) => void` | Replace the overlay (whole-document); **persisted** |
+| `resetDoc` | `(id: string) => void` | Drop the overlay, reverting to the deployed file |
+| `isOverridden` | `(id: string) => boolean` | Whether an overlay currently shadows the base |
+
 ### `useAssets()` → `{ registerAssets, isReady }`
 
 Global asset load gate. Used by `useRegisterAssets`.
@@ -268,8 +282,12 @@ threshold / span to the next level); `xpProgress === xpLvl / xpLvlMax`.
 Pure tier of the configurable card element system (config: `public/config/tagUI.yml`).
 
 ```js
-EMPTY_CARD_CONFIG   // frozen { medallion: null, boxes: [], bars: [], fields: [], values: [] }
-parseTagUIConfig(ymlText: string): { cards: { [cardName]: CardConfig } }
+EMPTY_CARD_CONFIG   // frozen { medallion: null, boxes: [], bars: [], fields: [], values: [], slots: [] }
+DYNAMIC_SOURCE_KEYS       // frozen list of known dynamic:<key> source keys
+AGENT_FIELD_SOURCE_KEYS   // frozen list of known bare agent-field sources
+TAG_UI_SCHEMA             // config-editor schema descriptor for tagUI.yml
+normalizeTagUIDoc(doc: object): { cards: { [cardName]: CardConfig } }
+parseTagUIConfig(ymlText: string): { cards: { [cardName]: CardConfig } }  // yaml.load + normalize
 resolveTagSource(source: string, context: { agent, dyn, attributes }): {
   label: string,            // last path segment, uppercased
   value: number|null,
@@ -285,9 +303,9 @@ Source grammar (resolution order): `dynamic:<key>` (computed stat: `level`,
 `hp`, `hp-max`, `xp`, `xp-lvl`, `xp-lvl-max`, `ac`, `pb`), bare agent field
 (`rate`), else an attribute tag path matched case-insensitively against the
 agent's effective attributes (its `=value` must be numeric).
-`parseTagUIConfig` is lenient: malformed sections degrade to empty element
+`normalizeTagUIDoc` is lenient: malformed sections degrade to empty element
 lists, and bar entries accept `[current, max]` lists or `"(current, max)"`
-strings; it throws only on unparseable YAML.
+strings; `parseTagUIConfig` throws only on unparseable YAML.
 
 ### `src/logic/time.js`
 
@@ -314,6 +332,55 @@ tagRegistrySave(registry: TagRegistry, sessionId: string): Promise<void>
 tagRegistryLoad(file: File): Promise<TagRegistry>
 ```
 
+### `src/logic/configRegistry.js`
+
+The config file manifest — the single registration point for every surface the
+Configuration Modal edits. Adding a config file = one `CONFIG_FILES` entry +
+one schema.
+
+```js
+CONFIG_FILES  // ordered manifest entries:
+// { id, label, kind: 'file'|'state', url?, schema,
+//   binding?: { select(state), commit(dispatch, key, value),
+//               effects?: { [key]: effectName }, defaults } }
+SESSION_SCHEMA                    // schema for the state-bound SESSION section
+configFileById(id: string): object|null
+```
+
+`kind: 'file'` entries are fetched/overlaid by `ConfigContext`; `kind: 'state'`
+entries bind to game state through `binding` (no fetch, no overlay). `effects`
+maps keys to effect *names* the modal resolves to callbacks (e.g.
+`rateMultiplier: 'restartPlay'` → the `onRestartPlay` prop).
+
+### `src/logic/configEditor.js`
+
+Pure logic tier behind the Configuration Modal: schema-guided flattening,
+soft validation, immutable document mutations, and YAML file I/O over raw
+config documents. The schema descriptor grammar is documented in the module
+header and `docs/architecture.md` → "Runtime Configuration System".
+
+```js
+schemaChild(schemaNode: object|null, keyOrIndex: string|number): object|null
+schemaNodeAt(schema: object|null, path: (string|number)[]): object|null
+VALUE_KINDS   // { string, number, slug, enum, tagSource } — each { suggest(prefix, schemaNode, context), check(value, schemaNode, context) }
+coerceScalarInput(raw: string, schemaNode: object|null): string|number|null
+flattenConfigDoc(doc: object, schema: object|null, expanded: Set<string>): ConfigRow[]
+checkConfigDoc(doc: object, schema: object|null, context?: { tagRegistry }): Map<string, string>  // pathStr → warning
+getAt(doc: object, path: (string|number)[]): any
+setValueAt(doc: object, path: (string|number)[], value: any): object   // new root
+deleteAt(doc: object, path: (string|number)[]): object                  // new root
+appendItemAt(doc: object, path: (string|number)[], item: any): object   // new root
+emptyValueFor(schemaNode: object|null): any
+serializeConfigDoc(doc: object): string          // yaml.dump + generated header
+configSave(fileId: string, doc: object): Promise<void>   // via downloadFile, <fileId>.yml
+configLoad(file: File): Promise<object>          // rejects only bad YAML / non-mapping root
+```
+
+`flattenConfigDoc` preserves insertion order (config order is meaningful),
+unlike `flattenRegistry`'s sorted walk — the two flatteners are deliberately
+separate. `checkConfigDoc` warnings are advisory: nothing is removed or
+blocked. Mutations return new roots and no-op by returning the same reference.
+
 ### `src/logic/download.js`
 
 ```js
@@ -322,7 +389,8 @@ downloadFile(contents: string | Blob, suggestedName: string,
 ```
 
 Shared file-write helper: native Save As dialog (File System Access API) with an
-`<a>.download` fallback. Used by `session.js`, `eventLog.js`, etc.
+`<a>.download` fallback. Used by `session.js`, `eventLog.js`, `tagRegistry.js`,
+`configEditor.js`, etc.
 
 ### `src/logic/session.js`
 
@@ -506,11 +574,14 @@ the last budget while hidden. Throws on an unknown component key.
 ### `useTagUIConfig(cardName: string)` → `CardConfig`
 
 Returns one card's element assignments (`{ medallion, boxes, bars, fields,
-values }`) from `public/config/tagUI.yml`. The file is fetched and parsed once
-per page load (module-level cache shared by all cards); until the fetch
-settles — or if it fails, or the card has no entry — returns
-`EMPTY_CARD_CONFIG`, so callers render unconditionally. A failed fetch or
-unparseable file logs a `console.warn` and degrades to bare cards.
+values, slots }`) from the live tagUI config document — the deployed
+`public/config/tagUI.yml` merged with any Configuration Modal overlay, read
+from `ConfigContext` and normalized via `normalizeTagUIDoc`. Because the
+document lives in React state, in-app config edits re-render consumers
+immediately. Until the base fetch settles — or if it fails, or the card has no
+entry — returns `EMPTY_CARD_CONFIG`, so callers render unconditionally. A
+failed fetch or unparseable file logs a `console.warn` and degrades to bare
+cards.
 
 ---
 

@@ -134,7 +134,7 @@ export default function TopBar({ onPlay, onStop, onAdvance }) {
           <button className="ctrl" onClick={handleSaveLog}>LOG</button>
         </Tooltip>
         <button className="ctrl" onClick={() => openTagRegistry()}>TAG REGISTRY</button>
-        <button className="ctrl" onClick={openConfig}>SETTINGS</button>
+        <button className="ctrl" onClick={openConfig}>CONFIG</button>
       </div>
     </nav>
   );

@@ -899,7 +899,7 @@ body {
 }
 
 /* ============================================================
-   CONFIG PANEL OVERLAY
+   MODAL OVERLAYS
    ============================================================ */
 .config-overlay,
 .tag-registry-overlay {
@@ -913,56 +913,6 @@ body {
 }
 /* Opened from a library preview (onApply): stack above the library panel. */
 .tag-registry-overlay--elevated { z-index: 200; }
-
-.config-panel {
-  background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
-  border: var(--line) solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  min-width: 280px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-
-.config-panel h2 {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--dim);
-  margin: 0;
-}
-
-.config-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.config-row label {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--dim);
-}
-
-.config-row input {
-  background: var(--dimmer);
-  border: var(--line) solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--fg);
-  padding: 4px 8px;
-  font-family: inherit;
-  font-size: var(--fs-sm);
-  width: 70px;
-  text-align: right;
-  outline: none;
-  transition: border-color 0.1s;
-}
-.config-row input:focus { border-color: var(--highlight); }
 
 /* ============================================================
    TASK SECTIONS (conditions / require / reward / tag catch-all)
@@ -1410,7 +1360,8 @@ body {
    LIBRARY / BUILDER MODALS
    ============================================================ */
 .library-panel,
-.tag-registry-panel {
+.tag-registry-panel,
+.config-modal-panel {
   background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
   border: var(--line) solid var(--border);
   border-radius: var(--radius-lg);
@@ -1766,6 +1717,235 @@ body {
   color: var(--dim);
 }
 .tagreg-ghost-typed { color: transparent; }
+
+/* ============================================================
+   CONFIGURATION MODAL (schema-guided runtime config editor)
+   Mirrors the tag registry tree's editor geometry (gutter, guides, fold
+   boxes, ghost autocomplete) under the cfg- namespace; kept a separate
+   block because config rows carry editable values, list dashes, and
+   tuple brackets the registry tree doesn't have.
+   ============================================================ */
+.cfg-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cfg-top-actions { display: flex; gap: 8px; }
+.cfg-head { display: flex; align-items: baseline; gap: 8px; }
+/* Active section label beside the heading; SAVE/LOAD/RESET act on it. */
+.cfg-active { font-size: var(--fs-sm); font-weight: 700; color: var(--accent); }
+/* Overlay marker: in-app edits currently shadow the shipped file. */
+.cfg-modified { color: var(--accent); font-size: var(--fs-xs); align-self: center; }
+
+.cfg-tree {
+  --cfg-cell: 14px;   /* indent step = guide column width */
+  --cfg-ln-w: 34px;   /* line-number gutter width */
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--dimmer);
+  overflow: auto;        /* x too: deep paths scroll, gutter/× stay pinned */
+  height: min(60vh, 600px);
+  font-family: var(--font-mono);
+}
+
+.cfg-row {
+  display: flex;
+  align-items: stretch;
+  min-width: max-content;
+  min-height: 18px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.cfg-row:hover,
+.cfg-row--active { background: var(--highlight-bg); }
+
+/* Line-number gutter: fixed, right-aligned, dim; pinned during horizontal scroll. */
+.cfg-ln {
+  flex: 0 0 var(--cfg-ln-w);
+  text-align: right;
+  padding-right: 6px;
+  color: var(--dim);
+  font-size: var(--fs-xs);
+  border-right: var(--line) solid var(--border);
+  user-select: none;
+  position: sticky;
+  left: 0;
+  background: var(--dimmer);
+  z-index: 2;
+}
+
+/* One guide column per ancestor level; vertical line only where the branch continues. */
+.cfg-guide {
+  flex: 0 0 var(--cfg-cell);
+  position: relative;
+}
+.cfg-guide--line::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--cfg-cell) / 2);
+  top: 0; bottom: 0;
+  border-left: var(--line) solid var(--border);
+}
+
+/* Connector at the node's own column — fold box for branches, tick for leaves. */
+.cfg-fold,
+.cfg-tick {
+  flex: 0 0 var(--cfg-cell);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+}
+.cfg-fold { cursor: pointer; font-family: var(--font-mono); }
+.cfg-fold::before,
+.cfg-tick::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--cfg-cell) / 2);
+  top: 0; bottom: 0;
+  border-left: var(--line) solid var(--border);
+}
+.cfg-fold--last::before,
+.cfg-tick--last::before { bottom: 50%; }
+.cfg-fold::after,
+.cfg-tick::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--cfg-cell) / 2);
+  right: 0;
+  top: 50%;
+  border-top: var(--line) solid var(--border);
+}
+
+/* The boxed +/− toggle; opaque bg masks the guide line so it "enters" the box. */
+.cfg-fold-box {
+  position: relative;
+  z-index: 1;
+  width: 11px;
+  height: 11px;
+  display: grid;
+  place-items: center;
+  border: var(--line) solid var(--dim);
+  border-radius: 2px;
+  background: var(--dimmer);
+  color: var(--dim);
+  font-size: var(--fs-xs);
+  line-height: 1;
+}
+.cfg-fold:hover .cfg-fold-box {
+  border-color: var(--highlight);
+  color: var(--highlight);
+}
+
+.cfg-key {
+  flex: 0 0 auto;
+  padding-left: 4px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+}
+.cfg-key:hover { color: var(--accent); }
+/* Soft warning (unknown key / shape mismatch): warn-colored, never blocking. */
+.cfg-key--warn { color: var(--warn); }
+.cfg-colon { color: var(--dim); }
+
+/* Inline-editable scalar; empty values show the dim placeholder glyph. */
+.cfg-value {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  min-width: 1ch;
+  font-size: var(--fs-sm);
+  color: var(--accent);
+  outline: none;
+  cursor: text;
+}
+.cfg-value:empty::before { content: attr(data-placeholder); color: var(--dim); }
+.cfg-value:focus { color: var(--fg); }
+/* Value fails its schema kind's check (bad source, non-number, …). */
+.cfg-value--warn {
+  color: var(--warn);
+  animation: flash-warn 0.65s ease-out;
+}
+
+/* Tuple leaf ([current, max] bars entry): flow-style brackets, one editable per slot. */
+.cfg-tuple { display: flex; align-items: center; margin-left: 6px; }
+.cfg-tuple .cfg-value { margin-left: 0; }
+.cfg-tuple-entry { display: flex; align-items: center; }
+
+.cfg-x {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0 8px;
+  color: var(--border);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  opacity: 0;
+  transition: color 0.1s, opacity 0.1s;
+  position: sticky;
+  right: 0;
+  background: var(--dimmer);
+  z-index: 2;
+}
+.cfg-row:hover .cfg-x { opacity: 1; }
+.cfg-x:hover { color: var(--warn); }
+
+.cfg-builder {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.cfg-input-wrap {
+  position: relative;
+  flex: 1;
+  background: var(--dimmer);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.1s;
+}
+.cfg-input-wrap:focus-within { border-color: var(--highlight); }
+
+/* Input and ghost overlay share identical metrics so the suggestion suffix lines
+   up exactly after the typed text; monospace keeps per-character width stable. */
+.cfg-input,
+.cfg-ghost {
+  width: 100%;
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+.cfg-input {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--fg);
+}
+.cfg-input::placeholder { color: var(--dim); letter-spacing: 0.08em; }
+
+/* Ghost suggestion sits behind the transparent input: the typed portion is
+   invisible (reserves width) and the suffix shows in the dim/gray color. */
+.cfg-ghost {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--dim);
+}
+.cfg-ghost-typed { color: transparent; }
 
 /* ============================================================
    TAG-APPLY SELECTION MODE

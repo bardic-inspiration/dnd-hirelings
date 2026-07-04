@@ -38,12 +38,13 @@ This makes them independently testable and safe to call from both React hooks an
 
 ### 2. State tier (`src/state/`)
 
-Three React contexts:
+Four React contexts:
 
 | Context | Contents | Persisted |
 |---------|----------|-----------|
 | `GameContext` | `{ state, dispatch }` — the full game world via `useReducer` | Yes, localStorage on every change |
 | `UIContext` | Mostly ephemeral UI state: selection, modal props, playing flag | Card expand/collapse, plus each persistence-enabled modal's open state (`MODAL_PERSISTENCE`); rest ephemeral |
+| `ConfigContext` | Runtime config documents: fetched base YAML per manifest entry + user-edit overlay | Overlays only (`CONFIG_OVERLAYS`); base docs re-fetched per load |
 | `AssetContext` | Image load registry; overlays a LOADING screen (app stays mounted) until assets settle | No |
 
 `GameContext` follows the Redux pattern: a single normalized state tree, a single reducer, dispatch-only mutations. The reducer is in `reducer.js`; persistence is in `storage.js`.
@@ -123,9 +124,11 @@ lowercases slot names so they compose cleanly into tag paths.
 A source is a tag-like path: `dynamic:<key>` reads a computed stat from
 `computeDynamicAttributes`; a bare field name (`rate`) reads an agent scalar;
 any other path reads the numeric `=value` of the matching effective attribute
-tag. Resolution, config parsing, and write-back mapping live in
-`src/logic/tagUI.js`; `useTagUIConfig(cardName)` fetches + caches the config
-once per page load. Because the file lives in `public/`, it ships with the
+tag. Resolution, config normalization, and write-back mapping live in
+`src/logic/tagUI.js`; `useTagUIConfig(cardName)` reads the live document from
+`ConfigContext` (fetched base file merged with any Configuration Modal
+overlay — see "Runtime Configuration System" below), so in-app edits re-render
+cards immediately. Because the file lives in `public/`, it ships with the
 deployed bundle and can be edited without a rebuild (unlike
 `config/truncation.yml`, which is inlined at build time).
 
@@ -138,6 +141,68 @@ Two contract points from the spec:
   omitted from the ATTRIBUTES chip list — only tags *not* mentioned in the
   config render as chips (`getConsumedTagPaths` / `isTagConsumed`). Modifier
   tags (`req,` / `bonus,`) are never consumed.
+
+### Runtime Configuration System (Config Modal)
+
+The Configuration Modal (TopBar → CONFIG) is the single in-app surface for
+editing every registered config file — the config counterpart of the Tag
+Registry Modal, with the same philosophy: the schema shapes affordances
+(autocomplete, warnings) but **never blocks** an edit. Long-term this is the
+"build within the app" surface for data-driven UI and, eventually, game
+mechanics.
+
+Three cooperating pieces:
+
+- **Manifest** — `src/logic/configRegistry.js` exports `CONFIG_FILES`, the
+  single registration point. Adding a config file = one entry + one schema.
+  Two entry kinds:
+  - `kind: 'file'` — a runtime YAML asset under `public/config/` (e.g.
+    `tagUI`), fetched by `ConfigContext` and shadowed by a localStorage
+    overlay.
+  - `kind: 'state'` — a virtual section bound to live game state via
+    `binding: { select, commit, effects, defaults }` (e.g. `session`, the old
+    SETTINGS numbers). No fetch, no overlay — the reducer is its storage.
+    `effects` maps keys to effect *names* (`rateMultiplier: 'restartPlay'`)
+    which the modal resolves to live callbacks from props, keeping the
+    manifest pure.
+- **Provider** — `src/state/ConfigContext.jsx` fetches each file entry's base
+  document once (single-flight per URL, lenient degradation to `{}`) and holds
+  the user-edit **overlay**: a whole-document replacement persisted under
+  `STORAGE_KEYS.CONFIG_OVERLAYS`. `getDoc(id)` returns `overlay ?? base ?? {}`;
+  because documents live in React state, modal edits live-apply to every
+  consumer (e.g. `useTagUIConfig` → `AgentCard`). RESET drops the overlay.
+- **Editor logic** — `src/logic/configEditor.js` is the pure tier: schema
+  walking (`schemaNodeAt`), tree flattening for the editor view
+  (`flattenConfigDoc`, insertion-order-preserving — deliberately separate from
+  `flattenRegistry`'s sorted walk), immutable doc mutations (`setValueAt`,
+  `deleteAt`), soft validation (`checkConfigDoc` → warnings map), the
+  pluggable `VALUE_KINDS` registry (string/number/slug/enum/`tagSource`), and
+  YAML file I/O (`configSave`/`configLoad` via the shared `downloadFile`).
+
+Schema descriptors are tiny recursive objects colocated with their file's
+logic (`TAG_UI_SCHEMA` in `tagUI.js`, `SESSION_SCHEMA` in `configRegistry.js`):
+
+```js
+// node := { kind: 'map', keys?, anyKey?, closed? }
+//       | { kind: 'list', item } | { kind: 'tuple', size, item }
+//       | { kind: 'scalar', value: 'string'|'number'|'slug'|'tagSource'|'enum',
+//           options?, min?, step?, nullable?, label? }
+```
+
+The modal (`src/components/Modals/ConfigModal.jsx`) renders all manifest
+sections as one continuous folding tree in the Tag Registry Modal's idiom
+(line-number gutter, indent guides, fold boxes, ghost autocomplete in the
+builder input). Scalars edit inline through `EditableSpan` and commit
+immediately; out-of-schema keys and failing values draw warn styling with a
+tooltip. SAVE / LOAD / RESET act on the **active section** (the one containing
+the last-clicked key). Because a static-hosted SPA cannot write `public/`
+files, SAVE exports the merged document as YAML for the user to drop back into
+`public/config/`; LOAD imports one (rejecting only unparseable YAML or a
+non-mapping root — schema mismatches import fine and warn in the tree).
+
+> ⚠️ **Needs clarification:** state-bound sections (session) hide SAVE/LOAD —
+> their values already round-trip through the session JSON export. A future
+> option could export them as YAML too for symmetry.
 
 ### Agent Card Rendering Order
 
