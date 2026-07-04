@@ -7,6 +7,7 @@
 import yaml from 'js-yaml';
 import { TAG_REGISTRY, parseTag } from './tags.js';
 import { matchTagPath } from './tagMatching.js';
+import { downloadFile } from './download.js';
 
 // A valid tag segment / registry key: lowercase letters, digits, '-' or '_'.
 const SEGMENT_RE = /^[a-z0-9_-]+$/;
@@ -374,28 +375,7 @@ const SAVE_TYPES = [{ description: 'Tag registry config', accept: { 'application
 export async function tagRegistrySave(registry, sessionId) {
   const yml = serializeRegistry(registry);
   const suggestedName = `${sessionId || 'session'}-config.yml`;
-
-  if (typeof window.showSaveFilePicker === 'function') {
-    try {
-      const handle = await window.showSaveFilePicker({ suggestedName, types: SAVE_TYPES });
-      const writable = await handle.createWritable();
-      await writable.write(yml);
-      await writable.close();
-      return;
-    } catch (err) {
-      if (err.name === 'AbortError') return;
-      // Fall through to download fallback on any other failure.
-    }
-  }
-
-  const blob = new Blob([yml], { type: 'application/x-yaml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = suggestedName;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+  await downloadFile(yml, suggestedName, { mime: 'application/x-yaml', pickerTypes: SAVE_TYPES });
 }
 
 /**
