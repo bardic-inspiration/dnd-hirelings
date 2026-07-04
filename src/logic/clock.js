@@ -3,6 +3,7 @@ import { getCurrentTask, getEffectiveAttributes } from './agents.js';
 import { checkTaskComplete, computeBlockedTaskIds, applyTaskComplete } from './tasks.js';
 import { computeConditionContribution } from './conditions.js';
 import { makeWorkEvent, makeCompleteEvent, capEventLog, MAX_LOG_ROWS } from './eventLog.js';
+import { formatCount } from './format.js';
 
 /**
  * Returns the number of in-game minutes that one tick advances the clock.
@@ -227,7 +228,7 @@ export function updateClockDisplayDOM(state, tickInfo) {
       if (conditionFill) conditionFill.style.width = `${pct.toFixed(1)}%`;
       const progressDisplay = document.querySelector(`.condition-item-progress${sel}`);
       if (progressDisplay && document.activeElement !== progressDisplay) {
-        progressDisplay.textContent = String(Math.floor(Math.min(interp, condition.target)));
+        progressDisplay.textContent = formatCount(Math.floor(Math.min(interp, condition.target)));
       }
     }
   }

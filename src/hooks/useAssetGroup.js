@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 
 /**
  * Tracks per-image load state for a local group of asset URLs.
- * Intended for modal-scoped lazy loading — does not register URLs with the global
- * `AssetProvider` gate and will not block app rendering.
+ * Intended for modal-scoped lazy loading — purely local state that never blocks
+ * or gates the surrounding app.
  * Loading starts on mount and runs once.
  *
  * Readiness is tracked per URL rather than as an all-or-nothing counter, so the

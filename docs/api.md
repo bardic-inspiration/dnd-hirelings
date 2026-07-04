@@ -76,15 +76,6 @@ System"): the fetched base YAML of every `kind: 'file'` entry in
 | `resetDoc` | `(id: string) => void` | Drop the overlay, reverting to the deployed file |
 | `isOverridden` | `(id: string) => boolean` | Whether an overlay currently shadows the base |
 
-### `useAssets()` → `{ registerAssets, isReady }`
-
-Global asset load gate. Used by `useRegisterAssets`.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `registerAssets` | `(urls: string[]) => void` | Register URLs; blocks render until they settle |
-| `isReady` | `boolean` | False while any registered URL is still pending |
-
 ---
 
 ## Reducer Actions
@@ -131,17 +122,17 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `INVENTORY_ADD` | `{ preset?: ItemPreset }` | Add item from blank or preset |
-| `INVENTORY_UPDATE_ITEM` | `{ id, changes: Partial<InventoryItem> }` | Patch item; renaming triggers quantity merge if name collides |
+| `INVENTORY_ADD` | `{ preset?: ItemPreset }` | Add item from blank or preset; stacks onto an existing row with the same name **and** the same tag set (issue #91). Differing tags → a separate row; unnamed `NEW ITEM` placeholders never stack |
+| `INVENTORY_UPDATE_ITEM` | `{ id, changes: Partial<InventoryItem> }` | Patch item; an identity change (name **or** attributes) re-normalizes the inventory via `mergeInventoryByIdentity`, so an item edited to match another row stacks onto it (issue #91). Other field edits skip the merge |
 | `INVENTORY_REMOVE_ITEM` | `{ id }` | Delete item from inventory |
-| `INVENTORY_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index from item |
+| `INVENTORY_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index from item; re-normalizes the inventory, so an item left matching another row stacks onto it (issue #91) |
 | `ITEM_PLACE` | `{ target: { type: 'agent'\|'bank', id? }, itemId: string, quantity?: number }` | Draw `quantity` (default 1, clamped to stock) of a selected item from inventory and route it: `agent` gives into the agent's bag (`mergeItemQty`); `bank` sells it (value × qty → gold). The single click-highlight-assign path shared by give (AgentCard) and sell (BankPanel). Depleted items stay in the list (grayed) |
 
 ### Tags
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `TAG_APPLY` | `{ target: { type: 'agent'\|'task'\|'item', id }, tag: string }` | Apply a tag to any board entity; the single assignment path for the registry's APPLY button and selection mode. Tasks route by modifier (`routeTaskTag`: `req`/`block` → `requirements`, else `attributes`). Every entity dedupe-merges into its target field (`mergeAttribute`): one instance per tag string, incoming value wins (issue #82). Registers the tag's path |
+| `TAG_APPLY` | `{ target: { type: 'agent'\|'task'\|'item', id }, tag: string }` | Apply a tag to any board entity; the single assignment path for the registry's APPLY button and selection mode. Tasks route by modifier (`routeTaskTag`: `req`/`block` → `requirements`, else `attributes`). Every entity dedupe-merges into its target field (`mergeAttribute`): one instance per tag string, incoming value wins (issue #82). Applying to an item re-normalizes the inventory, so an item whose new tag makes it match another row stacks onto it (issue #91). Registers the tag's path |
 
 ### Tag Registry
 
@@ -429,6 +420,7 @@ loadPresetsFromFile(file: File): Promise<object[]>
 ```js
 formatNumberShorthand(value: number, config?: NumberShorthandConfig): string
 formatGold(value: number, config?: NumberShorthandConfig): string
+formatCount(value: number | string, config?: NumberShorthandConfig): string
 ```
 
 Table-driven number shorthand (`1.42K`, `56.5K`, `1.25M`, `6.00B`; three
@@ -441,9 +433,14 @@ string (`"NaN"`) is the safeguard of last resort: it renders for anything no
 notation can represent — NaN, ±Infinity, non-numbers, failed parses — and
 for past-the-table values when `exponent` is disabled or absent. `formatGold`
 keeps the bank's one-decimal display below the first tier and switches to
-shorthand above it. The default table is `TRUNCATION_CONFIG.numberShorthand`
-(from `config/truncation.yml`); pass a `config` to extend it (e.g. a `T`
-tier or a different exponent symbol) without code changes.
+shorthand above it. `formatCount` is the general display helper for any count or
+stat number that could overflow its UI slot (item quantities/values, agent
+stats, condition progress/target, reward amounts — issue #93): numeric input
+runs through `formatNumberShorthand`, while an empty or non-numeric string passes
+through unchanged so an editable span keeps its raw/placeholder text. The default
+table is `TRUNCATION_CONFIG.numberShorthand` (from `config/truncation.yml`); pass
+a `config` to extend it (e.g. a `T` tier or a different exponent symbol) without
+code changes.
 
 ### `src/logic/truncation.js`
 
@@ -550,11 +547,7 @@ The picker modals render every cell immediately and consult `readySet.has(url)` 
 
 ### `usePalette()`
 
-Side-effect hook. Reads the stored palette name, applies it to `:root` CSS custom properties, and registers the background image URL with the global asset gate. No return value.
-
-### `useRegisterAssets(urls: string[])`
-
-Registers the URL list with `AssetProvider` once on mount. No return value.
+Side-effect hook. Applies the stored palette name to `:root` CSS custom properties on mount. The theme background is a decorative CSS background (`--bg-image`) preloaded in `index.html`, not a gated asset — it never blocks the app (issue #90). No return value.
 
 ### `useCharBudget(component: string)` → `{ ref, maxChars }`
 
@@ -667,9 +660,10 @@ when truncated.
 ### `<EditableSpan value onCommit ... />`
 
 Click-to-edit inline span used across cards and rows (see the component's JSDoc
-for the full prop set). While unfocused it shows the value end-truncated to
-`maxChars` (`truncateEnd`); focus reveals the full value for editing and blur
-re-truncates. `singleLine` forbids line breaks — Enter always commits
+for the full prop set). While unfocused it shows the value passed through
+`format` (identity by default; pass `formatCount` for compact numbers — issue
+#93) and end-truncated to `maxChars` (`truncateEnd`); focus reveals the full raw
+value for editing and blur re-formats/re-truncates. `singleLine` forbids line breaks — Enter always commits
 (Shift+Enter included) and pasted/committed whitespace collapses to spaces — so
 the name span stays one line and never distorts the card during entry.
 `innerRef` forwards a ref onto the span (the agent name passes a `useCharBudget`
@@ -692,7 +686,9 @@ An invalid source renders the element with no value in its `--invalid` state
 ```
 
 `StatBar`, `StatField` dispatch `AGENT_UPDATE` with the resolution's `set`
-changes on commit; non-numeric input is ignored.
+changes on commit; non-numeric input is ignored. Every displayed stat number
+goes through `formatCount`, so large values render compactly (`1.42K`) instead
+of spilling their slot (issue #93); editing an editable one reveals the raw value.
 
 ---
 

@@ -53,6 +53,23 @@ export function formatNumberShorthand(value, config = TRUNCATION_CONFIG.numberSh
 }
 
 /**
+ * Compact display for an arbitrary count/stat number that may spill its UI slot
+ * (issue #93). Numeric input renders through `formatNumberShorthand` (so large
+ * values collapse to `1.42K` / `7.80e12` and small ones are untouched); an empty
+ * or non-numeric string passes through unchanged so editable spans keep showing
+ * their raw text (e.g. a placeholder or a half-typed value). No side effects.
+ *
+ * @param {number|string} value - Number, or a string that may parse to one
+ * @param {object} [config=TRUNCATION_CONFIG.numberShorthand] - Shorthand table
+ * @returns {string}
+ */
+export function formatCount(value, config = TRUNCATION_CONFIG.numberShorthand) {
+  if (value === '' || value === null || value === undefined) return String(value ?? '');
+  const number = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(number) ? formatNumberShorthand(number, config) : String(value);
+}
+
+/**
  * Formats a gold amount: one decimal place below the first shorthand tier
  * (matching the bank's historical `toFixed(1)` display), shorthand at or
  * above it. Non-finite input renders `config.overflow`. No side effects.

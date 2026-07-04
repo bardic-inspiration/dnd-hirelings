@@ -1,6 +1,7 @@
 import { useGame } from '../../../state/GameContext.jsx';
 import { useUI } from '../../../state/UIContext.jsx';
 import { defaultConditionName } from '../../../logic/conditions.js';
+import { formatCount } from '../../../logic/format.js';
 import EditableSpan from '../../EditableSpan.jsx';
 import Tooltip from '../../Tooltip.jsx';
 
@@ -54,12 +55,14 @@ function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
             data-task-id={taskId}
             data-condition-id={condition.id}
             value={String(Math.floor(Math.min(condition.progress, condition.target)))}
+            format={formatCount}
             onCommit={commitProgress}
           />
           {' / '}
           <EditableSpan
             className="condition-item-target"
             value={String(condition.target)}
+            format={formatCount}
             onCommit={commitTarget}
           />
         </span>

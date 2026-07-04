@@ -1,5 +1,6 @@
 import { useUI } from '../../../state/UIContext.jsx';
 import { mergeAttribute } from '../../../logic/tags.js';
+import { formatCount } from '../../../logic/format.js';
 import { useCharBudget } from '../../../hooks/useCharBudget.js';
 import EditableSpan from '../../EditableSpan.jsx';
 import TagLabel from '../../TagLabel.jsx';
@@ -32,6 +33,7 @@ export default function ItemPreview({ draft, onChange }) {
           className="item-qty mono"
           value={draft.quantity}
           min={0}
+          format={formatCount}
           onChange={n => onChange({ quantity: n })}
           onCommit={v => { const n = parseFloat(v); onChange({ quantity: isNaN(n) ? 0 : Math.max(0, n) }); }}
         />
@@ -39,6 +41,7 @@ export default function ItemPreview({ draft, onChange }) {
           <DragNumber
             value={draft.value}
             min={0}
+            format={formatCount}
             onChange={n => onChange({ value: n })}
             onCommit={v => { const n = parseFloat(v); onChange({ value: isNaN(n) ? 0 : n }); }}
           /> GP

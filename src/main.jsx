@@ -1,6 +1,5 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AssetProvider } from './state/AssetContext.jsx';
 import { GameProvider } from './state/GameContext.jsx';
 import { ConfigProvider } from './state/ConfigContext.jsx';
 import { UIProvider } from './state/UIContext.jsx';
@@ -9,14 +8,12 @@ import './styles/index.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AssetProvider>
-      <GameProvider>
-        <ConfigProvider>
-          <UIProvider>
-            <App />
-          </UIProvider>
-        </ConfigProvider>
-      </GameProvider>
-    </AssetProvider>
+    <GameProvider>
+      <ConfigProvider>
+        <UIProvider>
+          <App />
+        </UIProvider>
+      </ConfigProvider>
+    </GameProvider>
   </StrictMode>,
 );

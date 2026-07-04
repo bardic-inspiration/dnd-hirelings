@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatNumberShorthand, formatGold } from './format.js';
+import { formatNumberShorthand, formatGold, formatCount } from './format.js';
 
 describe('formatNumberShorthand', () => {
   it('matches every example from issue #69', () => {
@@ -143,5 +143,26 @@ describe('formatGold', () => {
   it('renders overflow for non-finite and non-number input', () => {
     expect(formatGold(NaN)).toBe('NaN');
     expect(formatGold(undefined)).toBe('NaN');
+  });
+});
+
+describe('formatCount', () => {
+  it('leaves small numbers untouched and shortens large ones', () => {
+    expect(formatCount(0)).toBe('0');
+    expect(formatCount(42)).toBe('42');
+    expect(formatCount(1.5)).toBe('1.5');
+    expect(formatCount(1420)).toBe('1.42K');
+    expect(formatCount(2500000)).toBe('2.50M');
+  });
+
+  it('accepts numeric strings (editable-span display path)', () => {
+    expect(formatCount('999')).toBe('999');
+    expect(formatCount('1420')).toBe('1.42K');
+    expect(formatCount('12.34')).toBe('12.34');
+  });
+
+  it('passes empty and non-numeric strings through unchanged', () => {
+    expect(formatCount('')).toBe('');
+    expect(formatCount('abc')).toBe('abc');
   });
 });

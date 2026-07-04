@@ -102,19 +102,16 @@ or re-formatted:
 
 ## Loading Pipeline
 
-Two tiers gate when image media becomes visible. See `docs/api.md` for the hook
-signatures and `docs/gotchas.md` ("Asset Loading Gate Blocks First Paint") for
-the first-paint caveat.
+Images load progressively; nothing blocks the app. See `docs/api.md` for hook
+signatures and `docs/gotchas.md` ("Asset Loading Never Blocks or Interrupts the
+App") for why there is no global gate (issue #90).
 
-### Global gate — `AssetProvider` / `useRegisterAssets`
+### Theme background — CSS + preload (no gate)
 
-Overlays a LOADING screen over the app until every registered URL settles (loads
-or errors); the app tree stays mounted underneath (issue #81 — see
-`docs/gotchas.md`). Used only for the **active theme background**, registered by
-`usePalette` on mount.
+The active theme background is a decorative CSS background, not a gated asset:
 
-- `index.html` injects `<link rel="preload" as="image">` for the active background and sets `--bg-image` before React mounts.
-- `AssetContext.registerAssets` checks `img.complete` synchronously after setting `src`, so a preloaded/cached background resolves the gate immediately — no LOADING flash on repeat visits. `settle` guards against double-resolution.
+- `index.html` injects `<link rel="preload" as="image">` for the active background and sets `--bg-image` (over the solid `--bg` fill) before React mounts, so it downloads immediately and paints in when ready.
+- `usePalette` re-applies the stored palette on mount and on theme toggle; the background is never registered with any blocking loader, so switching themes or a slow/missing image never covers or interrupts the UI.
 
 ### Modal-scoped — `useAssetGroup`
 
