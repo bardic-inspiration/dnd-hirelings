@@ -14,20 +14,20 @@ const PALETTE_KEY_LEGACY = 'dnd-hirelings-palette';
  * @param {string} name - Palette name ('light' | 'dark')
  */
 export function applyPalette(name) {
-  const p = PALETTES[name] || PALETTES.dark;
+  const palette = PALETTES[name] || PALETTES.dark;
   const root = document.documentElement;
 
-  root.style.setProperty('--bg',           p.bg);
-  root.style.setProperty('--fg',           p.fg);
-  root.style.setProperty('--border',       p.border);
-  root.style.setProperty('--dim',          p.dim);
-  root.style.setProperty('--dimmer',       p.dimmer);
-  root.style.setProperty('--highlight',    p.highlight);
-  root.style.setProperty('--highlight-bg', p.highlightBg);
-  root.style.setProperty('--warn',         p.warn || '#e84040');
-  root.style.setProperty('--accent',       p.accent || '#d2a24e');
+  root.style.setProperty('--bg',           palette.bg);
+  root.style.setProperty('--fg',           palette.fg);
+  root.style.setProperty('--border',       palette.border);
+  root.style.setProperty('--dim',          palette.dim);
+  root.style.setProperty('--dimmer',       palette.dimmer);
+  root.style.setProperty('--highlight',    palette.highlight);
+  root.style.setProperty('--highlight-bg', palette.highlightBg);
+  root.style.setProperty('--warn',         palette.warn || '#e84040');
+  root.style.setProperty('--accent',       palette.accent || '#d2a24e');
 
-  root.style.setProperty('--bg-image', p.backgroundImage ? `url('${p.backgroundImage}')` : 'none');
+  root.style.setProperty('--bg-image', palette.backgroundImage ? `url('${palette.backgroundImage}')` : 'none');
   localStorage.setItem(STORAGE_KEYS.PALETTE, name);
 }
 
@@ -51,8 +51,8 @@ export function getStoredPalette() {
  */
 export function usePalette() {
   const storedName = getStoredPalette();
-  const p = PALETTES[storedName] || PALETTES.dark;
-  useRegisterAssets(p.backgroundImage ? [p.backgroundImage] : []);
+  const palette = PALETTES[storedName] || PALETTES.dark;
+  useRegisterAssets(palette.backgroundImage ? [palette.backgroundImage] : []);
 
   useEffect(() => {
     applyPalette(storedName);

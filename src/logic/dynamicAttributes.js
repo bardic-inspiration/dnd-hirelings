@@ -13,10 +13,10 @@ function getAbility(attributes, name) {
 }
 
 // Returns the sub-segment value of a single-child tag (e.g. 'class:fighter' → 'fighter').
-function getTagSub(attributes, seg0) {
+function getTagSub(attributes, firstSegment) {
   for (const tag of attributes) {
     const parsed = parseTag(tag);
-    if (parsed.segments[0] === seg0 && parsed.segments[1]) return parsed.segments[1].toLowerCase();
+    if (parsed.segments[0] === firstSegment && parsed.segments[1]) return parsed.segments[1].toLowerCase();
   }
   return null;
 }
@@ -63,9 +63,9 @@ export function computeDynamicAttributes(agent, inventory = []) {
   const dex = getAbility(attrs, 'dex');
   const con = getAbility(attrs, 'con');
 
-  // Level derived from XP: level_xp = 0.5*(1+sqrt(1+xp/125)), floored, min 1
-  const level_xp  = 0.5 * (1 + Math.sqrt(1 + xp / 125));
-  const level     = Math.max(1, Math.floor(level_xp));
+  // Level derived from XP: levelFromXp = 0.5*(1+sqrt(1+xp/125)), floored, min 1
+  const levelFromXp = 0.5 * (1 + Math.sqrt(1 + xp / 125));
+  const level       = Math.max(1, Math.floor(levelFromXp));
 
   // XP progress toward next level (0–1)
   const xpThisLevel = xpForLevel(level);

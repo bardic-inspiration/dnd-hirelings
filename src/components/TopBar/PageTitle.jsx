@@ -106,7 +106,7 @@ export default function PageTitle() {
         contentEditable
         suppressContentEditableWarning
         spellCheck={false}
-        className={editing ? 'editing' : ''}
+        className={editing ? 'page-title-text--editing' : ''}
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
-import { isAttributeActive, isActivityActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, firstFreeSlot, getEffectiveAttributes } from '../../logic/agents.js';
+import { isAttributeActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, firstFreeSlot, getEffectiveAttributes } from '../../logic/agents.js';
 import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
 import { parseTag, buildTag } from '../../logic/tags.js';
 import { getConsumedTagPaths, isTagConsumed } from '../../logic/tagUI.js';

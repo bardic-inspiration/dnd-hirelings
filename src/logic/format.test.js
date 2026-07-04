@@ -106,7 +106,7 @@ describe('formatNumberShorthand', () => {
     expect(formatNumberShorthand(56500000000000, config)).toBe('56.5T');
     expect(formatNumberShorthand(7800000000000000, config)).toBe('7.80Q');
     expect(formatNumberShorthand(994000000000000000, config)).toBe('994Q');
-    expect(formatNumberShorthand(999999999999999999, config)).toBe('1.00e18'); // carry past Q → exponent
+    expect(formatNumberShorthand(1e18, config)).toBe('1.00e18'); // mantissa carries past Q → exponent
     expect(formatNumberShorthand(1e21, config)).toBe('1.00e21');
   });
 

@@ -31,14 +31,21 @@ export function usePlayClock() {
   useEffect(() => { stateRef.current = state; }, [state]);
   useEffect(() => { playingRef.current = playing; }, [playing]);
 
-  const tick = useCallback(() => {
+  // One simulation tick: advance state, publish the per-tick progress rates for
+  // the RAF loop, commit, and flash agents that couldn't contribute.
+  // `resetWallTime` restarts the interpolation clock — true for interval ticks,
+  // false for a manual step (the RAF loop only interpolates while playing).
+  const runTick = useCallback((resetWallTime) => {
     const result = advanceTime(stateRef.current);
     stateRef.current = result.newState;
-    tickInfoRef.current.lastTickWallTime    = Date.now();
+    if (resetWallTime) tickInfoRef.current.lastTickWallTime = Date.now();
     tickInfoRef.current.taskProgressPerTick = result.taskProgressPerTick;
     dispatch({ type: 'APPLY_TICK', newState: result.newState });
     result.flashAgentIds.forEach(flashAgentCard);
   }, [dispatch]);
+
+  const tick    = useCallback(() => runTick(true), [runTick]);
+  const advance = useCallback(() => runTick(false), [runTick]);
 
   const rafLoop = useCallback(() => {
     if (!playingRef.current) return;
@@ -46,29 +53,27 @@ export function usePlayClock() {
     rafRef.current = requestAnimationFrame(rafLoop);
   }, []);
 
+  // (Re)starts the tick interval, seeding the interpolation clock from the
+  // current session rate. Shared by `start` and the post-edit focus resume.
+  const startInterval = useCallback(() => {
+    const intervalMs = getPlayIntervalMs(stateRef.current.session);
+    tickInfoRef.current.tickIntervalMs   = intervalMs;
+    tickInfoRef.current.lastTickWallTime = Date.now();
+    intervalRef.current = setInterval(tick, intervalMs);
+  }, [tick]);
+
   const start = useCallback(() => {
     if (intervalRef.current) return;
-    const ms = getPlayIntervalMs(stateRef.current.session);
-    tickInfoRef.current.tickIntervalMs   = ms;
-    tickInfoRef.current.lastTickWallTime = Date.now();
-    intervalRef.current = setInterval(tick, ms);
-    rafRef.current      = requestAnimationFrame(rafLoop);
+    startInterval();
+    rafRef.current = requestAnimationFrame(rafLoop);
     setPlaying(true);
-  }, [tick, rafLoop, setPlaying]);
+  }, [startInterval, rafLoop, setPlaying]);
 
   const stop = useCallback(() => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     if (rafRef.current)       { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     setPlaying(false);
   }, [setPlaying]);
-
-  const advance = useCallback(() => {
-    const result = advanceTime(stateRef.current);
-    stateRef.current = result.newState;
-    tickInfoRef.current.taskProgressPerTick = result.taskProgressPerTick;
-    dispatch({ type: 'APPLY_TICK', newState: result.newState });
-    result.flashAgentIds.forEach(flashAgentCard);
-  }, [dispatch]);
 
   // Pause interval while any contenteditable has focus; resume after blur.
   useEffect(() => {
@@ -81,12 +86,7 @@ export function usePlayClock() {
     const onFocusOut = (e) => {
       if (!e.target.matches('[contenteditable], .req-field')) return;
       resumeTimer = setTimeout(() => {
-        if (playingRef.current && !intervalRef.current) {
-          const ms = getPlayIntervalMs(stateRef.current.session);
-          tickInfoRef.current.tickIntervalMs   = ms;
-          tickInfoRef.current.lastTickWallTime = Date.now();
-          intervalRef.current = setInterval(tick, ms);
-        }
+        if (playingRef.current && !intervalRef.current) startInterval();
       }, 100);
     };
     document.addEventListener('focusin',  onFocusIn);
@@ -96,7 +96,7 @@ export function usePlayClock() {
       document.removeEventListener('focusout', onFocusOut);
       clearTimeout(resumeTimer);
     };
-  }, [tick]);
+  }, [startInterval]);
 
   // Cleanup on unmount
   useEffect(() => () => {

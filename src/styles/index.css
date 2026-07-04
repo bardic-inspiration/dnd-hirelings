@@ -106,7 +106,7 @@ body {
   transition: color 0.15s;
 }
 
-#page-title-text.editing {
+#page-title-text.page-title-text--editing {
   color: var(--highlight);
   background: transparent;
 }
