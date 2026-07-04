@@ -34,10 +34,11 @@ Tags follow the form `modifier,path:path=value` where modifier and value are opt
 | Plain | `skill:arcana=4` | Agent has Arcana 4 |
 | With modifier | `req,skill:arcana=4` | Task requires Arcana ≥ 4 |
 | Block modifier | `block,trait:undead` | Task blocks agents with the undead trait |
-| Work tag | `work:skill:arcana=8` | Task costs 8 skill (Arcana) work |
 | Bonus modifier | `bonus,ability:str=1` | Item grants +1 STR when bound |
 
-Registered namespaces: `ability` (STR/DEX/CON/INT/WIS/CHA), `skill` (all 18), `task`, `tool`, `trait`, `class`, `race`, `level`, `item`, `work`, `bind`. Tags outside the registry are valid and displayed as raw text.
+A modifier is the token before the comma, so it is always written `work,path` — never `work:path` (a colon would make `work` a path segment). Task work is now expressed through **Conditions** (structured progress targets on a task), not a `work` tag.
+
+Registered namespaces: `ability` (STR/DEX/CON/INT/WIS/CHA), `skill` (all 18), `task`, `tool`, `trait`, `class`, `race`, `level`, `item`, `bind`. Tags outside the registry are valid and displayed as raw text.
 
 ## Tag Registry
 
