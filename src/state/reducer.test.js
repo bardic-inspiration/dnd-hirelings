@@ -40,3 +40,43 @@ describe('TAG_APPLY dedup (issue #82)', () => {
     expect(state.agents[0].attributes).toEqual(['skill:swords=50']);
   });
 });
+
+describe('INVENTORY_ADD stacking (issue #91)', () => {
+  const add = (state, preset) => reducer(state, { type: 'INVENTORY_ADD', preset });
+  const inv = (items) => ({ inventory: items });
+
+  it('stacks a duplicate (same name + same tags) onto the existing row', () => {
+    const state = add(inv([{ id: 'i1', name: 'Rope', quantity: 2, attributes: ['item:gear'] }]),
+      { name: 'Rope', quantity: 3, attributes: ['item:gear'] });
+    expect(state.inventory).toHaveLength(1);
+    expect(state.inventory[0].id).toBe('i1');
+    expect(state.inventory[0].quantity).toBe(5);
+  });
+
+  it('keeps a same-name item with different tags as a separate row', () => {
+    const state = add(inv([{ id: 'i1', name: 'Potion', quantity: 1, attributes: ['item:potion=1'] }]),
+      { name: 'Potion', quantity: 1, attributes: ['item:potion=5'] });
+    expect(state.inventory).toHaveLength(2);
+  });
+
+  it('stacks regardless of tag order', () => {
+    const state = add(inv([{ id: 'i1', name: 'Kit', quantity: 1, attributes: ['a:1', 'b:2'] }]),
+      { name: 'Kit', quantity: 1, attributes: ['b:2', 'a:1'] });
+    expect(state.inventory).toHaveLength(1);
+    expect(state.inventory[0].quantity).toBe(2);
+  });
+
+  it('matches names case-insensitively', () => {
+    const state = add(inv([{ id: 'i1', name: 'Torch', quantity: 1, attributes: [] }]),
+      { name: 'torch', quantity: 4, attributes: [] });
+    expect(state.inventory).toHaveLength(1);
+    expect(state.inventory[0].quantity).toBe(5);
+  });
+
+  it('never stacks unnamed placeholders (blank adds stay distinct)', () => {
+    let state = inv([]);
+    state = add(state); // blank → NEW ITEM
+    state = add(state); // blank → NEW ITEM
+    expect(state.inventory).toHaveLength(2);
+  });
+});

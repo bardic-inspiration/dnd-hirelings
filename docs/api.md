@@ -122,7 +122,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `INVENTORY_ADD` | `{ preset?: ItemPreset }` | Add item from blank or preset |
+| `INVENTORY_ADD` | `{ preset?: ItemPreset }` | Add item from blank or preset; stacks onto an existing row with the same name **and** the same tag set (issue #91). Differing tags → a separate row; unnamed `NEW ITEM` placeholders never stack |
 | `INVENTORY_UPDATE_ITEM` | `{ id, changes: Partial<InventoryItem> }` | Patch item; renaming triggers quantity merge if name collides |
 | `INVENTORY_REMOVE_ITEM` | `{ id }` | Delete item from inventory |
 | `INVENTORY_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index from item |

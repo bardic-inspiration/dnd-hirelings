@@ -69,6 +69,20 @@ const pickItemFields = (preset) => defined({
   description: preset.description, attributes: preset.attributes,
 });
 
+// Two attribute lists are equal when they hold the same tag strings regardless of
+// order. Lists are already deduped by `mergeAttribute`, so a length + membership
+// check is exact. Used to decide whether an added item stacks (issue #91).
+const sameAttributes = (a = [], b = []) => {
+  if (a.length !== b.length) return false;
+  const setB = new Set(b);
+  return a.every(tag => setB.has(tag));
+};
+
+// Item identity for stacking: same case-insensitive name AND the same attribute
+// set. Same name with differing tags is a distinct item, so it never stacks.
+const sameItemIdentity = (a, b) =>
+  a.name.trim().toLowerCase() === b.name.trim().toLowerCase() && sameAttributes(a.attributes, b.attributes);
+
 function mergeInventoryByName(inventory) {
   const out = [];
   const indexByName = new Map();
@@ -345,12 +359,19 @@ export function reducer(state, action) {
       };
 
     /* ---------- Inventory ---------- */
-    case 'INVENTORY_ADD':
-      return { ...state, inventory: [...state.inventory, {
-        ...DEFAULT_ITEM,
-        ...(action.preset ? pickItemFields(action.preset) : null),
-        id: uid(),
-      }] };
+    case 'INVENTORY_ADD': {
+      const incoming = { ...DEFAULT_ITEM, ...(action.preset ? pickItemFields(action.preset) : null), id: uid() };
+      // Stack an identical item (same name + same tags) onto its existing row
+      // instead of duplicating (issue #91). Unnamed placeholders never stack, so
+      // freshly added blanks stay distinct until the player names them.
+      const isPlaceholder = incoming.name.trim().toLowerCase() === DEFAULT_ITEM_NAME.toLowerCase();
+      const existing = isPlaceholder ? undefined : state.inventory.find(item => sameItemIdentity(item, incoming));
+      if (existing) {
+        return { ...state, inventory: state.inventory.map(item =>
+          item === existing ? { ...item, quantity: item.quantity + incoming.quantity } : item) };
+      }
+      return { ...state, inventory: [...state.inventory, incoming] };
+    }
 
     case 'INVENTORY_UPDATE_ITEM': {
       const next = state.inventory.map(item => item.id !== action.id ? item : { ...item, ...action.changes });
