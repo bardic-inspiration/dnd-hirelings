@@ -29,8 +29,8 @@ function LibraryModalBody({ config }) {
   const fileInputRef                = useRef(null);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q ? presets.filter(p => p.name.toLowerCase().includes(q)) : presets;
+    const needle = query.trim().toLowerCase();
+    return needle ? presets.filter(preset => preset.name.toLowerCase().includes(needle)) : presets;
   }, [presets, query]);
 
   // The draft holds its own id/source, so selection is driven explicitly rather

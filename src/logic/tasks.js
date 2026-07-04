@@ -64,16 +64,16 @@ export function applyResults(task, inventory, agents) {
   const spawned = [];
   for (const spawn of task.results?.agents || []) {
     const quantity = Math.max(0, Math.floor(Number(spawn.quantity) || 0));
-    const tmpl = spawn.template || {};
+    const template = spawn.template || {};
     for (let index = 0; index < quantity; index++) {
       spawned.push({
         id: uid(),
-        name:        tmpl.name        || 'NEW HIRELING',
-        icon:        tmpl.icon        || '',
-        rate:        tmpl.rate        ?? 1,
-        rateUnit:    tmpl.rateUnit    || 'GP/DAY',
-        description: tmpl.description || '',
-        attributes:  Array.isArray(tmpl.attributes) ? [...tmpl.attributes] : [],
+        name:        template.name        || 'NEW HIRELING',
+        icon:        template.icon        || '',
+        rate:        template.rate        ?? 1,
+        rateUnit:    template.rateUnit    || 'GP/DAY',
+        description: template.description || '',
+        attributes:  Array.isArray(template.attributes) ? [...template.attributes] : [],
         activities:  [],
         createdAt:   now(),
         lastAssigned: null,
@@ -129,8 +129,8 @@ export function computeBlockedTaskIds(activeTasks, inventory) {
       if (parsed.modifier !== 'req' || parsed.segments[0] !== 'item') continue;
       const name = parsed.segments[1];
       if (!name) continue;
-      const inv = inventory.find(item => item.name.toLowerCase() === name.toLowerCase());
-      if (!inv || inv.quantity < (parseFloat(parsed.value) || 1)) { blocked.add(task.id); break; }
+      const stock = inventory.find(item => item.name.toLowerCase() === name.toLowerCase());
+      if (!stock || stock.quantity < (parseFloat(parsed.value) || 1)) { blocked.add(task.id); break; }
     }
   }
   return blocked;

@@ -289,20 +289,20 @@ export function normalizeState(raw) {
     state.tagRegistry.bind = { ...state.tagRegistry.equip, ...(state.tagRegistry.bind ?? {}) };
     delete state.tagRegistry.equip;
   }
-  const s = raw.session || {};
+  const rawSession = raw.session || {};
   // `timeStep` is stored as a number (days per tick). Legacy sessions persisted it
   // as a string, so coerce here; clamp out-of-range or non-numeric values to 1.
-  const tsNum = parseFloat(s.timeStep);
+  const timeStepNumber = parseFloat(rawSession.timeStep);
   state.session = {
     ...DEFAULT_STATE.session,
-    ...s,
-    timeStep:       (isNaN(tsNum) || tsNum <= 0 || tsNum >= 30) ? 1 : tsNum,
-    rateMultiplier: s.rateMultiplier ?? 1,
-    workRate:       s.workRate       ?? 1,
-    skillBonus:     s.skillBonus     ?? 1,
-    bank:           s.bank           ?? 100,
-    title:          s.title          ?? 'GUILD MANAGER',
-    logging:        normalizeLoggingConfig(s.logging),
+    ...rawSession,
+    timeStep:       (isNaN(timeStepNumber) || timeStepNumber <= 0 || timeStepNumber >= 30) ? 1 : timeStepNumber,
+    rateMultiplier: rawSession.rateMultiplier ?? 1,
+    workRate:       rawSession.workRate       ?? 1,
+    skillBonus:     rawSession.skillBonus     ?? 1,
+    bank:           rawSession.bank           ?? 100,
+    title:          rawSession.title          ?? 'GUILD MANAGER',
+    logging:        normalizeLoggingConfig(rawSession.logging),
   };
   // Event log defaults to empty for saves that predate the feature; rows are
   // guarded and any missing a taskId are dropped.

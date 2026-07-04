@@ -26,12 +26,12 @@ function nodeAt(counts, segments) {
 // a trailing '' when the draft ends on a ':' delimiter, so the last element is
 // always the in-progress segment (what the user is currently typing).
 function draftParts(draft) {
-  let s = draft;
-  const comma = s.indexOf(',');
-  if (comma >= 0) s = s.slice(comma + 1);      // drop modifier prefix
-  const eq = s.indexOf('=');
-  if (eq >= 0) s = s.slice(0, eq);             // drop value
-  return s.split(':').map(p => p.trim().toLowerCase());
+  let text = draft;
+  const comma = text.indexOf(',');
+  if (comma >= 0) text = text.slice(comma + 1);   // drop modifier prefix
+  const eq = text.indexOf('=');
+  if (eq >= 0) text = text.slice(0, eq);          // drop value
+  return text.split(':').map(part => part.trim().toLowerCase());
 }
 
 // Splits a draft on its LAST '=' into { path, value }. Unlike parseTag this

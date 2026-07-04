@@ -50,7 +50,7 @@ When spawning subagents or workflow agents:
 - Flag ambiguities or incomplete implementations with a `> ⚠️` blockquote in the relevant doc rather than leaving them undocumented.
 - Naming flags use `> ⚠️ **Naming:**`; clarification flags use `> ⚠️ **Needs clarification:**`.
 - Index variables: `index` in named parameters and props; `i` only in short anonymous `.map()` callbacks. Never `idx`.
-- Use full words for all variable names — no single-letter abbreviations except `i` per the rule above.
+- Use full words for variable names. The only permitted single-letter names are a small set of conventional idioms in short callbacks/expressions: loop `i` (per above), the committed value `v` in an `EditableSpan` `onCommit` handler, a locally parsed number `n`, `a`/`b` in a `.sort()` comparator, `e` for an event, and `r` for a `FileReader`. Everything else spells out. Established domain abbreviations (e.g. the D&D ability scores `str`/`dex`/`con`/`int`/`wis`/`cha`) are acceptable.
 
 ## Git:
 - Commit messages: 50–100 characters.
