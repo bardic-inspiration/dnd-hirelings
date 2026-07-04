@@ -41,6 +41,7 @@ npm run build      # Production build to dist/
 npm run preview    # Serve the production build locally
 npm test           # Run the vitest unit suite once
 npm run test:watch # Run vitest in watch mode
+npm run lint       # Lint src/ with ESLint (flat config)
 ```
 
 ## Dependencies
@@ -53,7 +54,18 @@ npm run test:watch # Run vitest in watch mode
 | `vite` | ^8.0.16 | Build tool and dev server |
 | `@vitejs/plugin-react` | ^5.2.0 | JSX transform and React fast-refresh |
 | `vitest` | ^4.1.9 | Unit test runner (dev only; pure logic/constants tiers, node environment) |
+| `eslint` + `@eslint/js` | ^10 | Linter (dev only); flat config in `eslint.config.js` |
+| `eslint-plugin-react-hooks` | ^7 | Rules-of-hooks + exhaustive-deps (the two classic rules only) |
+| `globals` | ^17 | Environment global definitions for the ESLint config |
 
-No CSS preprocessor and no linter configuration are present in the repository. Tests run through Vite's own transform pipeline (`test: { environment: 'node' }` in `vite.config.js`), so build-time imports such as `?raw` resolve in tests without mocking.
+No CSS preprocessor is present (a single bespoke stylesheet). ESLint is
+configured **lint-only** — no stylistic/formatting rules, so it never fights
+the stylesheet's or code's deliberate column alignment; a formatter (Prettier
+/ Biome) is intentionally omitted for the same reason. The config encodes the
+CLAUDE.md naming rule: `camelcase` (error) plus an advisory `id-length` that
+flags single-letter identifiers outside the blessed idioms (`i, v, n, a, b, e,
+r, _`). Tests run through Vite's own transform pipeline (`test: { environment:
+'node' }` in `vite.config.js`), so build-time imports such as `?raw` resolve in
+tests without mocking.
 
 The minimum supported Node.js version is **20.19**, declared via `"engines": { "node": ">=20.19" }` in `package.json` (required by Vite 8).
