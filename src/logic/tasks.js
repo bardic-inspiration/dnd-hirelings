@@ -113,7 +113,9 @@ export function applyTaskComplete(taskId, tasks, agents, inventory) {
 
 /**
  * Returns a Set of task IDs whose `req,item` requirements cannot be satisfied
- * by the current inventory. Tasks are evaluated in creation order.
+ * by the current inventory. Each task is checked independently against the full
+ * inventory — no stock is reserved across tasks — so evaluation order is
+ * irrelevant to the result.
  *
  * @param {Task[]} activeTasks - Incomplete tasks only
  * @param {InventoryItem[]} inventory
@@ -121,7 +123,7 @@ export function applyTaskComplete(taskId, tasks, agents, inventory) {
  */
 export function computeBlockedTaskIds(activeTasks, inventory) {
   const blocked = new Set();
-  for (const task of [...activeTasks].sort((a, b) => a.createdAt - b.createdAt)) {
+  for (const task of activeTasks) {
     for (const req of task.requirements) {
       const parsed = parseTag(req);
       if (parsed.modifier !== 'req' || parsed.segments[0] !== 'item') continue;
