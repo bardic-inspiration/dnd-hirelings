@@ -5,7 +5,7 @@ import { loadConfigOverlays, saveConfigOverlays } from './storage.js';
 
 const ConfigContext = createContext(null);
 
-// Module-level single-flight fetch per URL (mirrors useTagUIConfig's old cache):
+// Module-level single-flight fetch per URL (mirrors useCardUIConfig's old cache):
 // StrictMode double-mounts and remounts share one fetch + parse per file.
 const basePromises = new Map();
 

@@ -4,7 +4,7 @@ import {
   getAt, setValueAt, deleteAt, appendItemAt, emptyValueFor,
   serializeConfigDoc, VALUE_KINDS,
 } from './configEditor.js';
-import { TAG_UI_SCHEMA } from './tagUI.js';
+import { CARD_UI_SCHEMA } from './cardUI.js';
 
 const DOC = {
   cards: {
@@ -25,25 +25,25 @@ const REGISTRY = { skill: { arcana: {}, stealth: {} }, ability: { str: {} } };
 
 describe('schemaNodeAt', () => {
   it('walks map keys, anyKey cards, and list/tuple items', () => {
-    expect(schemaNodeAt(TAG_UI_SCHEMA, ['cards', 'agentCard'])).toBe(TAG_UI_SCHEMA.keys.cards.anyKey);
-    expect(schemaNodeAt(TAG_UI_SCHEMA, ['cards', 'taskCard', 'bars']).kind).toBe('list');
-    expect(schemaNodeAt(TAG_UI_SCHEMA, ['cards', 'agentCard', 'bars', 0]).kind).toBe('tuple');
-    expect(schemaNodeAt(TAG_UI_SCHEMA, ['cards', 'agentCard', 'bars', 0, 1]).value).toBe('tagSource');
+    expect(schemaNodeAt(CARD_UI_SCHEMA, ['cards', 'agentCard'])).toBe(CARD_UI_SCHEMA.keys.cards.anyKey);
+    expect(schemaNodeAt(CARD_UI_SCHEMA, ['cards', 'taskCard', 'bars']).kind).toBe('list');
+    expect(schemaNodeAt(CARD_UI_SCHEMA, ['cards', 'agentCard', 'bars', 0]).kind).toBe('tuple');
+    expect(schemaNodeAt(CARD_UI_SCHEMA, ['cards', 'agentCard', 'bars', 0, 1]).value).toBe('tagSource');
   });
 
   it('returns null once a path leaves the schema', () => {
-    expect(schemaNodeAt(TAG_UI_SCHEMA, ['cards', 'agentCard', 'bogus'])).toBeNull();
-    expect(schemaNodeAt(TAG_UI_SCHEMA, ['cards', 'agentCard', 'bogus', 'deeper'])).toBeNull();
+    expect(schemaNodeAt(CARD_UI_SCHEMA, ['cards', 'agentCard', 'bogus'])).toBeNull();
+    expect(schemaNodeAt(CARD_UI_SCHEMA, ['cards', 'agentCard', 'bogus', 'deeper'])).toBeNull();
   });
 });
 
 describe('flattenConfigDoc', () => {
   it('preserves insertion order and numbers every node, collapsed or not', () => {
-    const rows = flattenConfigDoc(DOC, TAG_UI_SCHEMA, new Set());
+    const rows = flattenConfigDoc(DOC, CARD_UI_SCHEMA, new Set());
     // Only the root row is visible while everything is collapsed…
     expect(rows.map(row => row.key)).toEqual(['cards']);
     // …but the full expansion shows document-position line numbers.
-    const all = flattenConfigDoc(DOC, TAG_UI_SCHEMA, new Set([
+    const all = flattenConfigDoc(DOC, CARD_UI_SCHEMA, new Set([
       'cards', 'cards:agentCard', 'cards:agentCard:bars',
     ]));
     expect(all.map(row => [row.lineNo, row.pathStr])).toEqual([
@@ -60,7 +60,7 @@ describe('flattenConfigDoc', () => {
   });
 
   it('classifies rows: containers, schema-typed tuples, scalars', () => {
-    const rows = flattenConfigDoc(DOC, TAG_UI_SCHEMA, new Set(['cards', 'cards:agentCard', 'cards:agentCard:bars']));
+    const rows = flattenConfigDoc(DOC, CARD_UI_SCHEMA, new Set(['cards', 'cards:agentCard', 'cards:agentCard:bars']));
     const byPath = Object.fromEntries(rows.map(row => [row.pathStr, row]));
     expect(byPath['cards'].kind).toBe('map');
     expect(byPath['cards:agentCard:bars'].kind).toBe('list');
@@ -72,7 +72,7 @@ describe('flattenConfigDoc', () => {
   });
 
   it('carries guide bookkeeping: isLast and ancestorIsLast', () => {
-    const rows = flattenConfigDoc(DOC, TAG_UI_SCHEMA, new Set(['cards', 'cards:agentCard']));
+    const rows = flattenConfigDoc(DOC, CARD_UI_SCHEMA, new Set(['cards', 'cards:agentCard']));
     const slots = rows.find(row => row.pathStr === 'cards:agentCard:slots');
     expect(slots.isLast).toBe(true);
     expect(slots.ancestorIsLast).toEqual([true, true]);
@@ -85,21 +85,21 @@ describe('checkConfigDoc', () => {
   const context = { tagRegistry: REGISTRY };
 
   it('accepts a well-formed document', () => {
-    expect(checkConfigDoc(DOC, TAG_UI_SCHEMA, context).size).toBe(0);
+    expect(checkConfigDoc(DOC, CARD_UI_SCHEMA, context).size).toBe(0);
   });
 
   it('warns on unknown keys under closed maps only', () => {
     const doc = { cards: { agentCard: { sparkles: 1 } }, extra: true };
-    const warnings = checkConfigDoc(doc, TAG_UI_SCHEMA, context);
+    const warnings = checkConfigDoc(doc, CARD_UI_SCHEMA, context);
     expect(warnings.get('cards:agentCard:sparkles')).toBe('unknown key');
     expect(warnings.get('extra')).toBe('unknown key');
     // `cards` accepts any card name — no warning for a new card key.
-    expect(checkConfigDoc({ cards: { anything: {} } }, TAG_UI_SCHEMA, context).size).toBe(0);
+    expect(checkConfigDoc({ cards: { anything: {} } }, CARD_UI_SCHEMA, context).size).toBe(0);
   });
 
   it('warns on shape mismatches and wrong tuple sizes', () => {
     const doc = { cards: { agentCard: { bars: [['a', 'b', 'c']], boxes: 'nope' } } };
-    const warnings = checkConfigDoc(doc, TAG_UI_SCHEMA, context);
+    const warnings = checkConfigDoc(doc, CARD_UI_SCHEMA, context);
     expect(warnings.get('cards:agentCard:bars:0')).toBe('expected 2 entries');
     expect(warnings.get('cards:agentCard:boxes')).toBe('expected a list');
   });
@@ -113,7 +113,7 @@ describe('checkConfigDoc', () => {
         },
       },
     };
-    const warnings = checkConfigDoc(doc, TAG_UI_SCHEMA, context);
+    const warnings = checkConfigDoc(doc, CARD_UI_SCHEMA, context);
     expect(warnings.get('cards:agentCard:medallion')).toMatch(/unknown dynamic source/);
     expect(warnings.has('cards:agentCard:boxes:0')).toBe(false);
     expect(warnings.get('cards:agentCard:boxes:1')).toBe('tag path not in the registry');
@@ -121,7 +121,7 @@ describe('checkConfigDoc', () => {
   });
 
   it('lets a nullable scalar hold null without warning', () => {
-    const warnings = checkConfigDoc({ cards: { agentCard: { medallion: null } } }, TAG_UI_SCHEMA, context);
+    const warnings = checkConfigDoc({ cards: { agentCard: { medallion: null } } }, CARD_UI_SCHEMA, context);
     expect(warnings.size).toBe(0);
   });
 });

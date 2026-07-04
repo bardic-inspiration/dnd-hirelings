@@ -16,7 +16,7 @@ const isMapping = (value) => value !== null && typeof value === 'object' && !Arr
 /**
  * The Configuration Modal: the single surface for browsing and editing every
  * config file registered in the CONFIG_FILES manifest — runtime YAML assets
- * (tag UI) and state-bound sections (session) alike — as one schema-guided
+ * (card UI) and state-bound sections (session) alike — as one schema-guided
  * folding tree in the Tag Registry Modal's idiom.
  *
  * Edits live-apply: scalar values edit inline (EditableSpan) and write straight
