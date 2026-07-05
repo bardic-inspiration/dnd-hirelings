@@ -148,6 +148,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 | Action | Fields | Description |
 |--------|--------|-------------|
 | `APPLY_TICK` | `{ newState: GameState }` | Replace state with a pre-computed tick result (includes the appended `eventLog`) |
+| `APPLY_ROLLBACK` | `{ newState: GameState }` | Replace state with a pre-computed `rollbackTick` result (reverted tick group truncated off `eventLog`) |
 | `REPLACE_STATE` | `{ newState: object }` | Load external state; runs through `normalizeState()` |
 | `EVENTLOG_CLEAR` | — | Empty the event log (`eventLog: []`) |
 | `RESET` | — | Reset to `DEFAULT_STATE` |
@@ -217,8 +218,8 @@ mergeItemQty(activities: string[], name: string, delta: number): string[]
 ```js
 routeTaskTag(tagString: string): 'requirements' | 'attributes'  // by the modifier's MODIFIER_REGISTRY taskField
 checkTaskComplete(task: Task, clockAdvanced?: boolean): boolean
-applyResults(task: Task, inventory: InventoryItem[], agents: Agent[]): { newInventory, newAgents, bankDelta }
-applyTaskComplete(taskId: string, tasks: Task[], agents: Agent[], inventory: InventoryItem[]): { newTasks, newAgents, newInventory, bankDelta }
+applyResults(task: Task, inventory: InventoryItem[], agents: Agent[]): { newInventory, newAgents, bankDelta, spawnedAgentIds }
+applyTaskComplete(taskId: string, tasks: Task[], agents: Agent[], inventory: InventoryItem[]): { newTasks, newAgents, newInventory, bankDelta, spawnedAgentIds, unassignedAgentIds }
 computeBlockedTaskIds(activeTasks: Task[], inventory: InventoryItem[]): Set<string>
 ```
 
@@ -245,15 +246,43 @@ trackers plug in without touching the clock loop.
 ### `src/logic/clock.js`
 
 ```js
-getStepMinutes(session: Session): number
-getPlayIntervalMs(session: Session): number
-advanceTime(state: GameState): { newState: GameState, flashAgentIds: string[], taskProgressPerTick: { [taskId]: { [conditionId]: number } } }
-updateClockDisplayDOM(state: GameState, tickInfo: TickInfo): void
+getStepMinutes(session: Session, clockConfig?: ClockConfig): number
+getPlayIntervalMs(session: Session, clockConfig?: ClockConfig): number
+advanceTime(state: GameState, configs?: { clockConfig?, rollbackConfig? }): { newState: GameState, flashAgentIds: string[], taskProgressPerTick: { [taskId]: { [conditionId]: number } } }
+updateClockDisplayDOM(state: GameState, tickInfo: TickInfo, clockConfig?: ClockConfig): void
 ```
 
-`advanceTime` also appends to `newState.eventLog`: one `work_contribution` entry per
-(agent, condition, game day) and one `task_complete` entry per task finishing this tick
-(a multi-day tick is split into one row per day). See `eventLog.js`.
+All functions default to `DEFAULT_CLOCK_CONFIG` / `DEFAULT_ROLLBACK_CONFIG`
+when no config is passed. When `rollbackConfig.log.enabled`, `advanceTime`
+appends to `newState.eventLog`: one `work_contribution` entry per (agent,
+condition, game day), one `task_complete` entry per task finishing this tick
+(a multi-day tick is split into one row per day), and one `'tick'` boundary
+entry sealing the batch (`work* → task_complete* → tick`). See `eventLog.js`.
+
+### `src/logic/clockConfig.js`
+
+```js
+DEFAULT_CLOCK_CONFIG  // { calendar: { minutesPerDay, daysPerYear }, timeStep: { min, max },
+                      //   rateMultiplier: { min, max }, realTime: { msPerStepDay, minTickIntervalMs } }
+CLOCK_SCHEMA          // config-editor schema for public/config/clock.yml
+normalizeClockConfig(doc: object): ClockConfig   // lenient per-field guard, min<=max enforced
+```
+
+### `src/logic/rollback.js`
+
+```js
+DEFAULT_ROLLBACK_CONFIG  // { enabled, reverse: { workProgress, wages, taskCompletion, rewardGold,
+                         //   rewardItems, spawnedAgents, agentReassignment }, log: { enabled, maxRows } }
+ROLLBACK_SCHEMA          // config-editor schema for public/config/rollback.yml
+normalizeRollbackConfig(doc: object): RollbackConfig
+getRollbackHorizon(eventLog: EventLogEntry[]): { canStepBack: boolean, earliestClock: number|null }
+rollbackTick(state: GameState, rollbackConfig?: RollbackConfig): { newState: GameState } | null
+```
+
+`rollbackTick` is the pure inverse of one `advanceTime` tick: it reverses the
+most recent tick's event group in strict LIFO order (switchboard-gated,
+best-effort with clamps) and truncates the group off the log. Returns `null`
+at the horizon (no `'tick'` boundary in the log).
 
 ### `src/logic/dynamicAttributes.js`
 
@@ -301,8 +330,9 @@ strings; `parseUIConfig` throws only on unparseable YAML.
 ### `src/logic/time.js`
 
 ```js
-formatClockParts(totalMinutes: number): { year: number, day: number }
-clockMinutesFromParts(year: number, day: number): number
+DEFAULT_CALENDAR  // { minutesPerDay: 1440, daysPerYear: 364 }
+formatClockParts(totalMinutes: number, calendar?: Calendar): { year: number, day: number }
+clockMinutesFromParts(year: number, day: number, calendar?: Calendar): number
 ```
 
 ### `src/logic/tagRegistry.js`
@@ -338,6 +368,10 @@ SESSION_SCHEMA                    // schema for the state-bound SESSION section
 configFileById(id: string): object|null
 ```
 
+Registered file entries: `clock` (`public/config/clock.yml`, schema in
+`clockConfig.js`), `rollback` (`public/config/rollback.yml`, schema in
+`rollback.js`), and `ui` (`public/config/UI.yml`, schema in `UI.js`).
+
 `kind: 'file'` entries are fetched/overlaid by `ConfigContext`; `kind: 'state'`
 entries bind to game state through `binding` (no fetch, no overlay). `effects`
 maps keys to effect *names* the modal resolves to callbacks (e.g.
@@ -353,8 +387,8 @@ header and `docs/architecture.md` → "Runtime Configuration System".
 ```js
 schemaChild(schemaNode: object|null, keyOrIndex: string|number): object|null
 schemaNodeAt(schema: object|null, path: (string|number)[]): object|null
-VALUE_KINDS   // { string, number, slug, enum, tagSource } — each { suggest(prefix, schemaNode, context), check(value, schemaNode, context) }
-coerceScalarInput(raw: string, schemaNode: object|null): string|number|null
+VALUE_KINDS   // { string, number, boolean, slug, enum, tagSource } — each { suggest(prefix, schemaNode, context), check(value, schemaNode, context) }
+coerceScalarInput(raw: string, schemaNode: object|null): string|number|boolean|null
 flattenConfigDoc(doc: object, schema: object|null, expanded: Set<string>): ConfigRow[]
 checkConfigDoc(doc: object, schema: object|null, context?: { tagRegistry }): Map<string, string>  // pathStr → warning
 getAt(doc: object, path: (string|number)[]): any
@@ -395,17 +429,19 @@ loadStateFromFile(file: File): Promise<GameState>
 ```js
 EVENT_LOG_COLUMNS: string[]          // CSV column order (single source of truth)
 MAX_LOG_ROWS: number                 // default FIFO cap on the live log (50000)
-DEFAULT_LOGGING_CONFIG: { enabled: boolean, maxRows: number }   // session.logging defaults
-normalizeLoggingConfig(raw: object): { enabled: boolean, maxRows: number }
 makeWorkEvent({ seq, clock, day, agent, task, condition, delta, progress }): EventLogEntry
-makeCompleteEvent({ seq, clock, day, task }): EventLogEntry
-normalizeEvent(raw: object): EventLogEntry | null   // null if missing taskId
+makeCompleteEvent({ seq, clock, day, task, spawnedAgentIds?, unassignedAgentIds? }): EventLogEntry
+makeTickEvent({ seq, clock, day, stepMins, wagesTotal, wages }): EventLogEntry
+normalizeEvent(raw: object): EventLogEntry | null   // null if missing taskId (tick rows exempt)
 capEventLog(eventLog: EventLogEntry[], maxRows?: number): EventLogEntry[]
 serializeEventLog(eventLog: EventLogEntry[]): string                // → CSV
 parseEventLog(csvText: string): EventLogEntry[]                     // ← CSV
 saveEventLogToFile(eventLog: EventLogEntry[], sessionId: string): Promise<void>
 loadEventLogFromFile(file: File): Promise<EventLogEntry[]>
 ```
+
+Logging config (`enabled`, `maxRows`) lives in `public/config/rollback.yml`
+(see `rollback.js`), not in session state.
 
 ### `src/logic/presets.js`
 
@@ -525,13 +561,29 @@ interface TruncationConfig {
 
 ## Hooks
 
-### `usePlayClock()` → `{ start, stop, advance }`
+### `usePlayClock()` → `{ start, stop, advance, retreat }`
 
 | Method | Description |
 |--------|-------------|
 | `start()` | Begin the game loop (interval + RAF) |
 | `stop()` | Halt the game loop |
-| `advance()` | Fire one tick manually (step button) |
+| `advance()` | Fire one tick manually (step-forward button) |
+| `retreat()` | Pause, then reverse the most recent logged tick via `rollbackTick` (step-back button); no-op at the horizon |
+
+Reads the live clock/rollback configs through refs; a clock config edit
+restarts a running interval so pacing changes apply immediately.
+
+### `useClockConfig()` → `ClockConfig`
+
+Returns the live normalized clock configuration (deployed
+`public/config/clock.yml` merged with any Configuration Modal overlay),
+normalized via `normalizeClockConfig`.
+
+### `useRollbackConfig()` → `RollbackConfig`
+
+Returns the live normalized rollback configuration (deployed
+`public/config/rollback.yml` merged with any overlay), normalized via
+`normalizeRollbackConfig`.
 
 ### `usePresets(config)` → `PresetLibrary`
 
@@ -722,10 +774,6 @@ interface GameState {
     rateMultiplier: number; // ticks-per-second multiplier
     workRate: number;     // base progress units per tick-day
     skillBonus: number;   // multiplier applied to a matched tag link's value
-    logging: {            // event-log config — minimal stub (see note below)
-      enabled: boolean;   // when false, advanceTime emits no event rows
-      maxRows: number;    // FIFO retention cap for state.eventLog
-    };
   };
   agents: Agent[];
   tasks: Task[];

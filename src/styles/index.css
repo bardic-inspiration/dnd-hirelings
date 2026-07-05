@@ -227,6 +227,26 @@ body {
   background: transparent;
 }
 
+/* Dimmed-but-live state for HoldButtons: click is suppressed in JS while the
+   hold-drag adjust gesture stays active (native :disabled would block it). */
+.ctrl--disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ctrl--disabled:hover {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--fg);
+}
+
+/* Rollback horizon: earliest time reachable by step-back. */
+.clock-display-horizon {
+  font-size: var(--fs-xs);
+  color: var(--dim);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
 /* ============================================================
    PALETTE PICKER
    ============================================================ */

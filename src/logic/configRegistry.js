@@ -11,6 +11,8 @@
 // keys to effect NAMES, which the modal host resolves to callbacks.
 
 import { UI_SCHEMA } from './UI.js';
+import { CLOCK_SCHEMA } from './clockConfig.js';
+import { ROLLBACK_SCHEMA } from './rollback.js';
 
 /**
  * Schema for the SESSION section (state-bound): the game-speed numbers the old
@@ -57,6 +59,20 @@ export const CONFIG_FILES = [
       effects: { rateMultiplier: 'restartPlay' },
       defaults: { rateMultiplier: 1, workRate: 1, skillBonus: 1 },
     },
+  },
+  {
+    id: 'clock',
+    label: 'CLOCK',
+    kind: 'file',
+    url: '/config/clock.yml',
+    schema: CLOCK_SCHEMA,
+  },
+  {
+    id: 'rollback',
+    label: 'ROLLBACK',
+    kind: 'file',
+    url: '/config/rollback.yml',
+    schema: ROLLBACK_SCHEMA,
   },
   {
     id: 'ui',

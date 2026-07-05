@@ -460,6 +460,9 @@ export function reducer(state, action) {
     case 'APPLY_TICK':
       return action.newState;
 
+    case 'APPLY_ROLLBACK':
+      return action.newState;
+
     case 'REPLACE_STATE':
       return normalizeState(action.newState);
 

@@ -1,0 +1,23 @@
+# Rollback configuration — event-based clock rewind.
+# See docs/architecture.md → "Game Clock & Tick Rollback".
+
+# Master switch: `false` removes the step-back button entirely.
+enabled: true
+
+# Switchboard: which tick effects a step-back reverses. Disabling a switch
+# leaves that effect in place when the clock winds back.
+reverse:
+  workProgress: true       # condition progress deltas
+  wages: true              # refund agent wages paid that tick
+  taskCompletion: true     # un-complete tasks completed that tick
+  rewardGold: true         # remove reward gold (bank clamps at 0)
+  rewardItems: true        # remove reward items (quantities clamp at 0)
+  spawnedAgents: true      # delete agents spawned by task results
+  agentReassignment: true  # restore agents' task assignments
+
+# Event logging. Rollback can only reach as far as the log: `maxRows` caps the
+# live log (oldest rows drop FIFO) and `enabled: false` stops recording ticks,
+# freezing the rollback horizon.
+log:
+  enabled: true
+  maxRows: 50000

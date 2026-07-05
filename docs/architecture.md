@@ -157,9 +157,9 @@ Three cooperating pieces:
 - **Manifest** — `src/logic/configRegistry.js` exports `CONFIG_FILES`, the
   single registration point. Adding a config file = one entry + one schema.
   Two entry kinds:
-  - `kind: 'file'` — a runtime YAML asset under `public/config/` (e.g.
-    `ui`), fetched by `ConfigContext` and shadowed by a localStorage
-    overlay.
+  - `kind: 'file'` — a runtime YAML asset under `public/config/` (`clock`,
+    `rollback`, `ui`), fetched by `ConfigContext` and shadowed by a
+    localStorage overlay.
   - `kind: 'state'` — a virtual section bound to live game state via
     `binding: { select, commit, effects, defaults }` (e.g. `session`, the old
     SETTINGS numbers). No fetch, no overlay — the reducer is its storage.
@@ -177,16 +177,18 @@ Three cooperating pieces:
   (`flattenConfigDoc`, insertion-order-preserving — deliberately separate from
   `flattenRegistry`'s sorted walk), immutable doc mutations (`setValueAt`,
   `deleteAt`), soft validation (`checkConfigDoc` → warnings map), the
-  pluggable `VALUE_KINDS` registry (string/number/slug/enum/`tagSource`), and
-  YAML file I/O (`configSave`/`configLoad` via the shared `downloadFile`).
+  pluggable `VALUE_KINDS` registry (string/number/boolean/slug/enum/
+  `tagSource`), and YAML file I/O (`configSave`/`configLoad` via the shared
+  `downloadFile`).
 
 Schema descriptors are tiny recursive objects colocated with their file's
-logic (`UI_SCHEMA` in `UI.js`, `SESSION_SCHEMA` in `configRegistry.js`):
+logic (`UI_SCHEMA` in `UI.js`, `CLOCK_SCHEMA` in `clockConfig.js`,
+`ROLLBACK_SCHEMA` in `rollback.js`, `SESSION_SCHEMA` in `configRegistry.js`):
 
 ```js
 // node := { kind: 'map', keys?, anyKey?, closed? }
 //       | { kind: 'list', item } | { kind: 'tuple', size, item }
-//       | { kind: 'scalar', value: 'string'|'number'|'slug'|'tagSource'|'enum',
+//       | { kind: 'scalar', value: 'string'|'number'|'boolean'|'slug'|'tagSource'|'enum',
 //           options?, min?, step?, nullable?, label? }
 ```
 
@@ -229,7 +231,19 @@ The game clock advances in discrete ticks (one `setInterval` per play interval).
 
 ### Event Log
 
-`advanceTime` records every contribution to (sub)task progress in `state.eventLog`: one `work_contribution` entry per **(agent, condition, game day)** and one `task_complete` entry per task that finishes the tick (a multi-day tick is split into one row per day). The log is the authoritative, in-state record — a browser SPA can't stream-append to a disk file, so the log lives in state (persisted to localStorage with everything else) and is exported to / imported from CSV on demand via `src/logic/eventLog.js` (`saveEventLogToFile` / `loadEventLogFromFile`, reusing the shared `src/logic/download.js` helper). It is FIFO-capped at `MAX_LOG_ROWS`. The schema is deliberately forward-compatible — an `eventType` column and a free-form `data` payload let later features (a planned clock **rollback** that restores prior progress, and richer event kinds) extend it without a storage migration. Rollback is not yet implemented; `task_complete` rows capture the task's tags and `results` as a breadcrumb for it.
+`advanceTime` records every contribution to (sub)task progress in `state.eventLog`: one `work_contribution` entry per **(agent, condition, game day)**, one `task_complete` entry per task that finishes the tick (a multi-day tick is split into one row per day), and one `'tick'` boundary entry sealing each tick's batch. The **ordering contract** is `work* → task_complete* → tick`; the tick entry appends on every tick (even a no-op one) and records `data: { stepMins, wagesTotal, wages }` — the step size and exact wage payments at the time — so rollback stays correct even if `timeStep` or agent rates change later. `task_complete` entries record the task's tags, `results`, and the exact `spawnedAgentIds` / `unassignedAgentIds` the completion produced. The log is the authoritative, in-state record — a browser SPA can't stream-append to a disk file, so the log lives in state (persisted to localStorage with everything else) and is exported to / imported from CSV on demand via `src/logic/eventLog.js` (`saveEventLogToFile` / `loadEventLogFromFile`, reusing the shared `src/logic/download.js` helper). Logging is configured by `public/config/rollback.yml` (`log.enabled`, `log.maxRows` FIFO cap).
+
+### Game Clock & Tick Rollback
+
+Game time is expressed as the relationship between three configurable layers in `public/config/clock.yml` (normalized by `src/logic/clockConfig.js`):
+
+- **calendar** — how in-game minutes (the clock's base unit, kept for future sub-day granularity) roll up into days and years (`minutesPerDay`, `daysPerYear`);
+- **timeStep / rateMultiplier bounds** — the clamps applied by the TopBar hold-drag adjustments;
+- **realTime** — wall-clock pacing (`msPerStepDay`, `minTickIntervalMs`).
+
+Pure logic functions (`getStepMinutes`, `getPlayIntervalMs`, `advanceTime`, `updateClockDisplayDOM`, `formatClockParts`) take a normalized config **as a parameter** with `DEFAULT_CLOCK_CONFIG` / `DEFAULT_CALENDAR` fallbacks — no module singletons — threaded from the `useClockConfig()` / `useRollbackConfig()` hooks through `usePlayClock` refs (so interval callbacks never close over stale values; a clock-config edit restarts a running interval immediately).
+
+**Rollback** (`src/logic/rollback.js`) makes the clock reversible, driven by the event log rather than snapshots. `rollbackTick(state, rollbackConfig)` finds the most recent `'tick'` boundary, reverses that tick's event group in strict LIFO order (completions and work rows first, then the boundary's wage refund and clock decrement), and truncates the group off the log — so the log tail always ends at a tick boundary and replaying forward regenerates fresh rows with continuing `seq`. It reverses **tick effects only**: inverses subtract recorded deltas (never restore snapshots), so manual edits made since the tick survive; every inverse is best-effort (missing entities skip, bank and quantities clamp at 0) so rollback never blocks. `public/config/rollback.yml` provides a per-category **switchboard** (`reverse.workProgress` / `wages` / `taskCompletion` / `rewardGold` / `rewardItems` / `spawnedAgents` / `agentReassignment`) plus the master `enabled` flag that shows/hides the TopBar step-back button. `getRollbackHorizon(eventLog)` derives the earliest reachable time (log-limited — the oldest `'tick'` entry); the step-back button dims at the horizon and the clock panel shows the earliest reachable YEAR/DAY.
 
 ### Preset System with Source Forking
 
@@ -309,9 +323,10 @@ localStorage
 The game loop bypasses this flow for display interpolation:
 
 ```
-setInterval (tick)
-     │  advanceTime(state) → dispatch(APPLY_TICK)   // newState includes appended eventLog rows
-     ▼
+setInterval (tick)                        Step-back button
+     │  advanceTime(state, configs)            │  rollbackTick(state, rollbackConfig)
+     │  → dispatch(APPLY_TICK)                 │  → dispatch(APPLY_ROLLBACK)
+     ▼                                         ▼   (appended eventLog group truncated)
 requestAnimationFrame loop
      │  updateClockDisplayDOM() → direct DOM writes
      ▼

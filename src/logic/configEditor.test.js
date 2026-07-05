@@ -142,6 +142,14 @@ describe('value kinds', () => {
     expect(VALUE_KINDS.number.check(0, node)).toBe('minimum 0.1');
     expect(VALUE_KINDS.number.check('nope', node)).toBe('not a number');
   });
+
+  it('accepts only real booleans for boolean kinds and suggests the literals', () => {
+    expect(VALUE_KINDS.boolean.check(true)).toBeNull();
+    expect(VALUE_KINDS.boolean.check(false)).toBeNull();
+    expect(VALUE_KINDS.boolean.check('true')).toBe('true or false');
+    expect(VALUE_KINDS.boolean.suggest('t')).toEqual(['true']);
+    expect(VALUE_KINDS.boolean.suggest('')).toEqual(['false', 'true']);
+  });
 });
 
 describe('coerceScalarInput', () => {
@@ -162,6 +170,13 @@ describe('coerceScalarInput', () => {
   it('auto-types numeric-looking text when there is no schema', () => {
     expect(coerceScalarInput('42', null)).toBe(42);
     expect(coerceScalarInput('hello', null)).toBe('hello');
+  });
+
+  it('maps true/false text to booleans for boolean kinds, keeping other text raw', () => {
+    const booleanNode = { kind: 'scalar', value: 'boolean' };
+    expect(coerceScalarInput('true', booleanNode)).toBe(true);
+    expect(coerceScalarInput('FALSE', booleanNode)).toBe(false);
+    expect(coerceScalarInput('maybe', booleanNode)).toBe('maybe');
   });
 });
 
