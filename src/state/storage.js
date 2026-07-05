@@ -1,7 +1,7 @@
 import { MODIFIER_REGISTRY } from '../logic/tags.js';
 import { seedTagRegistry } from '../logic/tagRegistry.js';
 import { normalizeCondition, migrateLegacyWork } from '../logic/conditions.js';
-import { normalizeEvent, normalizeLoggingConfig, DEFAULT_LOGGING_CONFIG } from '../logic/eventLog.js';
+import { normalizeEvent } from '../logic/eventLog.js';
 
 /**
  * Central registry of every localStorage key the app reads or writes.
@@ -154,7 +154,6 @@ export const DEFAULT_STATE = {
     rateMultiplier: 1,
     workRate: 1,
     skillBonus: 1,
-    logging: { ...DEFAULT_LOGGING_CONFIG },
   },
   agents: [],
   tasks: [],
@@ -228,14 +227,14 @@ export function migrateTag(tag) {
  * - `tagLibrary` → `tagRegistry` field rename
  * - Corrupt or missing `tagRegistry` (falls back to `seedTagRegistry()`)
  * - `qty` → `quantity` field rename on inventory items and task result items
- * - `timeStep` coerced to a number (legacy string values are parsed); out-of-range clamped
+ * - `timeStep` coerced to a positive number (legacy string values are parsed);
+ *   range bounds are enforced at edit sites against `clock.yml`, not at load
  * - Legacy `task.work` tags + `task.workProgress` buckets migrated to `task.conditions`
  *   via `migrateLegacyWork` (v3 → v4); the deprecated `work` namespace is pruned from
  *   stored tag registries
  * - Missing `eventLog` (saves predating the event-log feature) defaults to `[]`; rows
  *   are guarded via `normalizeEvent` and any lacking a `taskId` are dropped
- * - `session.logging` is guarded via `normalizeLoggingConfig` (defaults to
- *   `DEFAULT_LOGGING_CONFIG`); a minimal stub today (`enabled`, `maxRows`)
+ * - Legacy `session.logging` is stripped (logging config moved to `public/config/rollback.yml`)
  *
  * @param {object} raw - Potentially stale or partial state from localStorage or a file
  * @returns {GameState}
@@ -289,20 +288,22 @@ export function normalizeState(raw) {
     state.tagRegistry.bind = { ...state.tagRegistry.equip, ...(state.tagRegistry.bind ?? {}) };
     delete state.tagRegistry.equip;
   }
-  const rawSession = raw.session || {};
+  // Legacy `session.logging` is stripped — logging config moved to rollback.yml.
+  const rawSession = { ...(raw.session || {}) };
+  delete rawSession.logging;
   // `timeStep` is stored as a number (days per tick). Legacy sessions persisted it
-  // as a string, so coerce here; clamp out-of-range or non-numeric values to 1.
+  // as a string, so coerce here; only non-positive or non-numeric values fall
+  // back to 1 — range bounds are enforced at edit sites against clock.yml.
   const timeStepNumber = parseFloat(rawSession.timeStep);
   state.session = {
     ...DEFAULT_STATE.session,
     ...rawSession,
-    timeStep:       (isNaN(timeStepNumber) || timeStepNumber <= 0 || timeStepNumber >= 30) ? 1 : timeStepNumber,
+    timeStep:       (isNaN(timeStepNumber) || timeStepNumber <= 0) ? 1 : timeStepNumber,
     rateMultiplier: rawSession.rateMultiplier ?? 1,
     workRate:       rawSession.workRate       ?? 1,
     skillBonus:     rawSession.skillBonus     ?? 1,
     bank:           rawSession.bank           ?? 100,
     title:          rawSession.title          ?? 'GUILD MANAGER',
-    logging:        normalizeLoggingConfig(rawSession.logging),
   };
   // Event log defaults to empty for saves that predate the feature; rows are
   // guarded and any missing a taskId are dropped.

@@ -1,44 +1,17 @@
 // Event log: an append-only record of every contribution to (sub)task progress,
-// one row per (agent, condition, game day), plus a row whenever a task changes
-// completion state. The live log lives in `state.eventLog` (persisted to
-// localStorage with the rest of the game state); this module builds entries,
-// (de)serializes the log as CSV, and trims it. The schema is forward-compatible
-// — `eventType` plus the free-form `data` column let later features (e.g. clock
-// rollback, richer event kinds) extend the log without a format migration.
+// one row per (agent, condition, game day), a row whenever a task changes
+// completion state, and one `'tick'` boundary row sealing each tick's batch
+// (ordering contract: `work* → task_complete* → tick`). The live log lives in
+// `state.eventLog` (persisted to localStorage with the rest of the game state);
+// this module builds entries, (de)serializes the log as CSV, and trims it.
+// Logging behavior (enabled, retention) is configured by
+// `public/config/rollback.yml` (see logic/rollback.js), which also consumes the
+// log to wind the clock back tick by tick.
 
 import { downloadFile } from './download.js';
 
 /** Maximum rows retained in the live log. Oldest rows are dropped FIFO. */
 export const MAX_LOG_ROWS = 50000;
-
-/**
- * Default `session.logging` configuration.
- *
- * A deliberately minimal stub: only the two most basic switches are wired today
- * (`advanceTime` honors `enabled` and `maxRows`). Interval, granularity, and
- * per-category controls are planned alongside the upcoming time-system refactor
- * and the YAML configuration system, and are intentionally NOT included here yet.
- *
- * @type {{ enabled: boolean, maxRows: number }}
- */
-export const DEFAULT_LOGGING_CONFIG = { enabled: true, maxRows: MAX_LOG_ROWS };
-
-/**
- * Guards a raw `session.logging` object from storage or an imported file.
- * Missing/malformed fields fall back to `DEFAULT_LOGGING_CONFIG`; unknown keys
- * are dropped so the stub stays minimal until the config system lands.
- *
- * @param {object} raw
- * @returns {{ enabled: boolean, maxRows: number }}
- */
-export function normalizeLoggingConfig(raw) {
-  const source = raw && typeof raw === 'object' ? raw : {};
-  const maxRows = Number(source.maxRows);
-  return {
-    enabled: source.enabled !== false,
-    maxRows: Number.isFinite(maxRows) && maxRows > 0 ? Math.floor(maxRows) : MAX_LOG_ROWS,
-  };
-}
 
 /**
  * CSV column order — the single source of truth shared by `serializeEventLog`
@@ -58,20 +31,22 @@ const CSV_TYPES = [{ description: 'Hireling event log', accept: { 'text/csv': ['
 /**
  * @typedef {object} EventLogEntry
  * @property {number} seq - Monotonic id assigned at append time (stable across FIFO trim)
- * @property {string} eventType - `'work_contribution'` | `'task_complete'`
- * @property {number} clock - In-game minutes the row represents (a day boundary)
- * @property {number} day - `floor(clock / 1440)`, denormalized for readability
- * @property {string} agentId - Contributing agent (`''` for `task_complete`)
+ * @property {string} eventType - `'work_contribution'` | `'task_complete'` | `'tick'`
+ * @property {number} clock - In-game minutes the row represents (a day boundary;
+ *   for `tick`, the clock AFTER the tick)
+ * @property {number} day - Clock expressed in whole game days, denormalized for readability
+ * @property {string} agentId - Contributing agent (`''` for `task_complete`/`tick`)
  * @property {string} agentName
- * @property {string} taskId
+ * @property {string} taskId - `''` for `tick`
  * @property {string} taskName
- * @property {string} conditionId - Target condition (`''` for `task_complete`)
+ * @property {string} conditionId - Target condition (`''` for `task_complete`/`tick`)
  * @property {string} conditionName
- * @property {number} delta - Progress added this day to this condition (`0` for completion)
- * @property {number} progress - Resulting `condition.progress` snapshot (`0` for completion)
- * @property {number} target - `condition.target`, denormalized (`0` for completion)
+ * @property {number} delta - Progress added this day to this condition (`0` otherwise)
+ * @property {number} progress - Resulting `condition.progress` snapshot (`0` otherwise)
+ * @property {number} target - `condition.target`, denormalized (`0` otherwise)
  * @property {object} data - Extension payload. `work_contribution`: `{}`.
- *   `task_complete`: `{ isComplete, attributes, results }`.
+ *   `task_complete`: `{ isComplete, attributes, results, spawnedAgentIds, unassignedAgentIds }`.
+ *   `tick`: `{ stepMins, wagesTotal, wages: [{ agentId, agentName, amount }] }`.
  */
 
 /**
@@ -103,13 +78,15 @@ export function makeWorkEvent({ seq, clock, day, agent, task, condition, delta, 
 
 /**
  * Builds a `task_complete` entry recording a task's transition to complete.
- * Captures the task's tags (`attributes`) and reward `results` in `data` as a
- * breadcrumb for future features (e.g. rollback reward reversal).
+ * Captures the task's tags (`attributes`), reward `results`, and the exact ids
+ * of agents spawned and unassigned by the completion, so `rollbackTick` can
+ * reverse the completion precisely.
  *
- * @param {{ seq: number, clock: number, day: number, task: object }} params
+ * @param {{ seq: number, clock: number, day: number, task: object,
+ *   spawnedAgentIds?: string[], unassignedAgentIds?: string[] }} params
  * @returns {EventLogEntry}
  */
-export function makeCompleteEvent({ seq, clock, day, task }) {
+export function makeCompleteEvent({ seq, clock, day, task, spawnedAgentIds = [], unassignedAgentIds = [] }) {
   return {
     seq,
     eventType: 'task_complete',
@@ -128,21 +105,54 @@ export function makeCompleteEvent({ seq, clock, day, task }) {
       isComplete: true,
       attributes: Array.isArray(task.attributes) ? task.attributes : [],
       results: task.results ?? null,
+      spawnedAgentIds,
+      unassignedAgentIds,
     },
+  };
+}
+
+/**
+ * Builds a `'tick'` boundary entry sealing one tick's event batch. Records the
+ * step size and wage payments at the time of the tick, so rollback can reverse
+ * the tick exactly even if `timeStep` or agent rates change later.
+ * `wagesTotal` is the exact (cent-rounded) bank delta; `wages` itemizes it per
+ * agent for log readability. Both are zero/empty when payment was skipped.
+ *
+ * @param {{ seq: number, clock: number, day: number, stepMins: number,
+ *   wagesTotal: number, wages: { agentId: string, agentName: string, amount: number }[] }} params
+ * @returns {EventLogEntry}
+ */
+export function makeTickEvent({ seq, clock, day, stepMins, wagesTotal, wages }) {
+  return {
+    seq,
+    eventType: 'tick',
+    clock,
+    day,
+    agentId: '',
+    agentName: '',
+    taskId: '',
+    taskName: '',
+    conditionId: '',
+    conditionName: '',
+    delta: 0,
+    progress: 0,
+    target: 0,
+    data: { stepMins, wagesTotal, wages },
   };
 }
 
 /**
  * Guards a raw log entry from storage or an imported CSV. Coerces numeric
  * fields, defaults `eventType`/`data`, and returns `null` for rows missing a
- * `taskId` (callers should filter those out).
+ * `taskId` (callers should filter those out). `'tick'` boundary rows are exempt
+ * from the `taskId` requirement — they never carry one.
  *
  * @param {object} raw
  * @returns {EventLogEntry|null}
  */
 export function normalizeEvent(raw) {
   const source = raw && typeof raw === 'object' ? raw : {};
-  if (!source.taskId) return null;
+  if (!source.taskId && source.eventType !== 'tick') return null;
   const num = (value) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -154,7 +164,7 @@ export function normalizeEvent(raw) {
     day: num(source.day),
     agentId: String(source.agentId ?? ''),
     agentName: String(source.agentName ?? ''),
-    taskId: String(source.taskId),
+    taskId: String(source.taskId ?? ''),
     taskName: String(source.taskName ?? ''),
     conditionId: String(source.conditionId ?? ''),
     conditionName: String(source.conditionName ?? ''),

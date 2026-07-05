@@ -45,10 +45,11 @@ describe('applyResults', () => {
       items: [],
       agents: [{ template: { name: 'GOBLIN' }, quantity: 2 }],
     } };
-    const { newAgents, bankDelta } = applyResults(task, [], []);
+    const { newAgents, bankDelta, spawnedAgentIds } = applyResults(task, [], []);
     expect(bankDelta).toBe(50);
     expect(newAgents).toHaveLength(2);
     expect(newAgents.every(agent => agent.name === 'GOBLIN' && agent.id)).toBe(true);
+    expect(spawnedAgentIds).toEqual(newAgents.map(agent => agent.id));
   });
 
   it('does not mutate the source inventory', () => {
@@ -65,10 +66,11 @@ describe('applyTaskComplete', () => {
       { id: 'a1', activities: ['task:t1', 'item:sword=1'] },
       { id: 'a2', activities: ['task:t2'] },
     ];
-    const { newTasks, newAgents } = applyTaskComplete('t1', tasks, agents, []);
+    const { newTasks, newAgents, unassignedAgentIds } = applyTaskComplete('t1', tasks, agents, []);
     expect(newTasks[0].isComplete).toBe(true);
     expect(newAgents[0].activities).toEqual(['item:sword=1']);
     expect(newAgents[1].activities).toEqual(['task:t2']);
+    expect(unassignedAgentIds).toEqual(['a1']);
   });
 
   it('is a no-op for an unknown task id', () => {

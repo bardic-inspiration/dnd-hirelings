@@ -1,21 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
-  makeWorkEvent, makeCompleteEvent, normalizeEvent, normalizeLoggingConfig,
-  capEventLog, serializeEventLog, parseEventLog, MAX_LOG_ROWS,
+  makeWorkEvent, makeCompleteEvent, makeTickEvent, normalizeEvent,
+  capEventLog, serializeEventLog, parseEventLog,
 } from './eventLog.js';
 
 const agent = { id: 'a1', name: 'Ada' };
 const task = { id: 't1', name: 'Task, One', attributes: ['skill:arcana'], results: { gold: 5 } };
 const condition = { id: 'c1', name: 'ARCANA', target: 100 };
-
-describe('normalizeLoggingConfig', () => {
-  it('defaults missing/invalid fields and drops unknown keys', () => {
-    expect(normalizeLoggingConfig(undefined)).toEqual({ enabled: true, maxRows: MAX_LOG_ROWS });
-    expect(normalizeLoggingConfig({ enabled: false, maxRows: 10 })).toEqual({ enabled: false, maxRows: 10 });
-    expect(normalizeLoggingConfig({ maxRows: -5 }).maxRows).toBe(MAX_LOG_ROWS);
-    expect(normalizeLoggingConfig({ maxRows: 'x', extra: 1 })).toEqual({ enabled: true, maxRows: MAX_LOG_ROWS });
-  });
-});
 
 describe('capEventLog', () => {
   it('keeps the most recent rows and preserves their seq', () => {
@@ -34,13 +25,34 @@ describe('normalizeEvent', () => {
     expect(normalizeEvent({ agentId: 'a1' })).toBeNull();
     expect(normalizeEvent({ taskId: 't1', seq: '7', delta: 'x' })).toMatchObject({ seq: 7, delta: 0 });
   });
+
+  it('keeps tick boundary rows despite their empty taskId', () => {
+    const tick = makeTickEvent({ seq: 3, clock: 1440, day: 1, stepMins: 1440, wagesTotal: 2, wages: [] });
+    expect(normalizeEvent(tick)).toMatchObject({ eventType: 'tick', taskId: '', data: { stepMins: 1440 } });
+  });
+});
+
+describe('makeCompleteEvent', () => {
+  it('records the spawn/unassign ids rollback needs, defaulting to empty', () => {
+    expect(makeCompleteEvent({ seq: 0, clock: 0, day: 0, task }).data)
+      .toMatchObject({ spawnedAgentIds: [], unassignedAgentIds: [] });
+    const event = makeCompleteEvent({
+      seq: 0, clock: 0, day: 0, task, spawnedAgentIds: ['s1'], unassignedAgentIds: ['a1'],
+    });
+    expect(event.data.spawnedAgentIds).toEqual(['s1']);
+    expect(event.data.unassignedAgentIds).toEqual(['a1']);
+  });
 });
 
 describe('CSV round-trip', () => {
-  it('serializes and re-parses work and completion events without loss', () => {
+  it('serializes and re-parses work, completion, and tick events without loss', () => {
     const log = [
       makeWorkEvent({ seq: 0, clock: 1440, day: 1, agent, task, condition, delta: 4, progress: 4 }),
-      makeCompleteEvent({ seq: 1, clock: 2880, day: 2, task }),
+      makeCompleteEvent({ seq: 1, clock: 2880, day: 2, task, spawnedAgentIds: ['s1'], unassignedAgentIds: ['a1'] }),
+      makeTickEvent({
+        seq: 2, clock: 2880, day: 2, stepMins: 1440, wagesTotal: 2,
+        wages: [{ agentId: 'a1', agentName: 'Ada', amount: 2 }],
+      }),
     ];
     const parsed = parseEventLog(serializeEventLog(log));
     expect(parsed).toEqual(log);

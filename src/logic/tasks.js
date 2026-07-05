@@ -45,7 +45,9 @@ export function checkTaskComplete(task, clockAdvanced = false) {
  * @param {Task} task
  * @param {InventoryItem[]} inventory
  * @param {Agent[]} agents
- * @returns {{ newInventory: InventoryItem[], newAgents: Agent[], bankDelta: number }}
+ * @returns {{ newInventory: InventoryItem[], newAgents: Agent[], bankDelta: number,
+ *   spawnedAgentIds: string[] }} `spawnedAgentIds` lists the freshly minted
+ *   agent ids so the completion event can record them for rollback
  */
 export function applyResults(task, inventory, agents) {
   let newInventory = inventory.map(item => ({ ...item }));
@@ -85,7 +87,7 @@ export function applyResults(task, inventory, agents) {
   // 3. Gold reward.
   const bankDelta = Number(task.results?.gold) || 0;
 
-  return { newInventory, newAgents, bankDelta };
+  return { newInventory, newAgents, bankDelta, spawnedAgentIds: spawned.map(agent => agent.id) };
 }
 
 /**
@@ -96,19 +98,30 @@ export function applyResults(task, inventory, agents) {
  * @param {Task[]} tasks
  * @param {Agent[]} agents
  * @param {InventoryItem[]} inventory
- * @returns {{ newTasks: Task[], newAgents: Agent[], newInventory: InventoryItem[], bankDelta: number }}
+ * @returns {{ newTasks: Task[], newAgents: Agent[], newInventory: InventoryItem[],
+ *   bankDelta: number, spawnedAgentIds: string[], unassignedAgentIds: string[] }}
+ *   The id lists let the completion event record exactly which agents were
+ *   spawned and unassigned, so rollback can reverse both
  */
 export function applyTaskComplete(taskId, tasks, agents, inventory) {
   const taskTag = buildTag(['task', taskId]);
   const task = tasks.find(task => task.id === taskId);
-  if (!task) return { newTasks: tasks, newAgents: agents, newInventory: inventory, bankDelta: 0 };
+  if (!task) {
+    return {
+      newTasks: tasks, newAgents: agents, newInventory: inventory,
+      bankDelta: 0, spawnedAgentIds: [], unassignedAgentIds: [],
+    };
+  }
 
   const newTasks = tasks.map(task => task.id !== taskId ? task : { ...task, isComplete: true });
+  const unassignedAgentIds = agents
+    .filter(agent => agent.activities.includes(taskTag))
+    .map(agent => agent.id);
   const unassigned = agents.map(agent => ({ ...agent, activities: agent.activities.filter(act => act !== taskTag) }));
 
-  const { newInventory, newAgents, bankDelta } = applyResults(task, inventory, unassigned);
+  const { newInventory, newAgents, bankDelta, spawnedAgentIds } = applyResults(task, inventory, unassigned);
 
-  return { newTasks, newAgents, newInventory, bankDelta };
+  return { newTasks, newAgents, newInventory, bankDelta, spawnedAgentIds, unassignedAgentIds };
 }
 
 /**
