@@ -16,7 +16,7 @@ import TagRegistryModal from './components/Modals/TagRegistryModal.jsx';
 export default function App() {
   const { configProps, portraitsProps, itemIconsProps, libraryProps, tagRegistryProps, setSelectedTaskId, setSelectedItemId, pendingApply, setPendingApply } = useUI();
   const { dispatch } = useGame();
-  const { start, stop, advance } = usePlayClock();
+  const { start, stop, advance, retreat } = usePlayClock();
 
   usePalette();
 
@@ -79,7 +79,7 @@ export default function App() {
   return (
     <>
       <PageTitle />
-      <TopBar onPlay={start} onStop={stop} onAdvance={advance} />
+      <TopBar onPlay={start} onStop={stop} onAdvance={advance} onStepBack={retreat} />
       <Dashboard />
 
       {configProps      && <ConfigModal onRestartPlay={() => { stop(); start(); }} />}
