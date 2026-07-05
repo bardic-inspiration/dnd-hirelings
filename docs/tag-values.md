@@ -93,31 +93,54 @@ structure and value. Three rules:
 2. **Values are unregistered — by definition.** An explicit `=value` scalar
    is never added to the registry (`addTagToRegistry` already strips values
    today). Open categories live entirely in `=value`.
-3. **A registered leaf reads as the value.** A tag whose terminal segment is
-   a registry **leaf** (no children) exposes that segment as its value when no
-   explicit `=value` is present: `class:fighter` → value `fighter`,
-   `slot:armor` → value `armor`. An explicit `=value` always wins
-   (`skill:arcana=3` → value `3`, `arcana` stays a segment).
+3. **A registered leaf carries an implied value, resolved per use case.** A
+   tag whose terminal segment is a registry **leaf** (no children) and has no
+   explicit `=value` is not valueless — it has a default, implied value whose
+   meaning depends on who is asking:
+   - for **matching**, the implied value is `true` (presence);
+   - for **UI display**, the implied value is the leaf segment string itself
+     (`class:fighter` → `fighter`, `slot:armor` → `armor`);
+   - other purposes may define other defaults.
+
+   An explicit `=value` always wins (`skill:arcana=3` → value `3`, `arcana`
+   stays a segment). Implied defaults are **not** defined in the registry or
+   the data schema — they live in the parsing function chosen for the
+   specific use case (see "Value resolvers" below), so the registry stays a
+   pure structure skeleton and new use cases add a resolver, not a schema
+   field.
 
 This resolves the bifurcation without migrating data or changing the registry
 format: **closed categories are categories whose preset values are registered
 as leaf children; open categories carry unregistered `=value` scalars.** The
 two idioms stop being an inconsistency and become the two declared modes.
 
-### Code shape
+### Code shape: value resolvers, a parsing utility library
 
 - `parseTag()` stays purely syntactic (`{ modifier, segments, value }`).
-- A new accessor — e.g. `getTagValue(tagString, registry)` in
-  `src/logic/tags.js` — applies rule 3: explicit value if present, else the
-  terminal segment when it is a registered leaf, else `null`. Consumers opt
-  in (UI value readers, `dynamicAttributes.js`), so registry insertion,
-  matching, serialization, and usage counts are untouched by default.
-- `getTagSub()` in `dynamicAttributes.js` becomes a call site of the shared
-  accessor and is pruned.
-- UI tag-value sources (`src/logic/UI.js`) keep their numeric contract:
-  a non-numeric derived value (e.g. `fighter`) is not a displayable number
-  and resolves invalid exactly as a missing `=value` does today. Non-numeric
-  values matter to matching (below), not to numeric card elements.
+- Rule 3 is implemented as a **library of reusable parsing utilities** —
+  interchangeable attachments for a multi-use tool — rather than one
+  accessor. A resolver registry (working name `VALUE_RESOLVER_REGISTRY`,
+  e.g. in a new `src/logic/tagValues.js`) maps a use case to a function
+  `(parsedTag, registry) → value`, mirroring the codebase's established
+  plug-in pattern (`MATCH_MODE_REGISTRY`, `TRACKER_REGISTRY`,
+  `MODIFIER_REGISTRY`). Initial attachments:
+  - `match` — explicit value if present, else `true` for a leaf-terminal
+    tag (presence);
+  - `display` — explicit value if present, else the leaf segment string;
+  - `numeric` — explicit value coerced through `Number`, else invalid
+    (the UI card-element contract; a leaf string like `fighter` is not a
+    displayable number and resolves invalid exactly as a missing `=value`
+    does today).
+
+  Each resolver owns its own default; adding a use case means adding an
+  attachment, never a registry or data-schema change.
+- The library also hosts the shared registry-reading supports these
+  attachments compose from — e.g. leaf tests and category/preset lookups
+  built on `pathExists` — and may read the **config registry** as well as
+  the tag registry where a use case's defaults are config-driven (e.g.
+  card slots in `config/UI.yml`).
+- `getTagSub()` in `dynamicAttributes.js` becomes a call site of the
+  `display` resolver and is pruned.
 
 ### Value comparisons — conditions only (first pass)
 
@@ -129,11 +152,18 @@ value term with comparison operators: `=`, `>=`, `<=`, `>`, `<`.
   whose Arcana is at least 3. The exact draft syntax is an implementation
   detail; the engine-level term is `{ path, op, value }`.
 - Matching semantics: the pattern's path matches as today (open mode); the
-  value term then compares against the tag's **derived value** (rule 3), so
-  `class=druid` matches `class:druid` (registered leaf) and a hypothetical
-  `class=druid` alike. Equality is case-insensitive string comparison;
+  value term then compares against the tag's value as resolved by a
+  value-resolver attachment. Equality is case-insensitive string comparison;
   ordered operators compare numerically and fail (contribute 0 / no match)
   when either side is non-numeric.
+
+  > ⚠️ **Needs clarification:** which resolver the equality operator uses
+  > for leaf-terminal tags. The `match` resolver implies `true` (presence),
+  > under which `class=druid` tests presence-of-path and is redundant with
+  > path matching; resolving through `display` instead would let
+  > `class=druid` equal the leaf string `druid`. Decide when the operator
+  > grammar is implemented — the resolver library makes either a one-line
+  > choice.
 - The value term is a property of the pattern engine
   (`src/logic/tagMatching.js`), added alongside `MATCH_MODE_REGISTRY` so
   future consumers (Req/Block requirements) can adopt it later without a
