@@ -6,7 +6,7 @@
 //   node := { kind: 'map', keys?: {name: node}, anyKey?: node, closed?: bool }
 //         | { kind: 'list', item: node }
 //         | { kind: 'tuple', size: number, item: node }
-//         | { kind: 'scalar', value: 'string'|'number'|'slug'|'tagSource'|'enum',
+//         | { kind: 'scalar', value: 'string'|'number'|'boolean'|'slug'|'tagSource'|'enum',
 //             options?, min?, step?, nullable?, label? }
 //
 // Schemas shape affordances (autocomplete, warnings) but never gate edits —
@@ -131,6 +131,10 @@ export const VALUE_KINDS = {
       return null;
     },
   },
+  boolean: {
+    suggest: (prefix) => prefixMatches(['true', 'false'], prefix),
+    check: (value) => (typeof value === 'boolean' ? null : 'true or false'),
+  },
   slug: {
     suggest: () => [],
     check: (value) => (typeof value === 'string' && SLUG_RE.test(value)
@@ -152,12 +156,13 @@ export const VALUE_KINDS = {
 /**
  * Coerces raw text (from an inline edit or the builder input) into the value a
  * schema node expects: numbers parse (falling back to the raw text so `check`
- * can warn), slugs lowercase, and with no schema numeric-looking text becomes
- * a number — matching what YAML would have parsed. Never throws or rejects.
+ * can warn), booleans map from `true`/`false` text, slugs lowercase, and with
+ * no schema numeric-looking text becomes a number — matching what YAML would
+ * have parsed. Never throws or rejects.
  *
  * @param {string} raw - Text as typed
  * @param {object|null} schemaNode - Governing scalar schema node, if any
- * @returns {string|number|null} The coerced value (`null` for empty nullable scalars)
+ * @returns {string|number|boolean|null} The coerced value (`null` for empty nullable scalars)
  */
 export function coerceScalarInput(raw, schemaNode) {
   const text = String(raw ?? '').trim();
@@ -166,6 +171,12 @@ export function coerceScalarInput(raw, schemaNode) {
   if (kind === 'number' || (kind === null && text !== '' && Number.isFinite(Number(text)))) {
     const num = Number(text);
     return Number.isFinite(num) ? num : text;
+  }
+  if (kind === 'boolean') {
+    const lower = text.toLowerCase();
+    if (lower === 'true') return true;
+    if (lower === 'false') return false;
+    return text;
   }
   if (kind === 'slug') return text.toLowerCase();
   return text;
