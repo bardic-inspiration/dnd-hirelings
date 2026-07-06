@@ -41,18 +41,40 @@ When spawning subagents or workflow agents:
 - Before adding any external tool or library, evaluate if the task can be completed using the existing environment. 
 - Request approval before introducing new dependencies.
 
-### Development Practices: 
+### Clean As You Go:
 - After implementing and/or refactoring features, prune resulting dead code and delete resulting obsolete files.
 
-### Documentation:
-- Every exported function, hook, context, and component gets a JSDoc comment covering purpose, params, return value, and side effects.
-- `docs/` is the source of truth for architecture, API, environment, and gotchas — update the relevant file whenever behaviour, structure, or a public interface changes.
-- Flag ambiguities or incomplete implementations with a `> ⚠️` blockquote in the relevant doc rather than leaving them undocumented.
-- Naming flags use `> ⚠️ **Naming:**`; clarification flags use `> ⚠️ **Needs clarification:**`.
-- Index variables: `index` in named parameters and props; `i` only in short anonymous `.map()` callbacks. Never `idx`.
-- Use full words for variable names. The only permitted single-letter names are a small set of conventional idioms in short callbacks/expressions: loop `i` (per above), the committed value `v` in an `EditableSpan` `onCommit` handler, a locally parsed number `n`, `a`/`b` in a `.sort()` comparator, `e` for an event, and `r` for a `FileReader`. Everything else spells out. Established domain abbreviations (e.g. the D&D ability scores `str`/`dex`/`con`/`int`/`wis`/`cha`) are acceptable.
+## Documentation:
 
-## Git:
-- Commit messages: 50–100 characters.
-- Atomic commits. One logical unit per commit.
-- When addressing issues, ensure PRs close them on merge.
+### Goals:
+- Maintain a clear repository map
+- Eliminate documentation drift
+- Optimize LLM context usage
+
+### 1. Scope Partitioning
+*   **Source Code (`/src`):** The sole source of truth for implementation intent. Every exported function, hook, context, and component must include standard docstrings (e.g., JSDoc) detailing purpose, parameters, return values, and side effects. Keep logic context local; do not explain individual function mechanics in markdown files.
+*   **Markdown Docs (`/docs`):** The sole source of truth for high-level orchestration. Contains system architecture, cross-module data flows, public API contracts, environmental setup, and known system edge cases. Do not duplicate source code logic here.
+
+### 2. Operational Rules
+*   **Synchronized Commits:** If a code change alters a public interface, cross-module boundary, or structural behavior, update the corresponding file in `/docs` within the same pass to prevent architectural drift.
+*   **Visible Gaps:** Proactively document ambiguities, incomplete implementations, or architectural gaps directly within the relevant code file or markdown doc rather than leaving them unaddressed.
+*   **No Redundancy:** Do not generate explanatory prose in `/docs` for self-evident code or logic fully captured by inline docstrings.
+
+## Git Workflow:
+Commits, pull requests and issues chart the project's evolution and inform iteration.
+
+### Atomic Commits
+- Constraint: One isolated logical unit per commit. No multi-feature blobs.
+- Length: 50–70 characters max.
+- Format: <type>(<scope>): <description> [#issue]
+- Allowed Types: feat | fix | enhancement | refactor | docs | chore
+
+### Pull Requests
+- PRs link the intent (Issue/Prompt/Spec Document) to the execution (Commits). 
+- PRs form the core historical context block for agents reading repository lineage.
+- Title Format: Same as commit format (<type>(<scope>): <summary>)
+- Automatic Closure: When addressing issues, PR description must include Closes #X or Fixes #X.
+
+### Integration & Tracking Rules
+- No Merge Commits: Maintain a strictly flat, linear history via fast-forward merges or rebasing to reduce graph traversal overhead for LLMs.
+- Stale Branch Hygiene: Delete feature branches immediately upon successful merge to prevent outdated code paths from polluting directory listings or file trees during LLM workspace scans.
