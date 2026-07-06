@@ -52,6 +52,12 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
     updateSession({ timeStep: next });
   };
 
+  const adjustStepBack = (delta) => {
+    const cur  = Number(session.stepBack) || 1;
+    const next = Math.max(timeStep.min, Math.min(timeStep.max, Math.round(cur + delta)));
+    updateSession({ stepBack: next });
+  };
+
   const handleSave = () => saveStateToFile(state);
 
   const handleSaveLog = () => saveEventLogToFile(state.eventLog, session.id);
@@ -121,12 +127,12 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
           <HoldButton
             className="ctrl ctrl--combo"
             onClick={onStepBack}
-            onAdjust={adjustStep}
+            onAdjust={adjustStepBack}
             disabled={!horizon.canStepBack}
-            title="Click to step back, reversing the last tick. Hold and drag up/down to adjust step."
+            title="Click to step back by the shown number of days. Hold and drag up/down to adjust the step-back distance."
           >
             <span className="combo-glyph">|◀</span>
-            <span className="combo-value mono">{session.timeStep}</span>
+            <span className="combo-value mono">{session.stepBack}</span>
           </HoldButton>
         )}
         <HoldButton

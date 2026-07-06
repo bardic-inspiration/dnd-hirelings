@@ -89,15 +89,24 @@ export function usePlayClock() {
     setPlaying(false);
   }, [setPlaying]);
 
-  // One step back: pause first (so the RAF loop can't fight the rewound
-  // state), then reverse the most recent logged tick. No-ops at the horizon.
+  // Step back by `session.stepBack` days: pause first (so the RAF loop can't
+  // fight the rewound state), then reverse that many logged ticks one day at a
+  // time. Stops early at the horizon; a no-op (no dispatch) if already there.
   const retreat = useCallback(() => {
     stop();
-    const result = rollbackTick(stateRef.current, rollbackConfigRef.current);
-    if (!result) return;
-    stateRef.current = result.newState;
+    const steps = Math.max(1, Math.round(Number(stateRef.current.session.stepBack) || 1));
+    let next = stateRef.current;
+    let reversed = false;
+    for (let step = 0; step < steps; step++) {
+      const result = rollbackTick(next, rollbackConfigRef.current);
+      if (!result) break;
+      next = result.newState;
+      reversed = true;
+    }
+    if (!reversed) return;
+    stateRef.current = next;
     tickInfoRef.current.taskProgressPerTick = {};
-    dispatch({ type: 'APPLY_ROLLBACK', newState: result.newState });
+    dispatch({ type: 'APPLY_ROLLBACK', newState: next });
   }, [stop, dispatch]);
 
   // Apply clock config edits immediately: recompute the interval mid-play
