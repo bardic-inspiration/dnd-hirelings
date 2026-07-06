@@ -92,7 +92,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `AGENT_CREATE` | `{ preset?: AgentPreset, count?: number }` | Create `count` agents (default 1) from blank or preset. `count > 1` is the library's shopping-list order (issue #92) |
+| `AGENT_CREATE` | `{ preset?: AgentPreset, count?: number, locked?: boolean }` | Create `count` agents (default 1) from blank or preset. `count > 1` is the library's shopping-list order (issue #92). `locked: true` blocks (no-op) when the preset carries unregistered tags; otherwise preset tags register on create |
 | `AGENT_UPDATE` | `{ id, changes: Partial<Agent> }` | Patch agent fields |
 | `AGENT_DELETE` | `{ id }` | Delete agent; returns held items to inventory |
 | `AGENT_DUPLICATE` | `{ id }` | Deep-copy agent; clears activities and timestamps |
@@ -107,7 +107,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `TASK_CREATE` | `{ preset?: TaskPreset, count?: number }` | Create `count` tasks (default 1) from blank or preset |
+| `TASK_CREATE` | `{ preset?: TaskPreset, count?: number, locked?: boolean }` | Create `count` tasks (default 1) from blank or preset. Locked-mode gate and creation-time registration as `AGENT_CREATE`, covering requirements, attributes, and condition tag paths |
 | `TASK_UPDATE` | `{ id, changes: Partial<Task> }` | Patch task fields |
 | `TASK_DELETE` | `{ id }` | Delete task; removes all agent assignments |
 | `TASK_DUPLICATE` | `{ id }` | Deep-copy task; resets progress and completion |
@@ -122,7 +122,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
-| `INVENTORY_ADD` | `{ preset?: ItemPreset, count?: number }` | Add an item from blank or preset. `count` (default 1) stacks that many packs of the preset's own `quantity` into one row (a shopping-list order of `count` — issue #92). Then stacks onto an existing row with the same name **and** the same tag set (issue #91). Differing tags → a separate row; unnamed `NEW ITEM` placeholders never stack |
+| `INVENTORY_ADD` | `{ preset?: ItemPreset, count?: number, locked?: boolean }` | Add an item from blank or preset. Locked-mode gate and creation-time registration as `AGENT_CREATE`. `count` (default 1) stacks that many packs of the preset's own `quantity` into one row (a shopping-list order of `count` — issue #92). Then stacks onto an existing row with the same name **and** the same tag set (issue #91). Differing tags → a separate row; unnamed `NEW ITEM` placeholders never stack |
 | `INVENTORY_UPDATE_ITEM` | `{ id, changes: Partial<InventoryItem> }` | Patch item; an identity change (name **or** attributes) re-normalizes the inventory via `mergeInventoryByIdentity`, so an item edited to match another row stacks onto it (issue #91). Other field edits skip the merge |
 | `INVENTORY_REMOVE_ITEM` | `{ id }` | Delete item from inventory |
 | `INVENTORY_REMOVE_ATTRIBUTE` | `{ id, index: number }` | Remove attribute by index from item; re-normalizes the inventory, so an item left matching another row stacks onto it (issue #91) |
@@ -175,6 +175,8 @@ absorbed the retired `formatTagLabel`); components render tags through
 ```js
 MATCH_MODE_REGISTRY: { [mode: string]: (pattern, segments, options?) => boolean }
 matchTagPath(patternPath: string|string[], tagSegments: string[], options?: { mode?: 'exact'|'numbered'|'open', depth?: number }): boolean
+VALUE_COMPARE_REGISTRY: { [operator: string]: (tagValue, compareValue) => boolean }  // '==', '>=', '<=', '>', '<'
+matchTagValue(compare: { op: string, value: string }|null, value: *): boolean  // null compare always passes
 parsePattern(patternPath: string|string[]): { kind: 'literal'|'single'|'multi', value?: string }[]
 formatPatternLabel(patternPath: string|string[]): string
 escapePatternSegment(text: string): string
@@ -194,6 +196,38 @@ Wildcards and escapes exist only on the pattern side; tag segments are always
 literal text. `\*`, `\:`, `\\` escape literal asterisks, colons, and backslashes
 in patterns; `escapePatternSegment` builds safe literal segments from arbitrary
 text. See `docs/gotchas.md` → Tag-Path Match Modes.
+
+`matchTagValue` applies a structured comparison term to a tag's resolved value
+(the term is kept separate from the pattern string, so operator parsing never
+interacts with wildcard escapes). `'=='` is case-insensitive string equality;
+the ordered operators compare numerically and fail closed when either side is
+non-numeric. Available to any pattern consumer; only condition tag links wire
+it up today, feeding it `display`-resolved values (see `tagValues.js`).
+
+### `src/logic/tagValues.js`
+
+```js
+VALUE_RESOLVER_REGISTRY: { [useCase: string]: (parsedTag, registry) => * }  // 'match', 'display', 'numeric'
+resolveTagValue(useCase: string, parsedTag: ParsedTag, registry: TagRegistry): *  // unknown use case → null
+getRegistryNode(registry: TagRegistry, segments: string[]): TagRegistry|undefined
+isRegisteredLeaf(registry: TagRegistry, segments: string[]): boolean
+```
+
+Registry-bounded value resolvers (see `docs/architecture.md` → Tag-based
+Attribute System). A tag's implied value varies by use case; each resolver owns
+its own default, so new use cases add an attachment here — never a registry or
+data-schema change:
+
+| resolver  | explicit `=value` | leaf-terminal tag (no `=`)                | otherwise |
+|-----------|-------------------|-------------------------------------------|-----------|
+| `match`   | the value         | `true` (presence)                         | `true`    |
+| `display` | the value         | last segment, **registered leaf only**    | `null`    |
+| `numeric` | `Number()` if finite, else `null` | `null` — leaf strings never coerce | `null` |
+
+The `display` resolver is strict: no registry supplied, an unregistered
+terminal, or a registered non-leaf (structural reference) all resolve `null`.
+`getRegistryNode` / `isRegisteredLeaf` are the shared registry-reading supports
+the resolvers compose from.
 
 ### `src/logic/agents.js`
 
@@ -227,10 +261,12 @@ computeBlockedTaskIds(activeTasks: Task[], inventory: InventoryItem[]): Set<stri
 
 ```js
 TRACKER_REGISTRY: { [kind: string]: (condition, context) => number }
-computeConditionContribution(condition: Condition, context: { effectiveAttributes, session, stepDays }): number
-defaultConditionName(tagPath: string|null): string
-createConditionTemplate(input: { name?, target?, tagPath?, kind? }): ConditionTemplate
-conditionTemplateFromDraft(draft: string): ConditionTemplate  // 'path[=target]', last-'=' split (escape-safe)
+computeConditionContribution(condition: Condition, context: { effectiveAttributes, session, stepDays, registry }): number
+defaultConditionName(tagPath: string|null, compare?: { op, value }|null): string
+formatConditionLink(tracker: ConditionTracker|null): string  // 'any agent' | pattern label [+ ' ≥ 3']
+createConditionTemplate(input: { name?, target?, tagPath?, kind?, compare? }): ConditionTemplate
+splitConditionDraft(draft: string): { path, compare: { op, value }|null, target }  // 'path[op value][=target]', escape-safe
+conditionTemplateFromDraft(draft: string): ConditionTemplate  // splitConditionDraft + createConditionTemplate guards
 normalizeConditionTemplate(raw: object): ConditionTemplate
 conditionFromTemplate(template: ConditionTemplate|Condition): Condition  // fresh id, zero progress
 normalizeCondition(raw: object): Condition
@@ -242,6 +278,13 @@ resetConditions(conditions: Condition[]): Condition[]
 `TRACKER_REGISTRY` is the extension point for progress-tracking logic: each
 `tracker.kind` maps to a contribution function, so future event- or rule-driven
 trackers plug in without touching the clock loop.
+
+A tracker may carry a `compare: { op, value }|null` term applied to each
+path-matched tag's `display`-resolved value inside the match search (so a
+wildcard link selects the first *qualifying* tag). Draft grammar:
+`path[op value][=target]` with the last `=` reserved for the completion target
+— bare equality is spelled `==` (`'skill:arcana>=3=30'`, `'class==druid=30'`).
+Conditions stored before the field normalize to `compare: null` on load.
 
 ### `src/logic/clock.js`
 
@@ -284,10 +327,23 @@ most recent tick's event group in strict LIFO order (switchboard-gated,
 best-effort with clamps) and truncates the group off the log. Returns `null`
 at the horizon (no `'tick'` boundary in the log).
 
+### `src/logic/tagsConfig.js`
+
+```js
+DEFAULT_TAGS_CONFIG   // { locked: false } (frozen)
+TAGS_SCHEMA           // config-editor schema for public/config/tags.yml
+normalizeTagsConfig(doc: object): TagsConfig  // locked true only on explicit boolean true
+```
+
+The `locked` switch governs creation-time tag entry (see `docs/gotchas.md` →
+Locked Tags Gate Creation Only): locked mode validates every new entity's tags
+against the live tag registry and blocks creation on unregistered tags;
+unlocked mode (the default) registers them on creation.
+
 ### `src/logic/dynamicAttributes.js`
 
 ```js
-computeDynamicAttributes(agent: Agent, inventory?: InventoryItem[]): {
+computeDynamicAttributes(agent: Agent, inventory?: InventoryItem[], registry?: TagRegistry): {
   xp: number, level: number, xpProgress: number, xpLvl: number, xpLvlMax: number,
   proficiency: number, ac: number, hp: number, hpMax: number
 }
@@ -295,7 +351,10 @@ xpForLevel(level: number): number   // total XP threshold for a level
 ```
 
 `xpLvl` / `xpLvlMax` express XP relative to the current level (earned past the
-threshold / span to the next level); `xpProgress === xpLvl / xpLvlMax`.
+threshold / span to the next level); `xpProgress === xpLvl / xpLvlMax`. The
+class name behind the HP bonus is a registry-bounded display value
+(`tagValues.js`) — without the registry, `class:<name>` tags resolve no value
+and the bonus is 0 (an explicit `class=<name>` still resolves).
 
 ### `src/logic/UI.js`
 
@@ -308,7 +367,7 @@ AGENT_FIELD_SOURCE_KEYS   // frozen list of known bare agent-field sources
 UI_SCHEMA            // config-editor schema descriptor for UI.yml
 normalizeUIDoc(doc: object): { cards: { [cardName]: CardConfig } }
 parseUIConfig(ymlText: string): { cards: { [cardName]: CardConfig } }  // yaml.load + normalize
-resolveTagSource(source: string, context: { agent, dyn, attributes }): {
+resolveTagSource(source: string, context: { agent, dyn, attributes, registry }): {
   label: string,            // last path segment, uppercased
   value: number|null,
   valid: boolean,           // false → element renders empty in warning state
@@ -322,7 +381,9 @@ isTagConsumed(tag: string, consumedPaths: Set<string>): boolean  // plain tags o
 Source grammar (resolution order): `dynamic:<key>` (computed stat: `level`,
 `hp`, `hp-max`, `xp`, `xp-lvl`, `xp-lvl-max`, `ac`, `pb`), bare agent field
 (`rate`), else an attribute tag path matched case-insensitively against the
-agent's effective attributes (its `=value` must be numeric).
+agent's effective attributes, resolved through the `numeric` value resolver
+(`tagValues.js` — only an explicit numeric `=value` displays; leaf strings
+stay invalid).
 `normalizeUIDoc` is lenient: malformed sections degrade to empty element
 lists, and bar entries accept `[current, max]` lists or `"(current, max)"`
 strings; `parseUIConfig` throws only on unparseable YAML.
@@ -348,10 +409,21 @@ deleteNode(registry: TagRegistry, segments: string[]): TagRegistry
 renameNode(registry: TagRegistry, segments: string[], newKey: string): TagRegistry
 pathExists(registry: TagRegistry, segments: string[]): boolean
 patternMatchesRegistry(registry: TagRegistry, patternPath: string): boolean  // open-mode match vs any node path
+collectPresetTags(entityType: 'agent'|'task'|'item', preset?: object): { literalTags: string[], patternPaths: string[] }
+unregisteredEntityTags(registry: TagRegistry, entityType: 'agent'|'task'|'item', preset?: object): string[]
 flattenRegistry(registry: TagRegistry, expanded: Set<string>): RegistryRow[]
 tagRegistrySave(registry: TagRegistry, sessionId: string): Promise<void>
 tagRegistryLoad(file: File): Promise<TagRegistry>
 ```
+
+`collectPresetTags` gathers the authored tags a create-action preset would
+bring into play (agent/item `attributes`; task `requirements` + `attributes` +
+condition `tracker.tagPath`s), classifying wildcard/escaped strings as pattern
+paths and skipping dynamic instance tags (`task:…`, `bind:…`).
+`unregisteredEntityTags` returns the tags the registry does not allow —
+literals via `pathExists` on the stripped segment path, patterns via
+`patternMatchesRegistry` — and is shared by the library pre-check and the
+reducer's locked-mode backstop so the two cannot disagree.
 
 ### `src/logic/configRegistry.js`
 
@@ -370,7 +442,8 @@ configFileById(id: string): object|null
 
 Registered file entries: `clock` (`public/config/clock.yml`, schema in
 `clockConfig.js`), `rollback` (`public/config/rollback.yml`, schema in
-`rollback.js`), and `ui` (`public/config/UI.yml`, schema in `UI.js`).
+`rollback.js`), `tags` (`public/config/tags.yml`, schema in `tagsConfig.js`),
+and `ui` (`public/config/UI.yml`, schema in `UI.js`).
 
 `kind: 'file'` entries are fetched/overlaid by `ConfigContext`; `kind: 'state'`
 entries bind to game state through `binding` (no fetch, no overlay). `effects`
@@ -455,7 +528,7 @@ loadPresetsFromFile(file: File): Promise<object[]>
 
 ```js
 buildOrder(type: string, lines: { preset: object, quantity: number }[]): Order
-submitOrder(order: Order, dispatch: (action) => void, config: LibraryConfig): number
+submitOrder(order: Order, dispatch: (action) => void, config: LibraryConfig, options?: object): number
 ```
 
 The library modal's shopping-list transport layer (issue #92). `buildOrder`
@@ -465,8 +538,10 @@ count, flooring quantities to whole copies, and stripping runtime bookkeeping
 (`id`/`source`) from each line's preset so the document resembles the preset
 files the library already reads and writes. `submitOrder` is the **sole**
 coupling between an order and the reducer: it dispatches one `config.toCreateAction(preset, quantity)`
-per line. The `Order` shape is deliberately endpoint-agnostic — retargeting it
-to a server backend later means replacing only `submitOrder`, not the modal.
+per line, spreading `options` (dispatch-time policy such as `{ locked }` —
+never order content) onto each action. The `Order` shape is deliberately
+endpoint-agnostic — retargeting it to a server backend later means replacing
+only `submitOrder`, not the modal.
 
 ### `src/logic/format.js`
 
@@ -584,6 +659,13 @@ normalized via `normalizeClockConfig`.
 Returns the live normalized rollback configuration (deployed
 `public/config/rollback.yml` merged with any overlay), normalized via
 `normalizeRollbackConfig`.
+
+### `useTagsConfig()` → `TagsConfig`
+
+Returns the live normalized tag-system configuration (deployed
+`public/config/tags.yml` merged with any overlay), normalized via
+`normalizeTagsConfig`. Its `locked` flag is attached to the three create
+actions at dispatch sites (the reducer cannot read config).
 
 ### `usePresets(config)` → `PresetLibrary`
 

@@ -1,11 +1,13 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { activeTaskCount } from '../../logic/agents.js';
+import { useTagsConfig } from '../../hooks/useTagsConfig.js';
 import Tooltip from '../Tooltip.jsx';
 import AgentCard from './AgentCard.jsx';
 
 export default function AgentList() {
   const { state, dispatch } = useGame();
+  const { locked } = useTagsConfig();
   const { openLibrary, isExpanded } = useUI();
   const { agents, tasks } = state;
 
@@ -46,7 +48,7 @@ export default function AgentList() {
             <button
               className="add-card add-agent"
               onClick={e => { e.stopPropagation(); openLibrary('agent'); }}
-              onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'AGENT_CREATE' }); }}
+              onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'AGENT_CREATE', locked }); }}
             >+ AGENT</button>
           </Tooltip>
         </div>

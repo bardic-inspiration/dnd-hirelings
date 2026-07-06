@@ -2,7 +2,10 @@ import { uid, now } from '../utils.js';
 import { normalizeState, DEFAULT_STATE, DEFAULT_RESULTS } from './storage.js';
 import { applyTaskComplete, routeTaskTag } from '../logic/tasks.js';
 import { mergeAttribute, buildTag, parseTag } from '../logic/tags.js';
-import { addTagToRegistry, addPath, deleteNode, renameNode } from '../logic/tagRegistry.js';
+import {
+  addTagToRegistry, addPath, deleteNode, renameNode,
+  collectPresetTags, unregisteredEntityTags,
+} from '../logic/tagRegistry.js';
 import { conditionFromTemplate } from '../logic/conditions.js';
 import { collectAllHeldItems, mergeItemQty } from '../logic/agents.js';
 
@@ -16,6 +19,15 @@ const registerTags = (state, ...tags) => {
   for (const tag of tags) reg = addTagToRegistry(reg, tag);
   return reg === state.tagRegistry ? state : { ...state, tagRegistry: reg };
 };
+
+// Locked-mode enforcement backstop for the three create actions (see
+// logic/tagsConfig.js). `locked` rides in on the action — the reducer cannot
+// read config — and a missing field means unlocked, so legacy dispatches keep
+// passing. Blocking is all-or-nothing per action: `count > 1` mints no copies.
+// The library pre-check alerts the user; here a block is a silent no-op.
+const createBlocked = (state, action, entityType) =>
+  action.locked === true &&
+  unregisteredEntityTags(state.tagRegistry, entityType, action.preset).length > 0;
 
 const TASK_TAG_FIELDS = new Set(['requirements', 'attributes']);
 
@@ -118,12 +130,14 @@ export function reducer(state, action) {
 
     /* ---------- Agents ---------- */
     case 'AGENT_CREATE': {
+      if (createBlocked(state, action, 'agent')) return state;
       const created = Array.from({ length: createCount(action.count) }, () => ({
         ...DEFAULT_AGENT,
         ...(action.preset ? pickAgentFields(action.preset) : null),
         id: uid(), createdAt: now(), lastAssigned: null, activities: [],
       }));
-      return { ...state, agents: [...state.agents, ...created] };
+      const next = { ...state, agents: [...state.agents, ...created] };
+      return registerTags(next, ...collectPresetTags('agent', action.preset).literalTags);
     }
 
     case 'AGENT_UPDATE':
@@ -254,6 +268,7 @@ export function reducer(state, action) {
 
     /* ---------- Tasks ---------- */
     case 'TASK_CREATE': {
+      if (createBlocked(state, action, 'task')) return state;
       const created = Array.from({ length: createCount(action.count) }, () => ({
         name: 'NEW TASK',
         description: '',
@@ -266,7 +281,8 @@ export function reducer(state, action) {
         isComplete: false,
         createdAt: now(),
       }));
-      return { ...state, tasks: [...state.tasks, ...created] };
+      const next = { ...state, tasks: [...state.tasks, ...created] };
+      return registerTags(next, ...collectPresetTags('task', action.preset).literalTags);
     }
 
     case 'TASK_UPDATE':
@@ -371,13 +387,15 @@ export function reducer(state, action) {
 
     /* ---------- Inventory ---------- */
     case 'INVENTORY_ADD': {
+      if (createBlocked(state, action, 'item')) return state;
       const base = { ...DEFAULT_ITEM, ...(action.preset ? pickItemFields(action.preset) : null) };
       // A shopping-list order of N copies stacks into one row: N packs of the
       // preset's own quantity (issue #92). N defaults to 1 for a plain add.
       const incoming = { ...base, quantity: base.quantity * createCount(action.count), id: uid() };
       // Append then normalize: an identical existing row absorbs the new item
       // instead of duplicating (issue #91).
-      return { ...state, inventory: mergeInventoryByIdentity([...state.inventory, incoming]) };
+      const next = { ...state, inventory: mergeInventoryByIdentity([...state.inventory, incoming]) };
+      return registerTags(next, ...collectPresetTags('item', action.preset).literalTags);
     }
 
     case 'INVENTORY_UPDATE_ITEM': {

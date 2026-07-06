@@ -17,6 +17,9 @@ The grammar:
 - The **modifier** (`req`, `block`, `bonus`) is separated from the content path by a comma, not a colon. This tripped up older code that used a colon and is what the migration in `normalizeState` → `migrateTag()` fixes. `migrateTag()` also strips the legacy `#` sigil (`#skill:x` → `skill:x`); it is applied both to loaded state and to preset tags on import (`constants/libraries.jsx`), so a legacy sigil never reaches the display.
 - **Segments** form a path. The full path is the identity key for deduplication (`mergeAttribute` replaces any tag with the same modifier + path).
 - `bind:[<slot>:]item:<name>` and `task:<id>` tags live in `activities`, not `attributes`. Don't look for them in `attributes`.
+- **A tag without `=value` is not valueless.** Under registry-bounded values (`docs/tag-values.md`, `src/logic/tagValues.js`), a tag ending on a registered leaf carries an implied value that varies by use case: `true` for matching, the terminal segment string for display (`class:fighter` → `fighter`), nothing for numeric card elements. Read values through `resolveTagValue(useCase, parsedTag, registry)` — never re-derive them ad hoc. The display read is **strict**: no registry in reach, an unregistered terminal, or a registered non-leaf all resolve `null` — so class HP bonuses vanish for `class:<name>` tags whose leaf was never registered (legacy saves are abandoned by design; re-register the path or use an explicit `class=<name>`). Note the resolver reads the **last** segment; the retired `getTagSub` read segment 2 — identical for two-segment tags, divergent for deeper paths.
+
+> ⚠️ **Needs clarification:** rule 3 keys off *leaf* status, so registering children under a preset in use (e.g. `class:druid` gaining `class:druid:circle`) silently flips existing `class:druid` tags from value to structure (display resolves `null`). Options when it bites: warn in the registry editor, or relax the read for a tag's terminal segment. See the same flag in `docs/tag-values.md`.
 
 ---
 
@@ -55,7 +58,9 @@ Per-tick accrual dispatches through `TRACKER_REGISTRY` in `src/logic/conditions.
 The only current kind, `'work'`, gates and modulates by `tracker.tagPath`:
 
 - **Matching is exact unless the pattern says otherwise** (the engine's `open` mode — see Tag-Path Match Modes below). A wildcard-free `tagPath: 'skill:arcana'` matches only an agent attribute whose full segment path is `skill:arcana` — a `tagPath: 'skill'` is *not* satisfied by `skill:arcana` tags, only by a literal `skill` tag. Wildcards widen the link explicitly: `'skill:*'` matches any specific skill, `'skill:**'` the whole skill subtree. Modifier-bearing tags (`req,…`) never match.
-- A matched tag **with** a numeric value contributes `(workRate + value * skillBonus) * stepDays` — this applies to any value-bearing tag, not just skills. A matched tag **without** a value contributes the base `workRate * stepDays` (the legacy work system treated a valueless skill as value 1; conditions do not).
+- A tracker's optional `compare: { op, value }` term gates the match on the tag's **display-resolved value** (`resolveTagValue('display', …)`): `==` is case-insensitive string equality; `>=`/`<=`/`>`/`<` compare numerically and **fail closed** when either side is non-numeric (a leaf string like `fighter` never passes `>= 3`). The compare runs *inside* the match search, so a wildcard link selects the first *qualifying* tag among several path matches.
+- **Draft spelling: bare equality is `==`, never `=`.** In the condition draft grammar `path[op value][=target]`, the **last `=` is always the completion target** — `skill:arcana>=3=30` means "Arcana ≥ 3, target 30"; `class==druid=30` means "class equals druid, target 30". Compare values are never registered (rule 2 of registry-bounded values).
+- A matched tag **with** an explicit numeric value contributes `(workRate + value * skillBonus) * stepDays` — this applies to any value-bearing tag, not just skills. A matched tag **without** one contributes the base `workRate * stepDays` (leaf strings never become rate bonuses; the legacy work system treated a valueless skill as value 1 — conditions do not).
 - No match → the agent contributes **0** to that condition (and flashes if it contributed to nothing on the task).
 - `tagPath: null` → every assigned agent contributes the base rate.
 
@@ -72,6 +77,48 @@ Completion is evaluated only inside `advanceTime` (plus the manual ✓ button) �
 `src/logic/tagMatching.js` is the engine for comparing a **pattern** path against a tag's segment path. Modes live in `MATCH_MODE_REGISTRY` (the extension point, like `TRACKER_REGISTRY`). Condition tag links match in `open` mode — which is behaviorally identical to `exact` for `**`-free patterns, so wildcard-free links still require full-path alignment.
 
 The Tag Registry modal's search highlighting also runs on this engine: the builder input doubles as a pattern search with an implicit leading `**` (so `skill:*` highlights the children of any `skill` node, `**:fire` any key named `fire`). Pattern drafts never ADD — the ghost autocomplete stays quiet and Enter will not add the path, because `*` is not a valid registry key — but they can APPLY as condition tag links (condition mode, or the global open) when they match at least one registry path (`patternMatchesRegistry`).
+
+---
+
+## Locked Tags Gate Creation Only
+
+`locked: true` in `public/config/tags.yml` makes the three create actions
+(`AGENT_CREATE` / `TASK_CREATE` / `INVENTORY_ADD`) block entities carrying
+tags the registry does not allow; unlocked (default) registers them on
+creation. Nuances:
+
+- **The flag rides on the action.** The reducer cannot read config, so
+  dispatch sites attach `locked` from `useTagsConfig()`. A dispatch without
+  the field behaves unlocked — the reducer gate is a backstop, not a source
+  of truth for the mode.
+- **The alert lives at the call site.** `LibraryModal.handleAdd` pre-checks
+  the WHOLE order before dispatching anything (submitOrder dispatches per
+  line — a mid-order reducer block would partially fill the cart) and alerts
+  the offending tags. The reducer backstop no-ops silently.
+- **Both sides call `unregisteredEntityTags`**, so pre-check and backstop
+  cannot disagree. Literal tags validate on the stripped segment path
+  (`req,skill:sword=1` → `skill:sword`); pattern condition links must match
+  ≥1 registered path; dynamic instance tags (`task:…`, `bind:…`) are exempt
+  from validation and registration.
+- **Bundled presets can be blocked.** Stock preset files carry tags outside
+  the seed registry (`skill:sword`, `rarity:common`), so a locked fresh
+  session refuses them until the paths are registered — intended behavior
+  for a locked ruleset.
+- **Duplicates are exempt by design** (`AGENT_DUPLICATE` / `TASK_DUPLICATE`):
+  their tags are already in play, so blocking the copy would assert the board
+  itself is invalid. They also do not register — copying never launders
+  legacy-unregistered tags into the registry.
+- The `useTagsConfig` base fetch settles asynchronously; until then the hook
+  reports the unlocked default. A user cannot realistically create an entity
+  in that window, but tests driving the UI immediately after load can.
+
+> ⚠️ **Needs clarification:** paths that bypass the gate entirely —
+> task-result spawned agents (`applyResults` templates, committed via
+> `APPLY_TICK`), free-form entity edits (`AGENT_UPDATE` / `TASK_UPDATE` /
+> `INVENTORY_UPDATE_ITEM` can introduce new tags), and session load/import
+> (`REPLACE_STATE` takes the save's registry as-is, reconciling nothing).
+> Locked mode currently gates creation only; extend deliberately if the live-
+> store invariant should become airtight.
 
 ---
 

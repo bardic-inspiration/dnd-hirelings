@@ -138,7 +138,7 @@ export function advanceTime(state, { clockConfig = DEFAULT_CLOCK_CONFIG, rollbac
 
           const effectiveAttributes = getEffectiveAttributes(agent.attributes, agent.activities, inventory);
           for (const condition of task.conditions) {
-            const rate = computeConditionContribution(condition, { effectiveAttributes, session: newSession, stepDays });
+            const rate = computeConditionContribution(condition, { effectiveAttributes, session: newSession, stepDays, registry: state.tagRegistry });
             if (rate <= 0) continue;
             const startProgress = condition.progress;
             condition.progress += rate;

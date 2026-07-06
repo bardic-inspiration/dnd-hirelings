@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  matchTagPath, parsePattern, formatPatternLabel, escapePatternSegment,
+  matchTagPath, matchTagValue, parsePattern, formatPatternLabel, escapePatternSegment,
 } from './tagMatching.js';
 
 describe('parsePattern', () => {
@@ -98,5 +98,34 @@ describe('escapePatternSegment', () => {
     expect(escapePatternSegment('a*b:c')).toBe('a\\*b\\:c');
     // Round-trips: an escaped segment parses back to the original literal.
     expect(parsePattern(escapePatternSegment('a*b'))).toEqual([{ kind: 'literal', value: 'a*b' }]);
+  });
+});
+
+describe('matchTagValue', () => {
+  it('passes unconstrained (null/undefined compare)', () => {
+    expect(matchTagValue(null, 'anything')).toBe(true);
+    expect(matchTagValue(undefined, null)).toBe(true);
+  });
+
+  it('== compares strings case-insensitively', () => {
+    expect(matchTagValue({ op: '==', value: 'druid' }, 'Druid')).toBe(true);
+    expect(matchTagValue({ op: '==', value: 'druid' }, 'fighter')).toBe(false);
+  });
+
+  it('ordered operators compare numerically, not lexically', () => {
+    expect(matchTagValue({ op: '>=', value: '9' }, '10')).toBe(true); // '10' < '9' as strings
+    expect(matchTagValue({ op: '<=', value: '3' }, '3')).toBe(true);
+    expect(matchTagValue({ op: '>', value: '3' }, '3')).toBe(false);
+    expect(matchTagValue({ op: '<', value: '4' }, 3)).toBe(true);
+  });
+
+  it('ordered operators fail closed when either side is non-numeric', () => {
+    expect(matchTagValue({ op: '>=', value: '3' }, 'fighter')).toBe(false);
+    expect(matchTagValue({ op: '>=', value: 'fighter' }, 3)).toBe(false);
+    expect(matchTagValue({ op: '<', value: '3' }, null)).toBe(false);
+  });
+
+  it('unknown operators match nothing', () => {
+    expect(matchTagValue({ op: '~=', value: '3' }, 3)).toBe(false);
   });
 });

@@ -13,6 +13,7 @@
 import { UI_SCHEMA } from './UI.js';
 import { CLOCK_SCHEMA } from './clockConfig.js';
 import { ROLLBACK_SCHEMA } from './rollback.js';
+import { TAGS_SCHEMA } from './tagsConfig.js';
 
 /**
  * Schema for the SESSION section (state-bound): the game-speed numbers the old
@@ -73,6 +74,13 @@ export const CONFIG_FILES = [
     kind: 'file',
     url: '/config/rollback.yml',
     schema: ROLLBACK_SCHEMA,
+  },
+  {
+    id: 'tags',
+    label: 'TAGS',
+    kind: 'file',
+    url: '/config/tags.yml',
+    schema: TAGS_SCHEMA,
   },
   {
     id: 'ui',

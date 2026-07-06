@@ -47,4 +47,15 @@ describe('submitOrder (issue #92)', () => {
     submitOrder(buildOrder('agent', []), dispatch, config);
     expect(dispatch).not.toHaveBeenCalled();
   });
+
+  it('spreads dispatch-time options onto every create action', () => {
+    const dispatch = vi.fn();
+    const order = buildOrder('item', [
+      { preset: { id: 'a', name: 'Rope' }, quantity: 1 },
+      { preset: { id: 'b', name: 'Oil' }, quantity: 2 },
+    ]);
+    submitOrder(order, dispatch, config, { locked: true });
+    expect(dispatch).toHaveBeenNthCalledWith(1, { type: 'ADD', preset: { name: 'Rope' }, count: 1, locked: true });
+    expect(dispatch).toHaveBeenNthCalledWith(2, { type: 'ADD', preset: { name: 'Oil' }, count: 2, locked: true });
+  });
 });

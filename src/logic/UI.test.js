@@ -80,9 +80,11 @@ function makeAgent(overrides = {}) {
   };
 }
 
+const registry = { class: { fighter: {} }, skill: { arcana: {} }, trait: { brave: {} } };
+
 function makeContext(agentOverrides) {
   const agent = makeAgent(agentOverrides);
-  return { agent, dyn: computeDynamicAttributes(agent), attributes: agent.attributes };
+  return { agent, dyn: computeDynamicAttributes(agent, [], registry), attributes: agent.attributes, registry };
 }
 
 describe('resolveTagSource', () => {
@@ -127,6 +129,12 @@ describe('resolveTagSource', () => {
     for (const source of ['dynamic:nope', 'skill:missing', 'trait:brave', 'potato:example:donut', '']) {
       expect(resolveTagSource(source, context)).toMatchObject({ value: null, valid: false, set: null });
     }
+  });
+
+  it('keeps leaf-string values non-displayable — the numeric contract holds', () => {
+    // class:fighter resolves 'fighter' for display use cases, but a card
+    // element needs a number; the leaf string stays invalid here.
+    expect(resolveTagSource('class:fighter', context)).toMatchObject({ value: null, valid: false });
   });
 });
 

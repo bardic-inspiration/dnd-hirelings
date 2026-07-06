@@ -1,6 +1,6 @@
 import { useGame } from '../../../state/GameContext.jsx';
 import { useUI } from '../../../state/UIContext.jsx';
-import { defaultConditionName } from '../../../logic/conditions.js';
+import { defaultConditionName, formatConditionLink } from '../../../logic/conditions.js';
 import { formatCount } from '../../../logic/format.js';
 import EditableSpan from '../../EditableSpan.jsx';
 import Tooltip from '../../Tooltip.jsx';
@@ -28,12 +28,12 @@ function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
     if (Number.isFinite(value) && value > 0) onUpdate({ target: value });
   };
   const commitName = (raw) => {
-    onUpdate({ name: raw.trim() || defaultConditionName(condition.tracker.tagPath) });
+    onUpdate({ name: raw.trim() || defaultConditionName(condition.tracker.tagPath, condition.tracker.compare) });
   };
 
   return (
     <div className={`condition-item${done ? ' condition-item--done' : ''}`}>
-      <Tooltip content={condition.tracker.tagPath ?? 'any agent'}>
+      <Tooltip content={formatConditionLink(condition.tracker)}>
         <EditableSpan
           className="condition-item-name"
           value={condition.name}

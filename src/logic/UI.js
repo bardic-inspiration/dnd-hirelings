@@ -5,6 +5,7 @@
 // config parsing, source resolution, and consumed-tag bookkeeping.
 import yaml from 'js-yaml';
 import { parseTag, buildTag, mergeAttribute } from './tags.js';
+import { resolveTagValue } from './tagValues.js';
 
 /** An element list set with nothing assigned — the shape every card config normalizes to. */
 export const EMPTY_CARD_CONFIG = Object.freeze({
@@ -163,6 +164,8 @@ export function parseUIConfig(ymlText) {
  * @param {Agent} context.agent - The agent (raw fields + raw attributes)
  * @param {object} context.dyn - Output of `computeDynamicAttributes(agent, …)`
  * @param {string[]} context.attributes - The agent's effective attribute tags
+ * @param {TagRegistry} [context.registry] - Tag registry, passed through to the
+ *   numeric value resolver (`logic/tagValues.js`)
  * @returns {{
  *   label: string,
  *   value: number|null,
@@ -173,7 +176,7 @@ export function parseUIConfig(ymlText) {
  *   new value to an `AGENT_UPDATE` changes object; `unitField` names an
  *   editable unit sibling field, if any
  */
-export function resolveTagSource(source, { agent, dyn, attributes }) {
+export function resolveTagSource(source, { agent, dyn, attributes, registry }) {
   const segments = parseTag(source).segments.map(segment => segment.toLowerCase());
   const label = (segments[segments.length - 1] ?? '').toUpperCase();
   const invalid = { label, value: null, valid: false, set: null, unitField: null };
@@ -209,8 +212,8 @@ export function resolveTagSource(source, { agent, dyn, attributes }) {
     const parsed = parseTag(tag);
     if (parsed.modifier) continue;
     if (parsed.segments.join(':').toLowerCase() !== path) continue;
-    const value = parsed.value !== null && parsed.value !== '' ? Number(parsed.value) : NaN;
-    if (!Number.isFinite(value)) return invalid;
+    const value = resolveTagValue('numeric', parsed, registry);
+    if (value === null) return invalid;
     return {
       label,
       value,

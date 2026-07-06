@@ -174,6 +174,61 @@ export const MATCH_MODE_REGISTRY = {
   open: matchOpen,
 };
 
+// --- Value comparison term ---
+
+// Ordered comparisons are numeric-only: either side failing coercion fails the
+// comparison (fail closed), so leaf strings never order-compare. Only numbers
+// and non-empty strings may coerce — null/undefined/booleans never do (Number
+// would silently turn them into 0/1).
+const toComparableNumber = (value) => {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim() !== '') return Number(value);
+  return NaN;
+};
+
+const numericComparison = (evaluate) => (tagValue, compareValue) => {
+  const left = toComparableNumber(tagValue);
+  const right = toComparableNumber(compareValue);
+  return Number.isFinite(left) && Number.isFinite(right) && evaluate(left, right);
+};
+
+/**
+ * Maps comparison operator to its evaluator — the extension point for value
+ * comparisons. `'=='` is case-insensitive string equality; the ordered
+ * operators compare numerically and fail when either side is non-numeric.
+ * Available to any pattern consumer; only condition tag links wire it in the
+ * first pass. Consumers choose which value resolver feeds the tag side
+ * deliberately (conditions use `'display'` — see `logic/conditions.js`);
+ * the `'match'` resolver's `true` would stringify to `'true'` under `'=='`.
+ *
+ * @type {{ [operator: string]: (tagValue: *, compareValue: *) => boolean }}
+ */
+export const VALUE_COMPARE_REGISTRY = {
+  '==': (tagValue, compareValue) => String(tagValue).toLowerCase() === String(compareValue).toLowerCase(),
+  '>=': numericComparison((left, right) => left >= right),
+  '<=': numericComparison((left, right) => left <= right),
+  '>':  numericComparison((left, right) => left > right),
+  '<':  numericComparison((left, right) => left < right),
+};
+
+/**
+ * Applies a structured comparison term to a tag's resolved value. The term is
+ * kept separate from the pattern path so wildcard/escape parsing never
+ * interacts with operator parsing.
+ *
+ * @param {{ op: string, value: string }|null|undefined} compare - Comparison
+ *   term; `null`/`undefined` means "no constraint" and always passes
+ * @param {*} value - The tag's value, resolved by the consumer's chosen
+ *   resolver (`logic/tagValues.js`)
+ * @returns {boolean} True when unconstrained or the comparison passes;
+ *   unknown operators match nothing
+ */
+export function matchTagValue(compare, value) {
+  if (compare === null || compare === undefined) return true;
+  const comparator = VALUE_COMPARE_REGISTRY[compare.op];
+  return comparator ? comparator(value, compare.value) : false;
+}
+
 /**
  * Renders a pattern path as a human-readable interpretation: literal segments
  * appear as their unescaped text, `*` as `‹any›`, `**` as `‹any…›`. Shows the
