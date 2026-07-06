@@ -264,6 +264,76 @@ export function patternMatchesRegistry(registry, patternPath) {
   return registry && typeof registry === 'object' ? walk(registry, []) : false;
 }
 
+// --- Creation-time tag entry (locked mode — see logic/tagsConfig.js) ---
+
+// First segments of dynamic instance tags, exempt from creation-time
+// validation and registration (mirrors the reducer's authored-vs-instance
+// distinction). Presets never carry `activities`, so this only defends
+// hand-authored preset files that misplace an instance tag.
+const DYNAMIC_FIRST_SEGMENTS = new Set(['task', 'bind']);
+
+// Matches the reducer's pattern test for condition tag links: wildcards and
+// escapes are never registry keys.
+const PATTERN_RE = /[\\*]/;
+
+/**
+ * Collects the authored tags a preset would bring into play, classified for
+ * registry validation. Fields read per entity type: `'agent'`/`'item'` →
+ * `attributes`; `'task'` → `requirements` + `attributes` + each condition's
+ * `tracker.tagPath`. Strings containing wildcards/escapes (`*`, `\`) classify
+ * as pattern paths; dynamic instance tags (first segment `task` or `bind`)
+ * and nullish entries are skipped entirely.
+ *
+ * @param {'agent'|'task'|'item'} entityType
+ * @param {object|null|undefined} preset - Create-action preset payload
+ * @returns {{ literalTags: string[], patternPaths: string[] }}
+ */
+export function collectPresetTags(entityType, preset) {
+  const literalTags = [];
+  const patternPaths = [];
+  if (!preset || typeof preset !== 'object') return { literalTags, patternPaths };
+  const sources = [...(preset.attributes ?? [])];
+  if (entityType === 'task') {
+    sources.push(...(preset.requirements ?? []));
+    for (const condition of preset.conditions ?? []) {
+      if (condition?.tracker?.tagPath) sources.push(condition.tracker.tagPath);
+    }
+  }
+  for (const tag of sources) {
+    if (typeof tag !== 'string' || !tag) continue;
+    if (PATTERN_RE.test(tag)) { patternPaths.push(tag); continue; }
+    if (DYNAMIC_FIRST_SEGMENTS.has(parseTag(tag).segments[0])) continue;
+    literalTags.push(tag);
+  }
+  return { literalTags, patternPaths };
+}
+
+/**
+ * Returns the preset's tags that the registry does not allow, deduped in
+ * input order — empty means the entity is creatable under locked mode.
+ * Literal tags fail when their segment path (modifier and `=value` stripped,
+ * exactly as `addTagToRegistry` registers them) is not a registry node;
+ * pattern paths fail when they match no registered path
+ * (`patternMatchesRegistry`). Shared by the library pre-check and the
+ * reducer's enforcement backstop so the two can never disagree.
+ *
+ * @param {TagRegistry} registry
+ * @param {'agent'|'task'|'item'} entityType
+ * @param {object|null|undefined} preset - Create-action preset payload
+ * @returns {string[]} Offending original tag strings
+ */
+export function unregisteredEntityTags(registry, entityType, preset) {
+  const { literalTags, patternPaths } = collectPresetTags(entityType, preset);
+  const offending = new Set();
+  for (const tag of literalTags) {
+    if (!pathExists(registry, parseTag(tag).segments)) offending.add(tag);
+  }
+  for (const pattern of patternPaths) {
+    if (!patternMatchesRegistry(registry, pattern)) offending.add(pattern);
+  }
+  return [...offending];
+}
+
 // --- Tree view flattening ---
 
 // Flattens the registry into an ordered list of VISIBLE rows for the editor-style
