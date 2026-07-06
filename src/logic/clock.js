@@ -39,53 +39,53 @@ export function getPlayIntervalMs(session, clockConfig = DEFAULT_CLOCK_CONFIG) {
 }
 
 /**
- * Pure simulation tick. Advances the clock by one step and computes all side effects.
+ * Pure simulation of ONE game day. Advances the clock by a single day and
+ * computes all side effects — the atomic unit `advanceTime` loops over.
  *
  * For each eligible working agent:
- * - Deducts their daily rate from the bank (proportional to stepDays).
+ * - Deducts their daily rate from the bank.
  * - Applies progress to each condition of their current task via the condition's tracker.
  * - Queues flash animations for agents that couldn't contribute (no bank, blocked task,
  *   no condition matched their attributes).
  *
- * Completion is evaluated for every task at the end of every tick, so manually
- * edited condition progress also completes on the next tick.
+ * Completion is evaluated for every task at the end of the day, so a task that
+ * reaches its target mid-step completes on the correct day and stops accruing
+ * work/wages afterward; manually edited progress completes on the next day.
  *
  * When `rollbackConfig.log.enabled` is true, appends one `work_contribution`
- * event per (agent, condition, game day), one `task_complete` event per task
- * that finishes this tick, and one `'tick'` boundary event sealing the batch
- * (ordering contract: `work* → task_complete* → tick`) to `newState.eventLog`
- * (FIFO-capped at `rollbackConfig.log.maxRows`). A multi-day tick is split into
- * one work row per day. The tick event records the step size and exact wage
- * total so `rollbackTick` can reverse the tick precisely. Task progress is
- * mutated identically whether or not logging is enabled.
+ * event per (agent, condition), one `task_complete` event per task that finishes
+ * this day, and one `'tick'` boundary event sealing the day's batch (ordering
+ * contract: `work* → task_complete* → tick`) to `newState.eventLog` (FIFO-capped
+ * at `rollbackConfig.log.maxRows`). The tick event records the step size
+ * (`minutesPerDay`) and exact wage total so `rollbackTick` can reverse the day
+ * precisely. Task progress is mutated identically whether or not logging is enabled.
  *
- * Returns the accumulated per-condition progress rates for the RAF interpolation loop.
+ * Returns the day's per-condition progress rates for the RAF interpolation loop.
  *
  * @param {GameState} state
- * @param {{ clockConfig?: typeof DEFAULT_CLOCK_CONFIG,
- *   rollbackConfig?: typeof DEFAULT_ROLLBACK_CONFIG }} [configs]
+ * @param {{ clockConfig: typeof DEFAULT_CLOCK_CONFIG,
+ *   rollbackConfig: typeof DEFAULT_ROLLBACK_CONFIG }} configs
  * @returns {{ newState: GameState, flashAgentIds: string[], taskProgressPerTick: object }}
  */
-export function advanceTime(state, { clockConfig = DEFAULT_CLOCK_CONFIG, rollbackConfig = DEFAULT_ROLLBACK_CONFIG } = {}) {
+function advanceDay(state, { clockConfig, rollbackConfig }) {
   const { agents, session } = state;
   const flashAgentIds = [];
-  // { [taskId]: { [conditionId]: progressUnitsThisTick } }
+  // { [taskId]: { [conditionId]: progressUnitsThisDay } }
   const taskProgressPerTick = {};
 
   const { minutesPerDay } = clockConfig.calendar;
-  const stepMins = getStepMinutes(session, clockConfig);
-  const stepDays = stepMins / minutesPerDay;
+  const stepMins = minutesPerDay;
+  const stepDays = 1;
 
   // Event-log accumulation. `seq` continues from the last retained entry's id so
   // ids stay monotonic even after FIFO trimming (the live length can lag the
-  // total appended). `dayCount` splits a multi-day tick into per-day rows.
+  // total appended).
   const logEnabled = rollbackConfig.log.enabled;
   const maxRows    = rollbackConfig.log.maxRows;
   const newEvents = [];
   const lastEntry = state.eventLog?.[state.eventLog.length - 1];
   let seq = (lastEntry && Number.isFinite(lastEntry.seq) ? lastEntry.seq : -1) + 1;
   const clockBefore = parseFloat(session.clock) || 0;
-  const dayCount = Math.max(1, Math.round(stepDays));
 
   let tasks = state.tasks.map(task => ({
     ...task,
@@ -98,11 +98,11 @@ export function advanceTime(state, { clockConfig = DEFAULT_CLOCK_CONFIG, rollbac
   const getTask  = agent => getCurrentTask(agent, tasks);
 
   const working = newAgents.filter(agent => getTask(agent) !== null);
-  // Tasks that received eligible work this tick — drives the implied
+  // Tasks that received eligible work this day — drives the implied
   // "clock advanced" completion of zero-condition tasks.
   const tasksWithEligibleAgents = new Set();
 
-  // Wage payments recorded on this tick's boundary event so rollback can
+  // Wage payments recorded on this day's boundary event so rollback can
   // refund exactly what was deducted (zero/empty when payment was skipped).
   let wagesTotal = 0;
   let wages = [];
@@ -142,19 +142,12 @@ export function advanceTime(state, { clockConfig = DEFAULT_CLOCK_CONFIG, rollbac
             if (rate <= 0) continue;
             const startProgress = condition.progress;
             condition.progress += rate;
-            // When logging is enabled, split the tick's contribution into per-day
-            // rows so the log is day-granular even when timeStep spans several days.
-            // Snapshots derive from startProgress, so progress is mutated once and
-            // is identical whether or not logging is on.
             if (logEnabled) {
-              const perDay = rate / dayCount;
-              for (let day = 1; day <= dayCount; day++) {
-                const clock = clockBefore + day * minutesPerDay;
-                newEvents.push(makeWorkEvent({
-                  seq: seq++, clock, day: Math.floor(clock / minutesPerDay),
-                  agent, task, condition, delta: perDay, progress: startProgress + day * perDay,
-                }));
-              }
+              const clock = clockBefore + minutesPerDay;
+              newEvents.push(makeWorkEvent({
+                seq: seq++, clock, day: Math.floor(clock / minutesPerDay),
+                agent, task, condition, delta: rate, progress: startProgress + rate,
+              }));
             }
             taskProgressPerTick[task.id]              ??= {};
             taskProgressPerTick[task.id][condition.id]  = (taskProgressPerTick[task.id][condition.id] ?? 0) + rate;
@@ -187,7 +180,7 @@ export function advanceTime(state, { clockConfig = DEFAULT_CLOCK_CONFIG, rollbac
     }
   }
 
-  // Seal the batch with the tick boundary event — appended on every tick so
+  // Seal the day with the tick boundary event — appended on every day so
   // rollback is uniformly tick-granular even when no work happened.
   if (logEnabled) {
     newEvents.push(makeTickEvent({
@@ -204,6 +197,47 @@ export function advanceTime(state, { clockConfig = DEFAULT_CLOCK_CONFIG, rollbac
     flashAgentIds,
     taskProgressPerTick,
   };
+}
+
+/**
+ * Advances the clock by one step-forward action. A step spans `session.timeStep`
+ * days and is simulated as that many independent single-day ticks (`advanceDay`),
+ * so the event log stays tick-level (one `'tick'` boundary per day) no matter how
+ * far a single step jumps — this is what lets `rollbackTick` rewind a day at a
+ * time without approximating game state.
+ *
+ * The returned `taskProgressPerTick` sums each day's per-condition rates so the
+ * RAF interpolation animates the whole step's contribution; `flashAgentIds`
+ * concatenates every day's flashes.
+ *
+ * @param {GameState} state
+ * @param {{ clockConfig?: typeof DEFAULT_CLOCK_CONFIG,
+ *   rollbackConfig?: typeof DEFAULT_ROLLBACK_CONFIG }} [configs]
+ * @returns {{ newState: GameState, flashAgentIds: string[], taskProgressPerTick: object }}
+ */
+export function advanceTime(state, { clockConfig = DEFAULT_CLOCK_CONFIG, rollbackConfig = DEFAULT_ROLLBACK_CONFIG } = {}) {
+  const { minutesPerDay } = clockConfig.calendar;
+  const dayCount = Math.max(1, Math.round(getStepMinutes(state.session, clockConfig) / minutesPerDay));
+
+  let current = state;
+  const flashAgentIds = [];
+  const taskProgressPerTick = {};
+
+  for (let day = 0; day < dayCount; day++) {
+    const result = advanceDay(current, { clockConfig, rollbackConfig });
+    current = result.newState;
+    for (const id of result.flashAgentIds) flashAgentIds.push(id);
+    for (const taskId in result.taskProgressPerTick) {
+      taskProgressPerTick[taskId] ??= {};
+      const conditionRates = result.taskProgressPerTick[taskId];
+      for (const conditionId in conditionRates) {
+        taskProgressPerTick[taskId][conditionId] =
+          (taskProgressPerTick[taskId][conditionId] ?? 0) + conditionRates[conditionId];
+      }
+    }
+  }
+
+  return { newState: current, flashAgentIds, taskProgressPerTick };
 }
 
 /**
