@@ -2,13 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Model Deployment Strategy
-Maximize Sonnet 5 lifecycle execution; restrict premium tiers to critical conceptual failures.
-
-* **Sonnet 5 (Default Engine):** Orchestration, issue breakdown, file-writing, tool execution, and Git state logging. Default choice for 95% of workflows.
-* **Haiku 4.5 (Utility):** Bulk text screening, searching logs, or parsing massive single-file outputs to preserve Sonnet context.
-* **Opus 4.8 / Fable 5 (Escalation Only):** Used *only* when Sonnet 5 triggers a loop failure or requests structural architectural intervention.
-
 ## Project Overview
 - **Guild Manager** is a single-page dashboard for managing NPC agents in roleplaying games. 
 - Players create **agents**, assign **tasks**, transact **items**, and operate a **game clock** that drives automated progress.
