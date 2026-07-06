@@ -66,13 +66,13 @@ Commits, pull requests and issues chart the project's evolution and inform itera
 ### Atomic Commits
 - Constraint: One isolated logical unit per commit. No multi-feature blobs.
 - Length: 50–70 characters max.
-- Format: <type>(<scope>): <description> [#issue]
+- Format: ```<type>(<scope>): <description> [#issue]```
 - Allowed Types: feat | fix | enhancement | refactor | docs | chore
 
 ### Pull Requests
 - PRs link the intent (Issue/Prompt/Spec Document) to the execution (Commits). 
 - PRs form the core historical context block for agents reading repository lineage.
-- Title Format: Same as commit format `(<type>(<scope>): <summary>)`
+- Title Format: Same as commit format ```(<type>(<scope>): <summary>)```
 - Automatic Closure: When addressing issues, PR description must include Closes #X or Fixes #X.
 
 ### Integration & Tracking Rules
