@@ -71,13 +71,36 @@ describe('advanceTime', () => {
     });
   });
 
-  it('splits a multi-day tick into one per-day row with divided deltas', () => {
+  it('splits a multi-day step into one tick group per game day', () => {
     const { newState } = advanceTime(makeState({ session: { timeStep: 2 } }));
     const rows = newState.eventLog;
-    expect(rows.map(row => row.eventType)).toEqual(['work_contribution', 'work_contribution', 'tick']);
-    expect(rows.slice(0, 2).map(row => row.delta)).toEqual([4, 4]); // rate 8 / 2 days
-    expect(rows[2].data.stepMins).toBe(2880);
+    // Each day is its own self-contained tick group: work → tick.
+    expect(rows.map(row => row.eventType))
+      .toEqual(['work_contribution', 'tick', 'work_contribution', 'tick']);
+    expect([rows[0].delta, rows[2].delta]).toEqual([4, 4]); // rate 4 per day
+    expect([rows[0].progress, rows[2].progress]).toEqual([4, 8]); // running snapshot
+    // Every boundary reverses exactly one day and records that day's wages.
+    expect(rows[1].data).toEqual({ stepMins: 1440, wagesTotal: 2, wages: [{ agentId: 'a1', agentName: 'A', amount: 2 }] });
+    expect(rows[3].data).toEqual({ stepMins: 1440, wagesTotal: 2, wages: [{ agentId: 'a1', agentName: 'A', amount: 2 }] });
+    expect(newState.session.clock).toBe(2880);
+    expect(newState.session.bank).toBe(96);            // 100 − 2/day × 2
     expect(newState.tasks[0].conditions[0].progress).toBe(8);
+  });
+
+  it('completes a task on the day it finishes and stops paying wages afterward', () => {
+    // Condition reaches its target (4) on day 1 of a 3-day step.
+    const { newState } = advanceTime(makeState({
+      session: { timeStep: 3 },
+      task: { conditions: [{ id: 'c1', name: 'ARCANA', target: 4, progress: 0, tracker: { kind: 'work', tagPath: 'skill:arcana' } }] },
+    }));
+    expect(newState.tasks[0].isComplete).toBe(true);
+    expect(newState.session.bank).toBe(98);            // only day 1's wage of 2
+    expect(newState.session.clock).toBe(3 * 1440);     // clock still advances the full step
+    // Completion lands in day 1's group; days 2-3 are empty tick boundaries.
+    expect(newState.eventLog.map(row => row.eventType))
+      .toEqual(['work_contribution', 'task_complete', 'tick', 'tick', 'tick']);
+    expect(newState.eventLog.filter(row => row.eventType === 'tick').slice(1).map(row => row.data.wagesTotal))
+      .toEqual([0, 0]);
   });
 
   it('flashes, makes no progress, and records zero wages when the bank cannot cover the tick', () => {

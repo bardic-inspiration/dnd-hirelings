@@ -77,6 +77,27 @@ describe('rollbackTick', () => {
     expect(rollbackTick(newState).newState.session.clock).toBe(0);
   });
 
+  it('makes each day of a multi-day step independently reversible', () => {
+    const after = advanceTime(makeState({ session: { timeStep: 3 } })).newState;
+    expect(after.session.clock).toBe(3 * 1440);
+    expect(after.session.bank).toBe(94);                       // 100 − 2/day × 3
+    expect(after.tasks[0].conditions[0].progress).toBe(12);   // 4/day × 3
+    expect(after.eventLog.filter(row => row.eventType === 'tick')).toHaveLength(3);
+
+    // Each step-back reverses exactly one day.
+    const back1 = rollbackTick(after).newState;
+    expect(back1.session.clock).toBe(2 * 1440);
+    expect(back1.tasks[0].conditions[0].progress).toBe(8);
+    const back2 = rollbackTick(back1).newState;
+    expect(back2.session.clock).toBe(1440);
+    const back3 = rollbackTick(back2).newState;
+    expect(back3.session.clock).toBe(0);
+    expect(back3.session.bank).toBe(100);
+    expect(back3.tasks[0].conditions[0].progress).toBe(0);
+    expect(back3.eventLog).toEqual([]);
+    expect(rollbackTick(back3)).toBeNull();                    // horizon reached
+  });
+
   it('reverses a completion: un-completes, removes rewards, deletes spawns, restores assignment', () => {
     const after = advanceTime(makeState({
       task: {
