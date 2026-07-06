@@ -5,7 +5,7 @@ import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
 import { parseTag, buildTag, MODIFIER_REGISTRY } from '../../logic/tags.js';
 import { parsePattern, matchTagPath } from '../../logic/tagMatching.js';
-import { conditionTemplateFromDraft } from '../../logic/conditions.js';
+import { conditionTemplateFromDraft, splitConditionDraft } from '../../logic/conditions.js';
 import {
   tagRegistrySave, tagRegistryLoad, flattenRegistry, tagsInUse, countTagsInUse,
   pathExists, patternMatchesRegistry,
@@ -22,23 +22,17 @@ function nodeAt(counts, segments) {
   return cur;
 }
 
-// Splits a draft tag into lowercased path parts (modifier + value stripped). Keeps
-// a trailing '' when the draft ends on a ':' delimiter, so the last element is
-// always the in-progress segment (what the user is currently typing).
+// Splits a draft tag into lowercased path parts (modifier, value, and any
+// comparison term stripped). Keeps a trailing '' when the draft ends on a ':'
+// delimiter, so the last element is always the in-progress segment (what the
+// user is currently typing).
 function draftParts(draft) {
   let text = draft;
   const comma = text.indexOf(',');
   if (comma >= 0) text = text.slice(comma + 1);   // drop modifier prefix
-  const eq = text.indexOf('=');
-  if (eq >= 0) text = text.slice(0, eq);          // drop value
+  const operator = text.search(/[<>=]/);
+  if (operator >= 0) text = text.slice(0, operator); // drop value / comparison
   return text.split(':').map(part => part.trim().toLowerCase());
-}
-
-// Splits a draft on its LAST '=' into { path, value }. Unlike parseTag this
-// never re-joins segments, so escaped pattern colons ('\:') survive intact.
-function splitDraftValue(draft) {
-  const match = String(draft).trim().match(/^(.*?)(?:=([^=]*))?$/s);
-  return { path: match[1], value: match[2] ?? null };
 }
 
 /**
@@ -154,7 +148,7 @@ export default function TagRegistryModal() {
   // special case: a bare '=target' draft (empty path) is a valid "any agent"
   // link (tagPath null).
   const canApply = useMemo(() => {
-    const { path } = splitDraftValue(draft);
+    const { path } = splitConditionDraft(draft);
     if (!draft.trim()) return false;
     if (isPattern) return (isConditionMode || isGlobal) && patternMatchesRegistry(registry, path);
     if (isConditionMode && !path) return true; // '=20' → general condition
@@ -258,7 +252,7 @@ export default function TagRegistryModal() {
   };
 
   const placeholder = isConditionMode
-    ? 'PATH=TARGET · PATTERNS OK (SKILL:*)'
+    ? 'PATH[>=N]=TARGET · PATTERNS OK (SKILL:*)'
     : 'CLICK A KEY · TYPE TO SEARCH OR ADD';
 
   return (

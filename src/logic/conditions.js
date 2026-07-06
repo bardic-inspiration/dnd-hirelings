@@ -6,7 +6,7 @@
 // without touching the clock loop.
 
 import { parseTag } from './tags.js';
-import { matchTagPath, matchTagValue, parsePattern, VALUE_COMPARE_REGISTRY } from './tagMatching.js';
+import { formatPatternLabel, matchTagPath, matchTagValue, parsePattern, VALUE_COMPARE_REGISTRY } from './tagMatching.js';
 import { resolveTagValue } from './tagValues.js';
 import { uid } from '../utils.js';
 
@@ -109,6 +109,9 @@ export function computeConditionContribution(condition, context) {
   return tracker ? tracker(condition, context) : 0;
 }
 
+// Display glyphs for comparison operators; unmapped operators render as-is.
+const COMPARE_SYMBOLS = { '==': '=', '>=': '≥', '<=': '≤' };
+
 /**
  * Derives a display name from a tag-link pattern, wildcard-aware:
  * - ends in a literal segment → that segment (`'skill:arcana'` → `'ARCANA'`,
@@ -116,20 +119,39 @@ export function computeConditionContribution(condition, context) {
  * - ends in a wildcard → `'ANY '` + last literal (`'skill:*'` → `'ANY SKILL'`)
  * - no literal segments (`'*'`, `'**'`) → `'ANY'`
  * - null/empty path → `'WORK'`
- * Underscores/hyphens render as spaces; output is uppercase.
+ * A comparison term appends as `' ≥ 3'` (`'skill:arcana'` + `>=3` →
+ * `'ARCANA ≥ 3'`). Underscores/hyphens render as spaces; output is uppercase.
  *
  * @param {string|null} tagPath
+ * @param {{ op: string, value: string }|null} [compare]
  * @returns {string}
  */
-export function defaultConditionName(tagPath) {
+export function defaultConditionName(tagPath, compare = null) {
+  const suffix = compare ? ` ${COMPARE_SYMBOLS[compare.op] ?? compare.op} ${String(compare.value).toUpperCase()}` : '';
   if (!tagPath) return 'WORK';
   const parts = parsePattern(tagPath);
   if (!parts.length) return 'WORK';
   const pretty = (text) => text.replace(/[_-]/g, ' ').toUpperCase();
   const literals = parts.filter(part => part.kind === 'literal' && part.value);
-  if (!literals.length) return 'ANY';
+  if (!literals.length) return `ANY${suffix}`;
   const lastLiteral = pretty(literals[literals.length - 1].value);
-  return parts[parts.length - 1].kind === 'literal' ? lastLiteral : `ANY ${lastLiteral}`;
+  return (parts[parts.length - 1].kind === 'literal' ? lastLiteral : `ANY ${lastLiteral}`) + suffix;
+}
+
+/**
+ * Renders a condition's tag link for display: `'any agent'` for a null path,
+ * else the pattern interpretation from `formatPatternLabel` plus the
+ * comparison term when present (`'skill:*' + >=3` → `'skill:‹any› ≥ 3'`).
+ *
+ * @param {ConditionTracker|null|undefined} tracker
+ * @returns {string}
+ */
+export function formatConditionLink(tracker) {
+  const tagPath = tracker?.tagPath;
+  if (!tagPath) return 'any agent';
+  const label = formatPatternLabel(tagPath);
+  const compare = tracker.compare;
+  return compare ? `${label} ${COMPARE_SYMBOLS[compare.op] ?? compare.op} ${compare.value}` : label;
 }
 
 /**
@@ -145,32 +167,70 @@ export function defaultConditionName(tagPath) {
  */
 export function createConditionTemplate({ name, target, tagPath, kind = 'work', compare = null } = {}) {
   const path = typeof tagPath === 'string' && tagPath.trim() ? tagPath.trim().toLowerCase() : null;
+  const compareTerm = normalizeCompare(compare, path);
   const targetNumber = Number(target);
   return {
-    name: typeof name === 'string' && name.trim() ? name.trim() : defaultConditionName(path),
+    name: typeof name === 'string' && name.trim() ? name.trim() : defaultConditionName(path, compareTerm),
     target: Number.isFinite(targetNumber) && targetNumber > 0 ? targetNumber : 1,
     tracker: {
       kind: typeof kind === 'string' && kind ? kind : 'work',
       tagPath: path,
-      compare: normalizeCompare(compare, path),
+      compare: compareTerm,
     },
+  };
+}
+
+// Splits a draft at the first unescaped comparison operator. The path group
+// consumes escaped pairs first, so `\:`, `\*`, and even `\=` stay inside the
+// path; it stops at the first unescaped `<`, `>`, or `=`. A single `=` is not
+// an operator (it is the target delimiter), so `path=target` drafts fail this
+// regex and fall through to the plain target split.
+const OPERATOR_DRAFT_RE = /^((?:\\.|[^<>=])*)(==|>=|<=|>|<)(.*)$/s;
+
+// Last-`=` target split: the suffix group cannot contain `=`, so it anchors to
+// the final one; everything before it is the head.
+const TARGET_DRAFT_RE = /^(.*?)(?:=([^=]*))?$/s;
+
+/**
+ * Splits a registry-modal condition draft into its three terms.
+ *
+ * Grammar: `path[op value][=target]` with operators `==`, `>=`, `<=`, `>`, `<`
+ * — e.g. `'skill:arcana>=3=30'`, `'class==druid'`, `'skill:arcana=30'`,
+ * `'=20'`. Bare equality is spelled `==` because a single `=` is the target
+ * delimiter. Escape-safe: the path may carry pattern escapes (`\:`, `\*`) and
+ * never round-trips through `parseTag`.
+ *
+ * @param {string} draft
+ * @returns {{ path: string, compare: { op: string, value: string }|null, target: string|null }}
+ *   Raw (unvalidated) terms; `createConditionTemplate` applies the guards
+ */
+export function splitConditionDraft(draft) {
+  const text = String(draft ?? '').trim();
+  const operatorMatch = text.match(OPERATOR_DRAFT_RE);
+  if (!operatorMatch) {
+    const plain = text.match(TARGET_DRAFT_RE);
+    return { path: plain[1], compare: null, target: plain[2] ?? null };
+  }
+  const remainder = operatorMatch[3].match(TARGET_DRAFT_RE);
+  return {
+    path: operatorMatch[1],
+    compare: { op: operatorMatch[2], value: remainder[1] },
+    target: remainder[2] ?? null,
   };
 }
 
 /**
  * Builds a condition template from a registry-modal draft string of the form
- * `path[=target]` (e.g. `'skill:arcana=30'`, `'skill:*'`). Only the LAST `=`
- * splits off the target — the path part may carry pattern escapes (`\:`, `\*`),
- * so it must not round-trip through `parseTag`. Name and target defaults come
- * from `createConditionTemplate` (target 1, name via `defaultConditionName`).
+ * `path[op value][=target]` (see `splitConditionDraft`). Name, target, and
+ * compare defaults/guards come from `createConditionTemplate` (target 1, name
+ * via `defaultConditionName`, malformed compare → null).
  *
  * @param {string} draft
  * @returns {ConditionTemplate}
  */
 export function conditionTemplateFromDraft(draft) {
-  const text = String(draft ?? '').trim();
-  const match = text.match(/^(.*?)(?:=([^=]*))?$/s);
-  return createConditionTemplate({ tagPath: match[1], target: match[2] });
+  const { path, compare, target } = splitConditionDraft(draft);
+  return createConditionTemplate({ tagPath: path, target, compare });
 }
 
 /**

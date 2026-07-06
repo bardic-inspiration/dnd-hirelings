@@ -1,5 +1,6 @@
 import { useUI } from '../../../state/UIContext.jsx';
 import { routeTaskTag } from '../../../logic/tasks.js';
+import { formatConditionLink } from '../../../logic/conditions.js';
 import { mergeAttribute } from '../../../logic/tags.js';
 import { useCharBudget } from '../../../hooks/useCharBudget.js';
 import EditableSpan from '../../EditableSpan.jsx';
@@ -64,7 +65,7 @@ function ConditionTemplateSection({ conditions, onChange }) {
           <div key={i} className="tag-list-item">
             <span className="tag-content">
               <strong>{template.name}</strong> ={template.target}
-              <span className="dim"> · {template.tracker?.tagPath ?? 'any agent'}</span>
+              <span className="dim"> · {formatConditionLink(template.tracker)}</span>
             </span>
             <span className="x" onClick={() => onChange({ conditions: conditions.filter((_, j) => j !== i) })}>×</span>
           </div>

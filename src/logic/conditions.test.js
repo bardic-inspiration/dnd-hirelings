@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeConditionContribution, defaultConditionName, createConditionTemplate,
-  conditionTemplateFromDraft, migrateLegacyWork, normalizeConditionTemplate, resetConditions,
+  conditionTemplateFromDraft, formatConditionLink, migrateLegacyWork,
+  normalizeConditionTemplate, resetConditions, splitConditionDraft,
 } from './conditions.js';
 
 const session = { workRate: 1, skillBonus: 1 };
@@ -118,10 +119,40 @@ describe('normalizeConditionTemplate', () => {
   });
 });
 
+describe('splitConditionDraft', () => {
+  it('splits path[op value][=target], keeping the last = as the target delimiter', () => {
+    expect(splitConditionDraft('skill:arcana>=3=30'))
+      .toEqual({ path: 'skill:arcana', compare: { op: '>=', value: '3' }, target: '30' });
+    expect(splitConditionDraft('class==druid'))
+      .toEqual({ path: 'class', compare: { op: '==', value: 'druid' }, target: null });
+    expect(splitConditionDraft('class==druid=30'))
+      .toEqual({ path: 'class', compare: { op: '==', value: 'druid' }, target: '30' });
+    expect(splitConditionDraft('skill:*>=3=30'))
+      .toEqual({ path: 'skill:*', compare: { op: '>=', value: '3' }, target: '30' });
+  });
+
+  it('falls through to the plain last-= split when no operator is present', () => {
+    expect(splitConditionDraft('skill:arcana=30')).toEqual({ path: 'skill:arcana', compare: null, target: '30' });
+    expect(splitConditionDraft('skill:*')).toEqual({ path: 'skill:*', compare: null, target: null });
+    expect(splitConditionDraft('=20')).toEqual({ path: '', compare: null, target: '20' });
+  });
+
+  it('keeps escaped characters inside the path', () => {
+    expect(splitConditionDraft('weird\\:name>=2=10'))
+      .toEqual({ path: 'weird\\:name', compare: { op: '>=', value: '2' }, target: '10' });
+    expect(splitConditionDraft('skill:\\*>=1'))
+      .toEqual({ path: 'skill:\\*', compare: { op: '>=', value: '1' }, target: null });
+  });
+
+  it('pins degenerate multi-= drafts to the last-= split (invalid path fails later)', () => {
+    expect(splitConditionDraft('a=b=c')).toEqual({ path: 'a=b', compare: null, target: 'c' });
+  });
+});
+
 describe('conditionTemplateFromDraft', () => {
   it('splits path[=target] on the last =, defaulting target to 1', () => {
     expect(conditionTemplateFromDraft('skill:arcana=30')).toMatchObject({
-      target: 30, tracker: { tagPath: 'skill:arcana' },
+      target: 30, tracker: { tagPath: 'skill:arcana', compare: null },
     });
     expect(conditionTemplateFromDraft('skill:*')).toMatchObject({
       target: 1, tracker: { tagPath: 'skill:*' },
@@ -129,6 +160,27 @@ describe('conditionTemplateFromDraft', () => {
     expect(conditionTemplateFromDraft('=20')).toMatchObject({
       target: 20, tracker: { tagPath: null },
     });
+  });
+
+  it('carries an operator draft into a normalized compare term and derived name', () => {
+    expect(conditionTemplateFromDraft('skill:arcana>=3=30')).toMatchObject({
+      name: 'ARCANA ≥ 3', target: 30,
+      tracker: { tagPath: 'skill:arcana', compare: { op: '>=', value: '3' } },
+    });
+    expect(conditionTemplateFromDraft('class==Druid')).toMatchObject({
+      name: 'CLASS = DRUID', target: 1,
+      tracker: { tagPath: 'class', compare: { op: '==', value: 'druid' } },
+    });
+  });
+});
+
+describe('formatConditionLink', () => {
+  it('renders the pattern label plus the comparison term', () => {
+    expect(formatConditionLink(null)).toBe('any agent');
+    expect(formatConditionLink({ tagPath: null, compare: null })).toBe('any agent');
+    expect(formatConditionLink({ tagPath: 'skill:arcana', compare: null })).toBe('skill:arcana');
+    expect(formatConditionLink({ tagPath: 'skill:*', compare: { op: '>=', value: '3' } })).toBe('skill:‹any› ≥ 3');
+    expect(formatConditionLink({ tagPath: 'class', compare: { op: '==', value: 'druid' } })).toBe('class = druid');
   });
 });
 
