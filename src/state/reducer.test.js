@@ -177,3 +177,74 @@ describe('inventory identity merge on edit (issue #91)', () => {
     expect(state.inventory).toHaveLength(2);
   });
 });
+
+describe('locked-mode creation gate', () => {
+  const lockedState = () => ({
+    agents: [], tasks: [], inventory: [],
+    tagRegistry: { skill: { arcana: {} }, trait: { brave: {} } },
+  });
+
+  it('blocks creation of entities carrying unregistered tags, same reference', () => {
+    const state = lockedState();
+    const preset = { attributes: ['rarity:common'] };
+    expect(reducer(state, { type: 'AGENT_CREATE', preset, locked: true })).toBe(state);
+    expect(reducer(state, { type: 'TASK_CREATE', preset, locked: true })).toBe(state);
+    expect(reducer(state, { type: 'INVENTORY_ADD', preset, locked: true })).toBe(state);
+  });
+
+  it('creates when every tag is registered, stripping modifiers and values', () => {
+    const next = reducer(lockedState(), {
+      type: 'AGENT_CREATE',
+      preset: { attributes: ['req,skill:arcana=2', 'trait:brave'] },
+      locked: true,
+    });
+    expect(next.agents).toHaveLength(1);
+  });
+
+  it('always allows blank creates, locked or not', () => {
+    const state = lockedState();
+    const next = reducer(state, { type: 'AGENT_CREATE', locked: true });
+    expect(next.agents).toHaveLength(1);
+    expect(next.tagRegistry).toBe(state.tagRegistry); // registry untouched
+  });
+
+  it('registers unregistered preset tags when unlocked (missing locked field)', () => {
+    const next = reducer(lockedState(), {
+      type: 'AGENT_CREATE',
+      preset: { attributes: ['class:fighter=1', 'req,rarity:common'] },
+    });
+    expect(next.agents).toHaveLength(1);
+    expect(next.tagRegistry.class).toEqual({ fighter: {} }); // value stripped
+    expect(next.tagRegistry.rarity).toEqual({ common: {} }); // modifier stripped
+  });
+
+  it('validates task condition pattern links against the registry', () => {
+    const state = lockedState();
+    const hollow = { conditions: [{ name: 'X', target: 1, tracker: { kind: 'work', tagPath: 'spell:*' } }] };
+    const matching = { conditions: [{ name: 'X', target: 1, tracker: { kind: 'work', tagPath: 'skill:*' } }] };
+    expect(reducer(state, { type: 'TASK_CREATE', preset: hollow, locked: true })).toBe(state);
+    const next = reducer(state, { type: 'TASK_CREATE', preset: matching, locked: true });
+    expect(next.tasks).toHaveLength(1);
+    expect(next.tagRegistry).toEqual(state.tagRegistry); // patterns are never registered
+  });
+
+  it('registers literal condition tag paths on task creation', () => {
+    const preset = { conditions: [{ name: 'X', target: 5, tracker: { kind: 'work', tagPath: 'skill:stealth' } }] };
+    const next = reducer(lockedState(), { type: 'TASK_CREATE', preset });
+    expect(next.tagRegistry.skill.stealth).toEqual({});
+  });
+
+  it('neither blocks nor registers dynamic instance tags', () => {
+    const state = lockedState();
+    const preset = { attributes: ['bind:weapon:item:sword', 'task:abc123'] };
+    const blocked = reducer(state, { type: 'AGENT_CREATE', preset, locked: true });
+    expect(blocked.agents).toHaveLength(1);
+    expect(blocked.tagRegistry).toEqual(state.tagRegistry);
+  });
+
+  it('blocks all copies of a multi-count order atomically', () => {
+    const state = lockedState();
+    const next = reducer(state, { type: 'AGENT_CREATE', preset: { attributes: ['rarity:common'] }, count: 3, locked: true });
+    expect(next).toBe(state);
+  });
+});
