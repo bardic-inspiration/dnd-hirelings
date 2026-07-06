@@ -5,6 +5,10 @@ const agent = (overrides = {}) => ({
   xp: 0, hp: null, attributes: [], activities: [], ...overrides,
 });
 
+// Class names resolve as registry-bounded display values: a class tag only
+// carries its name when the terminal segment is a registered leaf.
+const registry = { class: { fighter: {}, druid: { circle: {} } } };
+
 describe('xpForLevel', () => {
   it('inverts the level formula', () => {
     expect(xpForLevel(1)).toBe(0);
@@ -29,7 +33,17 @@ describe('computeDynamicAttributes', () => {
   it('applies the DEX modifier to AC and CON/class to HP', () => {
     expect(computeDynamicAttributes(agent({ attributes: ['ability:dex=14'] })).ac).toBe(12);
     expect(computeDynamicAttributes(agent({ attributes: ['ability:con=14'] })).hpMax).toBe(17);
-    expect(computeDynamicAttributes(agent({ attributes: ['class:fighter'] })).hpMax).toBe(16);
+    expect(computeDynamicAttributes(agent({ attributes: ['class:fighter'] }), [], registry).hpMax).toBe(16);
+  });
+
+  it('resolves the class name as a registry-bounded display value', () => {
+    const fighter = agent({ attributes: ['class:fighter'] });
+    // Registered leaf → class bonus applies; explicit =value wins registry-free.
+    expect(computeDynamicAttributes(fighter, [], registry).hpMax).toBe(16);
+    expect(computeDynamicAttributes(agent({ attributes: ['class=fighter'] })).hpMax).toBe(16);
+    // No registry, or a registered non-leaf terminal → no class name, bonus 0.
+    expect(computeDynamicAttributes(fighter).hpMax).toBe(15);
+    expect(computeDynamicAttributes(agent({ attributes: ['class:druid'] }), [], registry).hpMax).toBe(15);
   });
 
   it('treats hp === null as full health but keeps an explicit hp', () => {

@@ -1,5 +1,6 @@
 import { parseTag } from './tags.js';
 import { getEffectiveAttributes } from './agents.js';
+import { resolveTagValue } from './tagValues.js';
 
 // Returns the numeric value of an ability tag (e.g. 'ability:str=14' → 14).
 function getAbility(attributes, name) {
@@ -12,11 +13,16 @@ function getAbility(attributes, name) {
   return 10; // default ability score
 }
 
-// Returns the sub-segment value of a single-child tag (e.g. 'class:fighter' → 'fighter').
-function getTagSub(attributes, firstSegment) {
+// Returns the display value of the first non-modifier tag in a category
+// ('class:fighter' → 'fighter' when fighter is a registered leaf, or an
+// explicit 'class=fighter'). Strict registry-bounded read: an unregistered
+// or non-leaf terminal yields null (see logic/tagValues.js).
+function getCategoryValue(attributes, category, registry) {
   for (const tag of attributes) {
     const parsed = parseTag(tag);
-    if (parsed.segments[0] === firstSegment && parsed.segments[1]) return parsed.segments[1].toLowerCase();
+    if (parsed.modifier || parsed.segments[0] !== category) continue;
+    const value = resolveTagValue('display', parsed, registry);
+    if (value !== null) return String(value).toLowerCase();
   }
   return null;
 }
@@ -54,9 +60,12 @@ export function xpForLevel(level) {
  *
  * @param {Agent} agent - `agent.hp === null` means "at full health"
  * @param {InventoryItem[]} [inventory] - Used to resolve `bonus,*` tags on bound items
+ * @param {TagRegistry} [registry] - Tag registry; required for class-based HP
+ *   bonuses (the class name is a registry-bounded display value — without a
+ *   registry, `class:<name>` tags resolve no value and the bonus is 0)
  * @returns {{ xp: number, level: number, xpProgress: number, xpLvl: number, xpLvlMax: number, proficiency: number, ac: number, hp: number, hpMax: number }}
  */
-export function computeDynamicAttributes(agent, inventory = []) {
+export function computeDynamicAttributes(agent, inventory = [], registry = undefined) {
   const attrs = getEffectiveAttributes(agent.attributes ?? [], agent.activities ?? [], inventory);
   const xp    = agent.xp ?? 0;
 
@@ -81,7 +90,7 @@ export function computeDynamicAttributes(agent, inventory = []) {
   const ac = 10 + Math.floor((dex - 10) / 2);
 
   // HP max: base 10 + (5 + classBonus) per level + CON modifier per level
-  const cls = getTagSub(attrs, 'class');
+  const cls = getCategoryValue(attrs, 'class', registry);
   const classBonus =
     cls === 'sorcerer' || cls === 'wizard'                  ? -1 :
     cls === 'fighter'  || cls === 'paladin' || cls === 'ranger' ?  1 :

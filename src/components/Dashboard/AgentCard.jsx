@@ -79,7 +79,7 @@ export default function AgentCard({ agent }) {
 
   const personalItems   = getPersonalItems(agent.activities);
   const boundItems      = getBoundItems(agent.activities);
-  const dyn = computeDynamicAttributes(agent, state.inventory);
+  const dyn = computeDynamicAttributes(agent, state.inventory, state.tagRegistry);
   // Configurable elements (medallion/boxes/bars/fields/values) resolve their
   // sources against this shared context; attribute-path sources read the
   // effective (bonus-applied) tags, matching how dyn itself is computed.
@@ -88,6 +88,7 @@ export default function AgentCard({ agent }) {
     agent,
     dyn,
     attributes: getEffectiveAttributes(agent.attributes ?? [], agent.activities ?? [], state.inventory),
+    registry: state.tagRegistry,
   };
   // Tags assigned to a configured element render there, not as chips.
   const consumedPaths = getConsumedTagPaths(cardConfig);
