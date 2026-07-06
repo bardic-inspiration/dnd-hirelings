@@ -9,6 +9,8 @@ import { LIBRARY_CONFIGS } from '../../constants/libraries.jsx';
 import { highlight } from '../../logic/text.jsx';
 import { formatCount } from '../../logic/format.js';
 import { buildOrder, submitOrder } from '../../logic/order.js';
+import { unregisteredEntityTags } from '../../logic/tagRegistry.js';
+import { useTagsConfig } from '../../hooks/useTagsConfig.js';
 import { savePresetToFile, savePresetListToFile, loadPresetsFromFile } from '../../logic/presets.js';
 
 export default function LibraryModal() {
@@ -23,7 +25,8 @@ export default function LibraryModal() {
 
 function LibraryModalBody({ config }) {
   const { closeLibrary } = useUI();
-  const { dispatch } = useGame();
+  const { state, dispatch } = useGame();
+  const { locked } = useTagsConfig();
 
   const { presets, ready, addBlank, addPreset, updatePreset, deletePreset, importPresets } = usePresets(config);
   const [query, setQuery]           = useState('');
@@ -121,11 +124,23 @@ function LibraryModalBody({ config }) {
 
   // Submit the whole cart at once: one order document, expanded to create
   // actions by submitOrder. Built from `presets` (not the filtered view) so a
-  // search that hides a row never drops it from the order.
+  // search that hides a row never drops it from the order. Locked mode
+  // pre-checks the WHOLE order before dispatching anything — submitOrder
+  // dispatches per line, so a mid-order reducer block would partially fill
+  // the cart; here it is all-or-nothing with an explanation. The `locked`
+  // flag still rides on every action so the reducer backstop stays honest.
   const handleAdd = () => {
     const order = buildOrder(config.type, presets.map(preset => ({ preset, quantity: quantities[preset.id] ?? 0 })));
     if (!order.lines.length) return;
-    submitOrder(order, dispatch, config);
+    if (locked) {
+      const offending = [...new Set(order.lines.flatMap(line =>
+        unregisteredEntityTags(state.tagRegistry, config.type, line.preset)))];
+      if (offending.length) {
+        alert(`TAGS LOCKED — order not submitted.\nUnregistered tags:\n  ${offending.join('\n  ')}\nRegister them in the TAG REGISTRY, or set locked: false in CONFIG → TAGS.`);
+        return; // keep the modal open so the cart can be fixed
+      }
+    }
+    submitOrder(order, dispatch, config, { locked });
     closeLibrary();
   };
 

@@ -1,10 +1,12 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
+import { useTagsConfig } from '../../hooks/useTagsConfig.js';
 import Tooltip from '../Tooltip.jsx';
 import TaskCard from './TaskCard.jsx';
 
 export default function TaskList() {
   const { state, dispatch } = useGame();
+  const { locked } = useTagsConfig();
   const { openLibrary } = useUI();
   const sorted = [...state.tasks].sort((a, b) => (a.isComplete - b.isComplete) || (b.createdAt - a.createdAt));
 
@@ -18,7 +20,7 @@ export default function TaskList() {
           <button
             className="add-card add-task"
             onClick={e => { e.stopPropagation(); openLibrary('task'); }}
-            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'TASK_CREATE' }); }}
+            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'TASK_CREATE', locked }); }}
           >+ TASK</button>
         </Tooltip>
       </div>

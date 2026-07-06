@@ -37,11 +37,14 @@ export function buildOrder(type, lines) {
  * @param {(action: object) => void} dispatch - Game store dispatch
  * @param {{ toCreateAction: (preset: object, count: number) => object }} config -
  *   The order's library config, supplying the per-type create action
+ * @param {object} [options] - Dispatch-time policy fields spread onto every
+ *   create action (today: `{ locked }` from the tags config). Policy is not
+ *   order content, so the order document stays transport-agnostic.
  * @returns {number} How many lines were submitted
  */
-export function submitOrder(order, dispatch, config) {
+export function submitOrder(order, dispatch, config, options = {}) {
   for (const line of order.lines) {
-    dispatch(config.toCreateAction(line.preset, line.quantity));
+    dispatch({ ...config.toCreateAction(line.preset, line.quantity), ...options });
   }
   return order.lines.length;
 }

@@ -1,11 +1,13 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
+import { useTagsConfig } from '../../hooks/useTagsConfig.js';
 import Tooltip from '../Tooltip.jsx';
 import ItemRow from './ItemRow.jsx';
 import BankPanel from './BankPanel.jsx';
 
 export default function InventoryList() {
   const { state, dispatch } = useGame();
+  const { locked } = useTagsConfig();
   const { openLibrary } = useUI();
 
   return (
@@ -18,7 +20,7 @@ export default function InventoryList() {
           <button
             className="add-card add-item"
             onClick={e => { e.stopPropagation(); openLibrary('item'); }}
-            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'INVENTORY_ADD' }); }}
+            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'INVENTORY_ADD', locked }); }}
           >+ ITEM</button>
         </Tooltip>
       </div>
