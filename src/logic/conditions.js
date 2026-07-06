@@ -6,7 +6,8 @@
 // without touching the clock loop.
 
 import { parseTag } from './tags.js';
-import { matchTagPath, parsePattern } from './tagMatching.js';
+import { matchTagPath, matchTagValue, parsePattern, VALUE_COMPARE_REGISTRY } from './tagMatching.js';
+import { resolveTagValue } from './tagValues.js';
 import { uid } from '../utils.js';
 
 /**
@@ -15,7 +16,21 @@ import { uid } from '../utils.js';
  * @property {string|null} tagPath - Pattern path matched (open mode) against agent
  *   attribute tags via `logic/tagMatching.js` (e.g. `'skill:arcana'`, `'skill:*'`,
  *   `'skill:**'`), or `null` to accept any assigned agent
+ * @property {{ op: string, value: string }|null} compare - Comparison applied to
+ *   the display-resolved value of the path-matched tag (`logic/tagValues.js`),
+ *   with `op` a key of `VALUE_COMPARE_REGISTRY`; `null` means no constraint
  */
+
+// Guards a raw comparison term: requires a non-null path to compare against,
+// a known operator, and a non-empty value (stored trimmed/lowercased, matching
+// tagPath normalization). Anything malformed collapses to null.
+function normalizeCompare(raw, path) {
+  if (!path || !raw || typeof raw !== 'object') return null;
+  const op = typeof raw.op === 'string' ? raw.op : '';
+  const value = String(raw.value ?? '').trim().toLowerCase();
+  if (!VALUE_COMPARE_REGISTRY[op] || !value) return null;
+  return { op, value };
+}
 
 /**
  * @typedef {object} ConditionTemplate
@@ -36,29 +51,36 @@ import { uid } from '../utils.js';
  * widen the link explicitly: `'skill:*'` matches any specific skill,
  * `'skill:**'` the whole skill subtree, `'**:potato'` any path ending in potato.
  *
+ * When the tracker carries a `compare` term, it is tested against each
+ * path-matched tag's display-resolved value (`logic/tagValues.js`) INSIDE the
+ * search, so a wildcard link selects the first *qualifying* tag — an agent
+ * with several path matches contributes through whichever one passes.
+ *
  * Rates:
  * - `tagPath: null` → base rate `workRate * stepDays` (any agent contributes)
- * - matched tag with numeric value → `(workRate + value * skillBonus) * stepDays`
- * - matched tag without a value → base rate
- * - no matching tag → 0 (the agent does not contribute to this condition)
+ * - matched tag with explicit numeric value → `(workRate + value * skillBonus) * stepDays`
+ * - matched tag without one → base rate (leaf strings never become rate bonuses)
+ * - no matching/qualifying tag → 0 (the agent does not contribute)
  *
  * @param {Condition} condition
- * @param {{ effectiveAttributes: string[], session: Session, stepDays: number }} context
+ * @param {{ effectiveAttributes: string[], session: Session, stepDays: number, registry: TagRegistry }} context
  * @returns {number} Progress units contributed this tick
  */
-function workContribution(condition, { effectiveAttributes, session, stepDays }) {
+function workContribution(condition, { effectiveAttributes, session, stepDays, registry }) {
   const workRate   = session.workRate   ?? 1;
   const skillBonus = session.skillBonus ?? 1;
-  const tagPath = condition.tracker.tagPath;
+  const { tagPath, compare = null } = condition.tracker;
   if (!tagPath) return workRate * stepDays;
 
   const match = effectiveAttributes
     .map(tag => parseTag(tag))
-    .find(parsed => !parsed.modifier && matchTagPath(tagPath, parsed.segments, { mode: 'open' }));
+    .find(parsed => !parsed.modifier
+      && matchTagPath(tagPath, parsed.segments, { mode: 'open' })
+      && matchTagValue(compare, resolveTagValue('display', parsed, registry)));
   if (!match) return 0;
 
-  const value = parseFloat(match.value);
-  if (!Number.isFinite(value)) return workRate * stepDays;
+  const value = resolveTagValue('numeric', match, registry);
+  if (value === null) return workRate * stepDays;
   return (workRate + value * skillBonus) * stepDays;
 }
 
@@ -114,18 +136,24 @@ export function defaultConditionName(tagPath) {
  * Builds a sanitized condition template from loose input.
  * `tagPath` is trimmed and lowercased (empty → null); a non-positive or
  * non-numeric `target` falls back to 1; a blank `name` falls back to
- * `defaultConditionName(tagPath)`.
+ * `defaultConditionName(tagPath)`; a malformed `compare` (unknown operator,
+ * empty value, or no path to compare against) collapses to null — which is
+ * also how stored conditions predating the field normalize on load.
  *
- * @param {{ name?: string, target?: number|string, tagPath?: string|null, kind?: string }} input
+ * @param {{ name?: string, target?: number|string, tagPath?: string|null, kind?: string, compare?: { op: string, value: string }|null }} input
  * @returns {ConditionTemplate}
  */
-export function createConditionTemplate({ name, target, tagPath, kind = 'work' } = {}) {
+export function createConditionTemplate({ name, target, tagPath, kind = 'work', compare = null } = {}) {
   const path = typeof tagPath === 'string' && tagPath.trim() ? tagPath.trim().toLowerCase() : null;
   const targetNumber = Number(target);
   return {
     name: typeof name === 'string' && name.trim() ? name.trim() : defaultConditionName(path),
     target: Number.isFinite(targetNumber) && targetNumber > 0 ? targetNumber : 1,
-    tracker: { kind: typeof kind === 'string' && kind ? kind : 'work', tagPath: path },
+    tracker: {
+      kind: typeof kind === 'string' && kind ? kind : 'work',
+      tagPath: path,
+      compare: normalizeCompare(compare, path),
+    },
   };
 }
 
@@ -159,6 +187,7 @@ export function normalizeConditionTemplate(raw) {
     target:  source.target,
     tagPath: source.tracker?.tagPath,
     kind:    source.tracker?.kind,
+    compare: source.tracker?.compare,
   });
 }
 

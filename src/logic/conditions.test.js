@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeConditionContribution, defaultConditionName, createConditionTemplate,
-  conditionTemplateFromDraft, migrateLegacyWork, resetConditions,
+  conditionTemplateFromDraft, migrateLegacyWork, normalizeConditionTemplate, resetConditions,
 } from './conditions.js';
 
 const session = { workRate: 1, skillBonus: 1 };
-const workCondition = (tagPath) => ({ tracker: { kind: 'work', tagPath } });
+const workCondition = (tagPath, compare = null) => ({ tracker: { kind: 'work', tagPath, compare } });
 
 describe('computeConditionContribution — work tracker', () => {
   it('a null tag path grants the base rate to any agent', () => {
@@ -45,6 +45,38 @@ describe('computeConditionContribution — work tracker', () => {
   });
 });
 
+describe('computeConditionContribution — compare terms', () => {
+  const registry = { class: { fighter: {}, druid: { circle: {} } }, skill: { arcana: {}, history: {} } };
+
+  it('gates the contribution on the comparison passing', () => {
+    const condition = workCondition('skill:arcana', { op: '>=', value: '3' });
+    expect(computeConditionContribution(condition,
+      { effectiveAttributes: ['skill:arcana=3'], session, stepDays: 1, registry })).toBe(4);
+    expect(computeConditionContribution(condition,
+      { effectiveAttributes: ['skill:arcana=2'], session, stepDays: 1, registry })).toBe(0);
+  });
+
+  it('compares equality against the display-resolved leaf value', () => {
+    const condition = workCondition('class:*', { op: '==', value: 'fighter' });
+    expect(computeConditionContribution(condition,
+      { effectiveAttributes: ['class:fighter'], session, stepDays: 1, registry })).toBe(1); // no numeric bonus
+    expect(computeConditionContribution(condition,
+      { effectiveAttributes: ['class:druid'], session, stepDays: 1, registry })).toBe(0);
+  });
+
+  it('fails ordered comparisons closed against non-numeric leaf values', () => {
+    const condition = workCondition('class:*', { op: '>=', value: '3' });
+    expect(computeConditionContribution(condition,
+      { effectiveAttributes: ['class:fighter'], session, stepDays: 1, registry })).toBe(0);
+  });
+
+  it('lets a wildcard link select the first qualifying tag among path matches', () => {
+    const condition = workCondition('skill:*', { op: '>=', value: '3' });
+    expect(computeConditionContribution(condition,
+      { effectiveAttributes: ['skill:history=1', 'skill:arcana=5'], session, stepDays: 1, registry })).toBe(6);
+  });
+});
+
 describe('defaultConditionName', () => {
   it('derives a label from the tag path, wildcard-aware', () => {
     expect(defaultConditionName(null)).toBe('WORK');
@@ -58,9 +90,31 @@ describe('defaultConditionName', () => {
 describe('createConditionTemplate', () => {
   it('normalizes the path, defaults a non-positive target to 1, derives a blank name', () => {
     expect(createConditionTemplate({ tagPath: 'Skill:Arcana', target: '30' })).toEqual({
-      name: 'ARCANA', target: 30, tracker: { kind: 'work', tagPath: 'skill:arcana' },
+      name: 'ARCANA', target: 30, tracker: { kind: 'work', tagPath: 'skill:arcana', compare: null },
     });
     expect(createConditionTemplate({ tagPath: 'skill:arcana', target: 0 }).target).toBe(1);
+  });
+
+  it('normalizes valid compare terms and collapses malformed ones to null', () => {
+    expect(createConditionTemplate({ tagPath: 'skill:arcana', compare: { op: '>=', value: ' 3 ' } }).tracker.compare)
+      .toEqual({ op: '>=', value: '3' });
+    expect(createConditionTemplate({ tagPath: 'class', compare: { op: '==', value: 'Druid' } }).tracker.compare)
+      .toEqual({ op: '==', value: 'druid' });
+    expect(createConditionTemplate({ tagPath: 'skill:arcana', compare: { op: '~=', value: '3' } }).tracker.compare).toBe(null);
+    expect(createConditionTemplate({ tagPath: 'skill:arcana', compare: { op: '>=', value: '' } }).tracker.compare).toBe(null);
+    expect(createConditionTemplate({ compare: { op: '>=', value: '3' } }).tracker.compare).toBe(null); // no path
+  });
+});
+
+describe('normalizeConditionTemplate', () => {
+  it('defaults conditions stored before the compare field to compare: null', () => {
+    const legacy = { name: 'ARCANA', target: 30, tracker: { kind: 'work', tagPath: 'skill:arcana' } };
+    expect(normalizeConditionTemplate(legacy).tracker.compare).toBe(null);
+  });
+
+  it('round-trips a valid compare term', () => {
+    const stored = { name: 'ARCANA', target: 30, tracker: { kind: 'work', tagPath: 'skill:arcana', compare: { op: '>=', value: '3' } } };
+    expect(normalizeConditionTemplate(stored).tracker.compare).toEqual({ op: '>=', value: '3' });
   });
 });
 
