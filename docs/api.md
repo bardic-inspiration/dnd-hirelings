@@ -175,6 +175,8 @@ absorbed the retired `formatTagLabel`); components render tags through
 ```js
 MATCH_MODE_REGISTRY: { [mode: string]: (pattern, segments, options?) => boolean }
 matchTagPath(patternPath: string|string[], tagSegments: string[], options?: { mode?: 'exact'|'numbered'|'open', depth?: number }): boolean
+VALUE_COMPARE_REGISTRY: { [operator: string]: (tagValue, compareValue) => boolean }  // '==', '>=', '<=', '>', '<'
+matchTagValue(compare: { op: string, value: string }|null, value: *): boolean  // null compare always passes
 parsePattern(patternPath: string|string[]): { kind: 'literal'|'single'|'multi', value?: string }[]
 formatPatternLabel(patternPath: string|string[]): string
 escapePatternSegment(text: string): string
@@ -194,6 +196,38 @@ Wildcards and escapes exist only on the pattern side; tag segments are always
 literal text. `\*`, `\:`, `\\` escape literal asterisks, colons, and backslashes
 in patterns; `escapePatternSegment` builds safe literal segments from arbitrary
 text. See `docs/gotchas.md` → Tag-Path Match Modes.
+
+`matchTagValue` applies a structured comparison term to a tag's resolved value
+(the term is kept separate from the pattern string, so operator parsing never
+interacts with wildcard escapes). `'=='` is case-insensitive string equality;
+the ordered operators compare numerically and fail closed when either side is
+non-numeric. Available to any pattern consumer; only condition tag links wire
+it up today, feeding it `display`-resolved values (see `tagValues.js`).
+
+### `src/logic/tagValues.js`
+
+```js
+VALUE_RESOLVER_REGISTRY: { [useCase: string]: (parsedTag, registry) => * }  // 'match', 'display', 'numeric'
+resolveTagValue(useCase: string, parsedTag: ParsedTag, registry: TagRegistry): *  // unknown use case → null
+getRegistryNode(registry: TagRegistry, segments: string[]): TagRegistry|undefined
+isRegisteredLeaf(registry: TagRegistry, segments: string[]): boolean
+```
+
+Registry-bounded value resolvers (see `docs/architecture.md` → Tag-based
+Attribute System). A tag's implied value varies by use case; each resolver owns
+its own default, so new use cases add an attachment here — never a registry or
+data-schema change:
+
+| resolver  | explicit `=value` | leaf-terminal tag (no `=`)                | otherwise |
+|-----------|-------------------|-------------------------------------------|-----------|
+| `match`   | the value         | `true` (presence)                         | `true`    |
+| `display` | the value         | last segment, **registered leaf only**    | `null`    |
+| `numeric` | `Number()` if finite, else `null` | `null` — leaf strings never coerce | `null` |
+
+The `display` resolver is strict: no registry supplied, an unregistered
+terminal, or a registered non-leaf (structural reference) all resolve `null`.
+`getRegistryNode` / `isRegisteredLeaf` are the shared registry-reading supports
+the resolvers compose from.
 
 ### `src/logic/agents.js`
 
@@ -227,10 +261,12 @@ computeBlockedTaskIds(activeTasks: Task[], inventory: InventoryItem[]): Set<stri
 
 ```js
 TRACKER_REGISTRY: { [kind: string]: (condition, context) => number }
-computeConditionContribution(condition: Condition, context: { effectiveAttributes, session, stepDays }): number
-defaultConditionName(tagPath: string|null): string
-createConditionTemplate(input: { name?, target?, tagPath?, kind? }): ConditionTemplate
-conditionTemplateFromDraft(draft: string): ConditionTemplate  // 'path[=target]', last-'=' split (escape-safe)
+computeConditionContribution(condition: Condition, context: { effectiveAttributes, session, stepDays, registry }): number
+defaultConditionName(tagPath: string|null, compare?: { op, value }|null): string
+formatConditionLink(tracker: ConditionTracker|null): string  // 'any agent' | pattern label [+ ' ≥ 3']
+createConditionTemplate(input: { name?, target?, tagPath?, kind?, compare? }): ConditionTemplate
+splitConditionDraft(draft: string): { path, compare: { op, value }|null, target }  // 'path[op value][=target]', escape-safe
+conditionTemplateFromDraft(draft: string): ConditionTemplate  // splitConditionDraft + createConditionTemplate guards
 normalizeConditionTemplate(raw: object): ConditionTemplate
 conditionFromTemplate(template: ConditionTemplate|Condition): Condition  // fresh id, zero progress
 normalizeCondition(raw: object): Condition
@@ -242,6 +278,13 @@ resetConditions(conditions: Condition[]): Condition[]
 `TRACKER_REGISTRY` is the extension point for progress-tracking logic: each
 `tracker.kind` maps to a contribution function, so future event- or rule-driven
 trackers plug in without touching the clock loop.
+
+A tracker may carry a `compare: { op, value }|null` term applied to each
+path-matched tag's `display`-resolved value inside the match search (so a
+wildcard link selects the first *qualifying* tag). Draft grammar:
+`path[op value][=target]` with the last `=` reserved for the completion target
+— bare equality is spelled `==` (`'skill:arcana>=3=30'`, `'class==druid=30'`).
+Conditions stored before the field normalize to `compare: null` on load.
 
 ### `src/logic/clock.js`
 
@@ -287,7 +330,7 @@ at the horizon (no `'tick'` boundary in the log).
 ### `src/logic/dynamicAttributes.js`
 
 ```js
-computeDynamicAttributes(agent: Agent, inventory?: InventoryItem[]): {
+computeDynamicAttributes(agent: Agent, inventory?: InventoryItem[], registry?: TagRegistry): {
   xp: number, level: number, xpProgress: number, xpLvl: number, xpLvlMax: number,
   proficiency: number, ac: number, hp: number, hpMax: number
 }
@@ -295,7 +338,10 @@ xpForLevel(level: number): number   // total XP threshold for a level
 ```
 
 `xpLvl` / `xpLvlMax` express XP relative to the current level (earned past the
-threshold / span to the next level); `xpProgress === xpLvl / xpLvlMax`.
+threshold / span to the next level); `xpProgress === xpLvl / xpLvlMax`. The
+class name behind the HP bonus is a registry-bounded display value
+(`tagValues.js`) — without the registry, `class:<name>` tags resolve no value
+and the bonus is 0 (an explicit `class=<name>` still resolves).
 
 ### `src/logic/UI.js`
 
@@ -308,7 +354,7 @@ AGENT_FIELD_SOURCE_KEYS   // frozen list of known bare agent-field sources
 UI_SCHEMA            // config-editor schema descriptor for UI.yml
 normalizeUIDoc(doc: object): { cards: { [cardName]: CardConfig } }
 parseUIConfig(ymlText: string): { cards: { [cardName]: CardConfig } }  // yaml.load + normalize
-resolveTagSource(source: string, context: { agent, dyn, attributes }): {
+resolveTagSource(source: string, context: { agent, dyn, attributes, registry }): {
   label: string,            // last path segment, uppercased
   value: number|null,
   valid: boolean,           // false → element renders empty in warning state
@@ -322,7 +368,9 @@ isTagConsumed(tag: string, consumedPaths: Set<string>): boolean  // plain tags o
 Source grammar (resolution order): `dynamic:<key>` (computed stat: `level`,
 `hp`, `hp-max`, `xp`, `xp-lvl`, `xp-lvl-max`, `ac`, `pb`), bare agent field
 (`rate`), else an attribute tag path matched case-insensitively against the
-agent's effective attributes (its `=value` must be numeric).
+agent's effective attributes, resolved through the `numeric` value resolver
+(`tagValues.js` — only an explicit numeric `=value` displays; leaf strings
+stay invalid).
 `normalizeUIDoc` is lenient: malformed sections degrade to empty element
 lists, and bar entries accept `[current, max]` lists or `"(current, max)"`
 strings; `parseUIConfig` throws only on unparseable YAML.

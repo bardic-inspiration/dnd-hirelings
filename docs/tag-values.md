@@ -1,9 +1,12 @@
 # Tag Values & Registry Semantics (design — issue #104)
 
-Status: **agreed direction, not yet implemented.** This document records the
-comparison requested in issue #104 and the decided design. Implementation
-work should update `docs/architecture.md` and `docs/api.md` and then fold the
-durable parts of this document into them.
+Status: **implemented.** This document records the comparison requested in
+issue #104 and the decided design; it is kept as the design record. The
+durable rules live in `docs/architecture.md` → Tag-based Attribute System and
+Task Conditions; the API surface (`src/logic/tagValues.js`,
+`VALUE_COMPARE_REGISTRY` / `matchTagValue`, the condition `compare` term and
+draft grammar) is documented in `docs/api.md`; behavioral gotchas in
+`docs/gotchas.md` → Tag Grammar / Conditions.
 
 ## Problem
 
@@ -157,13 +160,10 @@ value term with comparison operators: `=`, `>=`, `<=`, `>`, `<`.
   ordered operators compare numerically and fail (contribute 0 / no match)
   when either side is non-numeric.
 
-  > ⚠️ **Needs clarification:** which resolver the equality operator uses
-  > for leaf-terminal tags. The `match` resolver implies `true` (presence),
-  > under which `class=druid` tests presence-of-path and is redundant with
-  > path matching; resolving through `display` instead would let
-  > `class=druid` equal the leaf string `druid`. Decide when the operator
-  > grammar is implemented — the resolver library makes either a one-line
-  > choice.
+  **Resolved:** equality (and every comparison) reads the tag side through
+  the **display** resolver, so `class==druid` equals the leaf string `druid`.
+  Presence testing stays the job of plain path patterns. Ordered operators
+  compare numerically and fail closed on non-numeric sides.
 - The value term is a property of the pattern engine
   (`src/logic/tagMatching.js`), added alongside `MATCH_MODE_REGISTRY` so
   future consumers (Req/Block requirements) can adopt it later without a
@@ -202,11 +202,15 @@ value term with comparison operators: `=`, `>=`, `<=`, `>`, `<`.
 > existing `class:druid` tags. Options when it arises: read the terminal
 > segment as value whenever it is the tag's last segment regardless of
 > children, or warn in the registry editor when adding children under a leaf
-> that is in use as a value.
+> that is in use as a value. (Also flagged in `docs/gotchas.md` → Tag Grammar.)
 
-> ⚠️ **Needs clarification:** whether a tag may end on a *non-leaf* registry
-> node (e.g. bare `skill`) and what `getTagValue` returns there — current
-> assumption: `null` (structural reference, no value).
+**Resolved — non-leaf terminals:** a tag ending on a registered non-leaf node
+(e.g. bare `skill`) is a structural reference; the display resolver returns
+`null`. The rule is **strict** — no registry supplied or an unregistered
+terminal also resolve `null` (no positional fallback; legacy saves whose tags
+predate registration are abandoned by design). The registry walk supports
+(`getRegistryNode`, `isRegisteredLeaf`) live in the parsing library and are
+called by the resolvers.
 
-> ⚠️ **Naming:** "registry-bounded values" is this document's working name
-> for the rule set; pick a final term when folding into `architecture.md`.
+**Resolved — naming:** "registry-bounded values" is the adopted term, used in
+`architecture.md`.
