@@ -72,7 +72,7 @@ Commits, pull requests and issues chart the project's evolution and inform itera
 ### Pull Requests
 - PRs link the intent (Issue/Prompt/Spec Document) to the execution (Commits). 
 - PRs form the core historical context block for agents reading repository lineage.
-- Title Format: Same as commit format (<type>(<scope>): <summary>)
+- Title Format: Same as commit format `(<type>(<scope>): <summary>)`
 - Automatic Closure: When addressing issues, PR description must include Closes #X or Fixes #X.
 
 ### Integration & Tracking Rules
