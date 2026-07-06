@@ -79,7 +79,7 @@ Examples:
   task:abc1234            activity tag — agent assigned to task with this id
 ```
 
-Tags are stored as raw strings in arrays on each object. `parseTag()` / `buildTag()` in `src/logic/tags.js` are the canonical codec. All matching and merging goes through these functions. The tag registry (`state.tagRegistry`) is a keys-only tree that defines the valid tag structure — it influences autocomplete and the tree editor but does not gate tag creation.
+Tags are stored as raw strings in arrays on each object. `parseTag()` / `buildTag()` in `src/logic/tags.js` are the canonical codec. All matching and merging goes through these functions. The tag registry (`state.tagRegistry`) is a keys-only tree that defines the valid tag structure — **a live store of all tags currently in play and all tags allowed by the system**. It stays live through two registration paths: authoring (`TAG_APPLY` / `TASK_CONDITION_ADD`) and entity creation (`AGENT_CREATE` / `TASK_CREATE` / `INVENTORY_ADD` register preset tags on create). By default it does not gate tag creation; with `locked: true` in `public/config/tags.yml` (see `logic/tagsConfig.js`) the create actions block entities carrying unregistered tags instead — the library modal pre-checks whole orders and alerts, and the reducer enforces as a silent backstop.
 
 **Registry-bounded values** (issue #104, design record in `docs/tag-values.md`): the registry is the boundary between structure and value. Three rules: (1) every segment in a tag string is registered — authoring flows through the Tag Registry modal, and free-typed endpoints register on apply; (2) explicit `=value` scalars are never registered — open categories live entirely in `=value`; (3) a tag ending on a registered **leaf** carries an implied value whose default varies by use case — `true` for matching, the leaf segment string for display (`class:fighter` → `fighter`), nothing for numeric card elements. Those defaults live in per-use-case resolver functions (`VALUE_RESOLVER_REGISTRY` in `src/logic/tagValues.js`), never in the registry or the data schema, so closed categories are simply categories whose preset values are registered leaf children. The display read is strict: no registry, an unregistered terminal, or a registered non-leaf all resolve `null`.
 
@@ -160,7 +160,7 @@ Three cooperating pieces:
   single registration point. Adding a config file = one entry + one schema.
   Two entry kinds:
   - `kind: 'file'` — a runtime YAML asset under `public/config/` (`clock`,
-    `rollback`, `ui`), fetched by `ConfigContext` and shadowed by a
+    `rollback`, `tags`, `ui`), fetched by `ConfigContext` and shadowed by a
     localStorage overlay.
   - `kind: 'state'` — a virtual section bound to live game state via
     `binding: { select, commit, effects, defaults }` (e.g. `session`, the old

@@ -80,6 +80,48 @@ The Tag Registry modal's search highlighting also runs on this engine: the build
 
 ---
 
+## Locked Tags Gate Creation Only
+
+`locked: true` in `public/config/tags.yml` makes the three create actions
+(`AGENT_CREATE` / `TASK_CREATE` / `INVENTORY_ADD`) block entities carrying
+tags the registry does not allow; unlocked (default) registers them on
+creation. Nuances:
+
+- **The flag rides on the action.** The reducer cannot read config, so
+  dispatch sites attach `locked` from `useTagsConfig()`. A dispatch without
+  the field behaves unlocked — the reducer gate is a backstop, not a source
+  of truth for the mode.
+- **The alert lives at the call site.** `LibraryModal.handleAdd` pre-checks
+  the WHOLE order before dispatching anything (submitOrder dispatches per
+  line — a mid-order reducer block would partially fill the cart) and alerts
+  the offending tags. The reducer backstop no-ops silently.
+- **Both sides call `unregisteredEntityTags`**, so pre-check and backstop
+  cannot disagree. Literal tags validate on the stripped segment path
+  (`req,skill:sword=1` → `skill:sword`); pattern condition links must match
+  ≥1 registered path; dynamic instance tags (`task:…`, `bind:…`) are exempt
+  from validation and registration.
+- **Bundled presets can be blocked.** Stock preset files carry tags outside
+  the seed registry (`skill:sword`, `rarity:common`), so a locked fresh
+  session refuses them until the paths are registered — intended behavior
+  for a locked ruleset.
+- **Duplicates are exempt by design** (`AGENT_DUPLICATE` / `TASK_DUPLICATE`):
+  their tags are already in play, so blocking the copy would assert the board
+  itself is invalid. They also do not register — copying never launders
+  legacy-unregistered tags into the registry.
+- The `useTagsConfig` base fetch settles asynchronously; until then the hook
+  reports the unlocked default. A user cannot realistically create an entity
+  in that window, but tests driving the UI immediately after load can.
+
+> ⚠️ **Needs clarification:** paths that bypass the gate entirely —
+> task-result spawned agents (`applyResults` templates, committed via
+> `APPLY_TICK`), free-form entity edits (`AGENT_UPDATE` / `TASK_UPDATE` /
+> `INVENTORY_UPDATE_ITEM` can introduce new tags), and session load/import
+> (`REPLACE_STATE` takes the save's registry as-is, reconciling nothing).
+> Locked mode currently gates creation only; extend deliberately if the live-
+> store invariant should become airtight.
+
+---
+
 ## Tag Registry Modal: ADD Registers, APPLY Assigns
 
 The registry modal (`TagRegistryModal.jsx`) is the only authoring surface — the old TagBuilder/ConditionBuilder modals are gone. Two distinct verbs share its input:
