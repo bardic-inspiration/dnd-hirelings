@@ -37,7 +37,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Clean As You Go:
 - After implementing and/or refactoring features, prune resulting dead code and delete resulting obsolete files.
 
-## Documentation:
+## Documentation Practices:
 
 ### Goals:
 - Maintain a clear repository map
@@ -53,14 +53,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 *   **Visible Gaps:** Proactively document ambiguities, incomplete implementations, or architectural gaps directly within the relevant code file or markdown doc rather than leaving them unaddressed.
 *   **No Redundancy:** Do not generate explanatory prose in `/docs` for self-evident code or logic fully captured by inline docstrings.
 
-## Git Workflow:
+## Git Practices:
 Commits, pull requests and issues chart the project's evolution and inform iteration.
 
+### Branch Management
+- If the user requests changes while on **master**, always create a new branch.
+- Delete feature branches upon successful merge.
+
 ### Atomic Commits
-- Constraint: One isolated logical unit per commit. No multi-feature blobs.
+- Rule: One isolated logical unit per commit. No multi-feature blobs.
 - Length: 50–70 characters max.
 - Format: ```(<type>(<scope>): <description> [#issue])```
 - Allowed Types: feat | fix | enhancement | refactor | docs | chore
+- No Merge Commits: Maintain a strictly flat, linear history via fast-forward merges or rebasing to reduce graph traversal overhead for LLMs.
 
 ### Pull Requests
 - PRs link the intent (Issue/Prompt/Spec Document) to the execution (Commits). 
@@ -68,6 +73,4 @@ Commits, pull requests and issues chart the project's evolution and inform itera
 - Title Format: Same as commit format ```(<type>(<scope>): <summary>)```
 - Automatic Closure: When addressing issues, PR description must include Closes #X or Fixes #X.
 
-### Integration & Tracking Rules
-- No Merge Commits: Maintain a strictly flat, linear history via fast-forward merges or rebasing to reduce graph traversal overhead for LLMs.
-- Stale Branch Hygiene: Delete feature branches immediately upon successful merge to prevent outdated code paths from polluting directory listings or file trees during LLM workspace scans.
+
