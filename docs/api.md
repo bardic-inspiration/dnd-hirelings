@@ -296,11 +296,13 @@ updateClockDisplayDOM(state: GameState, tickInfo: TickInfo, clockConfig?: ClockC
 ```
 
 All functions default to `DEFAULT_CLOCK_CONFIG` / `DEFAULT_ROLLBACK_CONFIG`
-when no config is passed. When `rollbackConfig.log.enabled`, `advanceTime`
-appends to `newState.eventLog`: one `work_contribution` entry per (agent,
-condition, game day), one `task_complete` entry per task finishing this tick
-(a multi-day tick is split into one row per day), and one `'tick'` boundary
-entry sealing the batch (`work* → task_complete* → tick`). See `eventLog.js`.
+when no config is passed. `advanceTime` advances `session.timeStep` days by
+looping an internal single-day tick (`advanceDay`) once per day, so the event
+log stays tick-level regardless of step size. When `rollbackConfig.log.enabled`,
+each simulated day appends to `newState.eventLog`: one `work_contribution`
+entry per (agent, condition), one `task_complete` entry per task finishing that
+day, and one `'tick'` boundary entry sealing the day (`work* → task_complete* →
+tick`). A 10-day step therefore logs 10 tick groups. See `eventLog.js`.
 
 ### `src/logic/clockConfig.js`
 
@@ -322,10 +324,11 @@ getRollbackHorizon(eventLog: EventLogEntry[]): { canStepBack: boolean, earliestC
 rollbackTick(state: GameState, rollbackConfig?: RollbackConfig): { newState: GameState } | null
 ```
 
-`rollbackTick` is the pure inverse of one `advanceTime` tick: it reverses the
-most recent tick's event group in strict LIFO order (switchboard-gated,
+`rollbackTick` is the pure inverse of one simulated day (`advanceDay`): it
+reverses the most recent `'tick'` group in strict LIFO order (switchboard-gated,
 best-effort with clamps) and truncates the group off the log. Returns `null`
-at the horizon (no `'tick'` boundary in the log).
+at the horizon (no `'tick'` boundary in the log). Stepping back multiple days is
+done by the caller looping `rollbackTick` (see `usePlayClock`'s `retreat`).
 
 ### `src/logic/tagsConfig.js`
 
@@ -642,8 +645,8 @@ interface TruncationConfig {
 |--------|-------------|
 | `start()` | Begin the game loop (interval + RAF) |
 | `stop()` | Halt the game loop |
-| `advance()` | Fire one tick manually (step-forward button) |
-| `retreat()` | Pause, then reverse the most recent logged tick via `rollbackTick` (step-back button); no-op at the horizon |
+| `advance()` | Advance `session.timeStep` days manually (step-forward button) |
+| `retreat()` | Pause, then reverse `session.stepBack` days by looping `rollbackTick` (step-back button); stops early at the horizon, no-op if already there |
 
 Reads the live clock/rollback configs through refs; a clock config edit
 restarts a running interval so pacing changes apply immediately.
@@ -851,7 +854,8 @@ interface GameState {
     id: string;           // user-defined session identifier
     title: string;        // guild name shown in TopBar
     clock: number;        // total elapsed minutes
-    timeStep: number;     // days per tick (e.g. 1)
+    timeStep: number;     // days per forward step (e.g. 1)
+    stepBack: number;     // days per backward step (independent of timeStep)
     bank: number;         // gold balance
     rateMultiplier: number; // ticks-per-second multiplier
     workRate: number;     // base progress units per tick-day

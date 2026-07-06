@@ -64,9 +64,9 @@ The only current kind, `'work'`, gates and modulates by `tracker.tagPath`:
 - No match → the agent contributes **0** to that condition (and flashes if it contributed to nothing on the task).
 - `tagPath: null` → every assigned agent contributes the base rate.
 
-A task with **zero conditions** carries an implied "clock advanced" condition: it completes at the end of any tick in which at least one eligible agent worked it. It never completes on its own.
+A task with **zero conditions** carries an implied "clock advanced" condition: it completes at the end of any day in which at least one eligible agent worked it. It never completes on its own.
 
-Completion is evaluated only inside `advanceTime` (plus the manual ✓ button) — manually editing a condition's progress to ≥ target completes the task on the *next tick*, not instantly.
+Completion is evaluated once per simulated day inside `advanceTime` (plus the manual ✓ button) — a task that reaches its target mid-step completes on that day and stops accruing work/wages for the rest of the step, and manually editing a condition's progress to ≥ target completes the task on the *next day*, not instantly.
 
 > ⚠️ **Needs clarification:** an agent can carry at most one attribute per exact path (`mergeAttribute` dedupes by path), so multi-match resolution is currently moot; if effective attributes ever stack duplicates (e.g. from bound-item bonuses), `workContribution`'s `.find` takes the first.
 
@@ -219,7 +219,7 @@ The three types read `count` differently, on purpose:
 
 ## `timeStep` Bounds Live in `clock.yml`, Not `normalizeState`
 
-`normalizeState` only guards that `timeStep` is a positive number (falling back to `1`); legacy string values are coerced via `parseFloat`. The old load-time `>= 30 → 1` clamp was removed when bounds became configurable — it would have silently reset legitimate large steps on every reload. Range clamps are enforced at the **edit sites** (TopBar hold-drag `adjustStep`/`adjustRate`) against `clock.yml`'s `timeStep`/`rateMultiplier` bounds, which the load path cannot see (config fetch is async, `normalizeState` is synchronous). A hand-edited save can therefore carry an out-of-bounds `timeStep` until the next hold-drag adjustment clamps it.
+`normalizeState` only guards that `timeStep` and `stepBack` are positive numbers (falling back to `1`); legacy string values are coerced via `parseFloat`. The old load-time `>= 30 → 1` clamp was removed when bounds became configurable — it would have silently reset legitimate large steps on every reload. Range clamps are enforced at the **edit sites** (TopBar hold-drag `adjustStep`/`adjustStepBack`/`adjustRate`) against `clock.yml`'s `timeStep`/`rateMultiplier` bounds, which the load path cannot see (config fetch is async, `normalizeState` is synchronous). Both step increments share the `timeStep` bounds. A hand-edited save can therefore carry an out-of-bounds `timeStep`/`stepBack` until the next hold-drag adjustment clamps it.
 
 ---
 
@@ -321,9 +321,9 @@ The soft-enforcement traps to know:
 
 `advanceTime` is the only writer of `state.eventLog`. Consequences:
 
-- **Per-day rows even when `timeStep > 1`.** A multi-day tick is split into `dayCount = round(stepDays)` rows per (agent, condition), each carrying `delta = rate / dayCount`. The per-day deltas sum to the tick's full contribution; the per-row `progress` is the running snapshot, so each row is self-describing.
+- **One tick group per game day.** A step-forward of `timeStep` days is simulated as that many single-day ticks (`advanceDay`), each emitting its own `work_contribution` rows (one per agent/condition, `delta` = that day's contribution) **and** its own `'tick'` boundary. So a 10-day step logs 10 tick groups, not one — this is what keeps rollback day-granular.
 - **Only tick-driven progress is logged.** Editing a condition's `progress` by hand (the click-to-edit field) bypasses `advanceTime` and is therefore **not** recorded. Don't expect the log to explain manually-set progress.
-- **Every tick appends a `'tick'` boundary row** (even a no-op tick), sealing the batch in the ordering contract `work* → task_complete* → tick`. The row records `stepMins` and the exact wages paid; the log tail therefore always ends at a tick boundary (rollback preserves this invariant by truncating whole groups).
+- **Every day appends a `'tick'` boundary row** (even a no-op day), sealing that day's batch in the ordering contract `work* → task_complete* → tick`. The row records `stepMins` (always one day's worth) and that day's exact wages; the log tail therefore always ends at a tick boundary (rollback preserves this invariant by truncating whole groups).
 - **The log is FIFO-capped** at `rollback.yml`'s `log.maxRows` (default `MAX_LOG_ROWS`). Once trimmed, the oldest rows are gone — rollback can only reach back as far as the oldest retained `'tick'` row. `seq` is **not** renumbered on trim, so it stays a stable monotonic id (don't treat it as an array index).
 - **`session.logging` no longer exists.** Logging config moved to `public/config/rollback.yml` (`log.enabled`, `log.maxRows`), edited in the ConfigModal like any file config; `normalizeState` strips the legacy field from old saves.
 
@@ -331,7 +331,7 @@ The soft-enforcement traps to know:
 
 ## Rollback Reverses Tick Effects Only, Best-Effort
 
-`rollbackTick` (`src/logic/rollback.js`) is the inverse of `advanceTime`, driven purely by the event log. Traps to know:
+`rollbackTick` (`src/logic/rollback.js`) reverses exactly one day (one `'tick'` group), the inverse of one `advanceDay`, driven purely by the event log. The step-back button rewinds `session.stepBack` days by looping `rollbackTick` that many times (`usePlayClock`'s `retreat`), stopping early at the horizon. `session.stepBack` is an **independent** increment from the forward `session.timeStep` — the two buttons show and adjust separate values. Traps to know:
 
 - **Only tick effects reverse.** Manual edits made since the tick (renames, assignments, bank spending, hand-set progress) survive: inverses subtract recorded deltas — `progress = max(0, progress − delta)` — never restore snapshots.
 - **Every inverse is best-effort.** Entities deleted since the tick are skipped; bank and item quantities clamp at 0; spawned agents are deleted even if edited since (items they hold are not returned — the spawn created them, not the items). Rollback never blocks or throws.
