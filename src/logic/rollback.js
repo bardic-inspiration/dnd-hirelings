@@ -101,9 +101,9 @@ export function normalizeRollbackConfig(doc) {
 
 /**
  * Computes how far back the event log allows the clock to wind.
- * The horizon is log-limited: the earliest reachable time is the start of the
- * oldest fully-logged tick (its boundary event's `clock − data.stepMins`).
- * Legacy logs without `'tick'` events have no reachable history.
+ * The horizon is log-limited: since every tick advances the clock by one, the
+ * earliest reachable time is one tick before the oldest logged tick's stamp
+ * (`clock − 1`). Legacy logs without `'tick'` events have no reachable history.
  *
  * @param {EventLogEntry[]} eventLog
  * @returns {{ canStepBack: boolean, earliestClock: number|null }}
@@ -111,8 +111,7 @@ export function normalizeRollbackConfig(doc) {
 export function getRollbackHorizon(eventLog) {
   const firstTick = (eventLog ?? []).find(event => event.eventType === 'tick');
   if (!firstTick) return { canStepBack: false, earliestClock: null };
-  const stepMins = Number(firstTick.data?.stepMins) || 0;
-  return { canStepBack: true, earliestClock: Math.max(0, firstTick.clock - stepMins) };
+  return { canStepBack: true, earliestClock: Math.max(0, firstTick.clock - 1) };
 }
 
 // Rounds a bank amount to whole cents, matching `advanceTime`'s wage math.
@@ -167,9 +166,8 @@ function reverseCompletion(event, { tasks, agents, inventory, session, reverse }
  * Pure inverse of one `advanceTime` tick. Finds the most recent `'tick'`
  * boundary in `state.eventLog` and reverses that tick's event group:
  *
- * - `'tick'` — decrements the clock by the RECORDED `stepMins` (immune to
- *   later timeStep changes) and, per `reverse.wages`, refunds the recorded
- *   wage total (exact, since it captured the rounded bank delta).
+ * - `'tick'` — decrements the clock by one and, per `reverse.wages`, refunds the
+ *   recorded wage total (exact, since it captured the rounded bank delta).
  * - `'task_complete'` — per switchboard: un-completes the task, removes reward
  *   gold/items (clamped at 0), deletes recorded spawned agents (even if edited
  *   since), and restores recorded task assignments.
@@ -222,7 +220,7 @@ export function rollbackTick(state, rollbackConfig = DEFAULT_ROLLBACK_CONFIG) {
   }
 
   const boundary = log[tickIndex];
-  session.clock = Math.max(0, (parseFloat(session.clock) || 0) - (Number(boundary.data?.stepMins) || 0));
+  session.clock = Math.max(0, (parseFloat(session.clock) || 0) - 1);
   if (reverse.wages) {
     const wagesTotal = Number(boundary.data?.wagesTotal) || 0;
     if (wagesTotal) session.bank = roundGold((session.bank ?? 0) + wagesTotal);
@@ -231,4 +229,28 @@ export function rollbackTick(state, rollbackConfig = DEFAULT_ROLLBACK_CONFIG) {
   return {
     newState: { ...state, agents, tasks, inventory, session, eventLog: log.slice(0, groupStart) },
   };
+}
+
+/**
+ * Reverses up to `count` ticks by looping `rollbackTick`, threading state and
+ * stopping early at the horizon. The symmetric inverse of `advanceTime`: the
+ * step-back button calls it with `count: session.stepBack`.
+ *
+ * @param {GameState} state
+ * @param {{ count?: number, rollbackConfig?: typeof DEFAULT_ROLLBACK_CONFIG }} [options]
+ *   `count` defaults to `session.stepBack`.
+ * @returns {{ newState: GameState }|null} `null` when nothing could be reversed
+ *   (already at the horizon, or a cleared/legacy log)
+ */
+export function rollbackTime(state, { count, rollbackConfig = DEFAULT_ROLLBACK_CONFIG } = {}) {
+  const ticks = Math.max(1, Math.round(Number(count ?? state.session.stepBack) || 1));
+  let current = state;
+  let reversed = false;
+  for (let i = 0; i < ticks; i++) {
+    const result = rollbackTick(current, rollbackConfig);
+    if (!result) break;
+    current = result.newState;
+    reversed = true;
+  }
+  return reversed ? { newState: current } : null;
 }
