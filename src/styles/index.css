@@ -497,6 +497,7 @@ body {
   font-size: var(--fs-base);
   font-family: monospace;
   font-weight: 700;
+  overflow: hidden;        /* backstop clip if a sig-fig floor still overflows (issue #98) */
 }
 
 .stat-box-grid {

@@ -35,8 +35,9 @@ placeholders:
 
 charBudget:
   # maxChars = floor((widthPx - allowancePx) / (fontSizePx * fonts[font])),
-  # clamped to at least minChars. fallbackChars applies before the first
-  # measurement or when the container reports zero width (hidden/unmounted).
+  # clamped to at least minChars (or a component's own minChars override, if
+  # set). fallbackChars applies before the first measurement or when the
+  # container reports zero width (hidden/unmounted).
   fonts:              # average glyph width as a fraction of font-size
     ui:   0.55
     mono: 0.62
@@ -46,3 +47,4 @@ charBudget:
     tag-row:    { font: mono, allowancePx: 24, fallbackChars: 40 }  # .tag-list-item: padding + gap + remove affordance
     text:       { font: ui,   allowancePx: 30, fallbackChars: 24 }  # generic TruncatedText inside chips
     agent-name: { font: ui,   allowancePx: 4,  fallbackChars: 20 }  # bold name span (its own width; no padding)
+    stat-box:   { font: mono, allowancePx: 2,  fallbackChars: 4, minChars: 1 }  # fixed 34px square; tighter floor than the shared minChars (issue #98)

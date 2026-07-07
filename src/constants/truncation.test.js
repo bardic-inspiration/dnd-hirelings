@@ -58,6 +58,28 @@ describe('parseTruncationConfig', () => {
     expect(() => parseTruncationConfig(VALID_YML.replace('{ font: ui, allowancePx', '{ font: mono, allowancePx')))
       .toThrow(/undeclared font/);
   });
+
+  it('accepts a component with no minChars override', () => {
+    const config = parseTruncationConfig(VALID_YML);
+    expect(config.charBudget.components['tag-chip'].minChars).toBeUndefined();
+  });
+
+  it('accepts a component-level minChars override', () => {
+    const withMinChars = VALID_YML.replace(
+      'tag-chip: { font: ui, allowancePx: 30, fallbackChars: 24 }',
+      'tag-chip: { font: ui, allowancePx: 30, fallbackChars: 24, minChars: 1 }',
+    );
+    const config = parseTruncationConfig(withMinChars);
+    expect(config.charBudget.components['tag-chip'].minChars).toBe(1);
+  });
+
+  it('throws when a component minChars is not a positive integer', () => {
+    const badMinChars = VALID_YML.replace(
+      'tag-chip: { font: ui, allowancePx: 30, fallbackChars: 24 }',
+      'tag-chip: { font: ui, allowancePx: 30, fallbackChars: 24, minChars: 0 }',
+    );
+    expect(() => parseTruncationConfig(badMinChars)).toThrow(/minChars/);
+  });
 });
 
 describe('TRUNCATION_CONFIG (bundled config/truncation.yml)', () => {

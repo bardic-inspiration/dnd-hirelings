@@ -70,6 +70,34 @@ export function formatCount(value, config = TRUNCATION_CONFIG.numberShorthand) {
 }
 
 /**
+ * Fits a count into a fixed-width UI slot by progressively reducing precision
+ * rather than chopping the string (issue #98). Tries `config.significantFigures`
+ * down to `1`, returning the first `formatNumberShorthand` rendering whose
+ * length is `<= maxChars` (e.g. "1.42K" → "1.4K" → "1K"); floors at
+ * `significantFigures: 1` and returns it even if still over budget when
+ * nothing fits (mirrors `truncateTagParts`'s rung-4 floor — a CSS
+ * `overflow: hidden` backstop covers the rest). Below-tier numbers render via
+ * plain `String(value)` regardless of `significantFigures` — a `formatNumberShorthand`
+ * behavior this inherits unchanged. No side effects.
+ *
+ * @param {number|string} value - Number, or a string that may parse to one
+ * @param {number} [maxChars=Infinity] - Character budget (usually from `useCharBudget`)
+ * @param {object} [config=TRUNCATION_CONFIG.numberShorthand] - Shorthand table
+ * @returns {string}
+ */
+export function formatCountFit(value, maxChars = Infinity, config = TRUNCATION_CONFIG.numberShorthand) {
+  if (value === '' || value === null || value === undefined) return String(value ?? '');
+  const number = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(number)) return String(value);
+  let rendered = formatNumberShorthand(number, config);
+  for (let significantFigures = config.significantFigures; significantFigures >= 1; significantFigures -= 1) {
+    rendered = formatNumberShorthand(number, { ...config, significantFigures });
+    if (rendered.length <= maxChars) return rendered;
+  }
+  return rendered; // floor: significantFigures 1, returned even if still over maxChars
+}
+
+/**
  * Formats a gold amount: one decimal place below the first shorthand tier
  * (matching the bank's historical `toFixed(1)` display), shorthand at or
  * above it. Non-finite input renders `config.overflow`. No side effects.

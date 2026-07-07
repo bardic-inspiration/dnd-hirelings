@@ -561,6 +561,7 @@ only `submitOrder`, not the modal.
 formatNumberShorthand(value: number, config?: NumberShorthandConfig): string
 formatGold(value: number, config?: NumberShorthandConfig): string
 formatCount(value: number | string, config?: NumberShorthandConfig): string
+formatCountFit(value: number | string, maxChars?: number, config?: NumberShorthandConfig): string
 ```
 
 Table-driven number shorthand (`1.42K`, `56.5K`, `1.25M`, `6.00B`; three
@@ -580,7 +581,10 @@ runs through `formatNumberShorthand`, while an empty or non-numeric string passe
 through unchanged so an editable span keeps its raw/placeholder text. The default
 table is `TRUNCATION_CONFIG.numberShorthand` (from `config/truncation.yml`); pass
 a `config` to extend it (e.g. a `T` tier or a different exponent symbol) without
-code changes.
+code changes. `formatCountFit` fits a count into a fixed-width slot (`CardMedallion`,
+`StatBox` — issue #98) by re-rendering at progressively fewer significant figures
+(`"1.42K"` → `"1.4K"` → `"1K"`) until the output is `<= maxChars`, flooring at 1
+significant figure rather than chopping the string with an ellipsis.
 
 ### `src/logic/truncation.js`
 
@@ -639,7 +643,10 @@ interface TruncationConfig {
   charBudget: {
     fonts: { [font: string]: number };         // average glyph width / font-size
     minChars: number;                          // lower clamp on computed budgets
-    components: { [component: string]: { font: string, allowancePx: number, fallbackChars: number } };
+    components: { [component: string]: { font: string, allowancePx: number, fallbackChars: number, minChars?: number } };
+    // minChars, per component, overrides the top-level clamp above — used by
+    // `stat-box` (issue #98), whose fixed 34px square needs a real ~3-4 char
+    // floor rather than the shared text-oriented one.
   };
 }
 ```
@@ -722,10 +729,11 @@ Side-effect hook. Applies the stored palette name to `:root` CSS custom properti
 Derives dynamic character budgets for the text display library from the
 container's measured width and computed font size, using the parameters of
 the named `charBudget.components` entry in `config/truncation.yml`
-(`'tag-chip'`, `'tag-row'`, `'text'`). One shared module-level ResizeObserver
-serves all instances; re-renders only when the whole-character budget
-changes. Returns `fallbackChars` until the first usable measurement and keeps
-the last budget while hidden. Throws on an unknown component key.
+(`'tag-chip'`, `'tag-row'`, `'text'`, `'agent-name'`, `'stat-box'`). One shared
+module-level ResizeObserver serves all instances; re-renders only when the
+whole-character budget changes. Returns `fallbackChars` until the first
+usable measurement and keeps the last budget while hidden. Throws on an
+unknown component key.
 
 ### `useUIConfig(cardName: string)` → `CardConfig`
 
@@ -852,6 +860,10 @@ An invalid source renders the element with no value in its `--invalid` state
 changes on commit; non-numeric input is ignored. Every displayed stat number
 goes through `formatCount`, so large values render compactly (`1.42K`) instead
 of spilling their slot (issue #93); editing an editable one reveals the raw value.
+`CardMedallion` and `StatBox` are the exception: their fixed 34px square measures
+its own width via `useCharBudget('stat-box')` and renders through `formatCountFit`
+instead, reducing significant figures rather than `formatCount`'s fixed precision
+when the shorthand output would otherwise overflow the box (issue #98).
 
 ---
 

@@ -267,6 +267,7 @@ container width ÷ (font size × an average glyph-width ratio from
 - `truncateTagParts` never drops the tag's structure: if even the all-placeholder form (`<PRE>,<TAG>:<TAGS>=<VAL>`) exceeds a pathologically small budget, it renders anyway (the `minChars` clamp makes this a non-event in practice).
 - A tag whose display already fits is returned untouched — `truncated: false` — even when the budget is smaller than the placeholders would be; no tooltip shows because nothing is hidden.
 - The tooltip bubble sits at `z-index: 300`, above modal overlays (100) and the elevated registry overlay (200).
+- The shared `charBudget.minChars: 10` floor is tuned for prose/tag text, not a fixed 34px numeric box: `stat-box` (`CardMedallion`/`StatBox` — issue #98) sets its own per-component `minChars: 1` override in `config/truncation.yml`, since its real geometric budget (~3-4 chars) would otherwise get clamped up to 10 by the shared floor, silently defeating `formatCountFit`'s significant-figure reduction (nothing would ever be "too long" once clamped that high).
 
 ---
 
@@ -293,7 +294,7 @@ with the deployed bundle as-is, and is fetched + parsed once per page load by
 - Editing invalid values is silently ignored at commit time: a non-numeric entry in an editable bar label or field snaps back to the resolved value. Notably, clearing the HP bar label **no longer resets HP to full** (the old hardcoded bar's `NaN → null` behavior); set the value explicitly instead.
 - **A Configuration Modal overlay shadows the file completely.** Once the file is edited in-app, the whole edited document (not a diff) is stored under `CONFIG_OVERLAYS` and wins over the deployed file — including any *later* edits to the deployed file — until RESET drops the overlay. If a deployed config change doesn't seem to apply, check for an overlay first.
 
-> ⚠️ **Needs clarification:** The spec sizes medallion and boxes as "1/4 of agent card width, square, fixed dimensions" — but card width is fluid (`minmax(160px, 1fr)` grid). Implemented as a fixed `--stat-square: 34px` side (≈¼ of the *minimum* card content width), so the squares don't grow with the card.
+> ⚠️ **Needs clarification:** The spec sizes medallion and boxes as "1/4 of agent card width, square, fixed dimensions" — but card width is fluid (`minmax(160px, 1fr)` grid). Implemented as a fixed `--stat-square: 34px` side (≈¼ of the *minimum* card content width), so the squares don't grow with the card. Digit spillover past that fixed square now has a safety net (issue #98): `formatCountFit` reduces significant figures to fit the box's measured `stat-box` char budget, and `overflow: hidden` backstops the residual case where even 1 significant figure doesn't fit — but the underlying question of whether the square should ever scale with card width is still open.
 
 > ⚠️ **Needs clarification:** "Element flashes warning color" for invalid sources is implemented as a one-shot flash on render plus persistent warn-colored chrome (border/text), not a continuous pulse.
 
