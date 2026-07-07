@@ -103,10 +103,13 @@ export default function TagRegistryModal() {
     return null;
   }, [draft, modifier, isConditionMode]);
 
-  // True when the draft carries pattern syntax (wildcards or escapes). Pattern
-  // drafts never ADD ('*' is not a valid registry key — a pattern names a match,
-  // not a structure node) and APPLY only as condition links.
-  const isPattern = /[\\*]/.test(draft);
+  // True when the draft's PATH carries pattern syntax (wildcards or escapes).
+  // Pattern drafts never ADD ('*' is not a valid registry key — a pattern names
+  // a match, not a structure node) and APPLY only as condition links. Only the
+  // pre-value text counts: values are opaque, and a dyn expression payload
+  // legitimately contains '*' (`dyn,ac=2*{level}`).
+  const operatorIdx = draft.search(/[<>=]/);
+  const isPattern = /[\\*]/.test(operatorIdx >= 0 ? draft.slice(0, operatorIdx) : draft);
 
   // Ghost suggestion: an existing key from the CURRENT tier (the node at the path
   // before the last delimiter) that starts with the in-progress segment. Returns
