@@ -39,8 +39,6 @@ const DEFAULT_AGENT = {
   description: '',
   attributes: [],
   activities: [],
-  xp: 0,
-  hp: null,
 };
 
 const DEFAULT_ITEM_NAME = 'NEW ITEM';
@@ -70,7 +68,7 @@ const defined = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) =
 // templates; TASK_CREATE stamps them into live instances separately.
 const pickAgentFields = (preset) => defined({
   name: preset.name, icon: preset.icon, rate: preset.rate, rateUnit: preset.rateUnit,
-  description: preset.description, attributes: preset.attributes, xp: preset.xp,
+  description: preset.description, attributes: preset.attributes,
 });
 const pickTaskFields = (preset) => defined({
   name: preset.name, description: preset.description,

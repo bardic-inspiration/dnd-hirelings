@@ -32,7 +32,9 @@ export const LIBRARY_CONFIGS = {
     storageKey: STORAGE_KEYS.PRESETS('agents'),
     bundledUrl: '/presets/agent_presets.json',
     panelClass: 'library-panel',
-    makeBlank: () => ({ name: 'NEW HIRELING', icon: '', rate: 1, rateUnit: 'GP/DAY', description: '', attributes: [], xp: 0 }),
+    makeBlank: () => ({ name: 'NEW HIRELING', icon: '', rate: 1, rateUnit: 'GP/DAY', description: '', attributes: [] }),
+    // Stats (xp, hp, abilities, dyn expressions) live in `attributes` as
+    // ordinary tags since v6; a legacy preset `xp` field is dropped on load.
     normalize: (raw) => ({
       name:        requireName(raw),
       icon:        str(raw?.icon),
@@ -40,9 +42,6 @@ export const LIBRARY_CONFIGS = {
       rateUnit:    str(raw?.rateUnit, 'GP/DAY'),
       description: str(raw?.description),
       attributes:  tags(raw?.attributes),
-      // XP seeds the agent's dynamic level (level/AC/HP are computed, never
-      // authored as tags — see logic/dynamicAttributes.js).
-      xp:          Math.max(0, num(raw?.xp, 0)),
     }),
     rowIcon: (p) => p.icon,
     Preview: AgentPreview,

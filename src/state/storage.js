@@ -8,12 +8,13 @@ import { normalizeEvent } from '../logic/eventLog.js';
  * Versioning strategy: all keys carry a version suffix; bump the suffix when
  * the stored format changes (not on every release). Migration code must be added
  * alongside any suffix bump.
- * v4: `task.work`/`task.workProgress` replaced by `task.conditions`. `loadState`
- * falls back to the v3 key; `normalizeState` migrates the legacy fields.
+ * v4: `task.work`/`task.workProgress` replaced by `task.conditions`.
+ * v6: agent `xp`/`hp` fields replaced by plain valued tags (`xp=…`/`hp=…`);
+ * dynamic stats became user-authored `dyn,` tags. No migration — pre-release
+ * saves are abandoned (older keys are simply ignored).
  */
 export const STORAGE_KEYS = {
-  STATE:        'dnd-hirelings-state-v5',
-  STATE_LEGACY: 'dnd-hirelings-state-v3',
+  STATE: 'dnd-hirelings-state-v6',
   PALETTE: 'dnd-hirelings-palette-v1',
   /** @param {string} type - 'agents' | 'tasks' | 'items' */
   PRESETS: (type) => `dnd-hirelings-presets-${type}-v1`,
@@ -236,13 +237,16 @@ export function migrateTag(tag) {
  * - Missing `eventLog` (saves predating the event-log feature) defaults to `[]`; rows
  *   are guarded via `normalizeEvent` and any lacking a `taskId` are dropped
  * - Legacy `session.logging` is stripped (logging config moved to `public/config/rollback.yml`)
+ * - Legacy agent `xp`/`hp` fields are stripped (plain valued tags since v6)
  *
  * @param {object} raw - Potentially stale or partial state from localStorage or a file
  * @returns {GameState}
  */
 export function normalizeState(raw) {
   const state = { ...DEFAULT_STATE, ...raw };
-  state.agents = (raw.agents || []).map(agent => ({
+  // `xp`/`hp` were agent fields before v6; they are plain valued tags now, so
+  // stale fields from older session-JSON imports are stripped rather than kept.
+  state.agents = (raw.agents || []).map(({ xp, hp, ...agent }) => ({
     ...agent,
     attributes:   (agent.attributes  ?? []).map(migrateTag),
     activities:   (agent.activities  ?? []).map(migrateTag),
@@ -250,8 +254,6 @@ export function normalizeState(raw) {
     icon:         agent.icon         ?? '',
     createdAt:    agent.createdAt    ?? Date.now(),
     lastAssigned: agent.lastAssigned ?? null,
-    xp:           agent.xp           ?? 0,
-    hp:           agent.hp           ?? null,
   }));
   state.inventory = (raw.inventory || []).map(item => ({
     id:          item.id   ?? Math.random().toString(36).slice(2, 9),
@@ -321,16 +323,15 @@ export function normalizeState(raw) {
 }
 
 /**
- * Loads and normalizes state from localStorage.
- * Falls back to the legacy v3 key (migrated by `normalizeState`) so existing
- * saves survive the v4 bump. Returns `DEFAULT_STATE` on first run or if the
- * stored value is corrupt.
+ * Loads and normalizes state from localStorage. Returns `DEFAULT_STATE` on
+ * first run, if the stored value is corrupt, or when only pre-v6 keys exist
+ * (abandoned without migration — see `STORAGE_KEYS`).
  *
  * @returns {GameState}
  */
 export function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.STATE) ?? localStorage.getItem(STORAGE_KEYS.STATE_LEGACY);
+    const raw = localStorage.getItem(STORAGE_KEYS.STATE);
     if (!raw) return DEFAULT_STATE;
     return normalizeState(JSON.parse(raw));
   } catch {

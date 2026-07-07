@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { collectPresetTags, unregisteredEntityTags } from './tagRegistry.js';
+import { collectPresetTags, unregisteredEntityTags, seedTagRegistry } from './tagRegistry.js';
+
+describe('seedTagRegistry', () => {
+  it('seeds the reference stat paths as pure structure', () => {
+    const seeded = seedTagRegistry();
+    expect(seeded.level).toEqual({});
+    expect(seeded.ac).toEqual({});
+    expect(seeded.pb).toEqual({});
+    expect(seeded.hitdie).toEqual({});
+    expect(seeded.hp).toEqual({ max: {} });
+    expect(seeded.xp).toEqual({ lvl: { max: {} } });
+  });
+});
 
 const registry = {
   skill: { arcana: {}, sword: {} },

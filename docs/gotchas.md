@@ -243,14 +243,6 @@ After blur, a 100ms timeout restarts the interval. If you add new editable field
 
 ---
 
-## HP `null` Means "Full Health"
-
-`agent.hp` is stored as `null` (not `hpMax`) when the agent is at full health. `computeDynamicAttributes` returns `hpMax` when `agent.hp` is null. This means saving and reloading a fully-healed agent correctly reflects the current max HP even if the agent leveled up since creation.
-
-Setting `hp` to `0` explicitly means the agent is at zero HP, not "use max". Don't conflate null and zero.
-
----
-
 ## Vite Virtual Modules Require Restart After First Install
 
 If `public/assets/portraits/` or `public/assets/items/` do not exist when `vite dev` starts, the `imageManifestPlugin` will return an empty file list and the pickers will show no images. Adding the directories and restarting the dev server (not just HMR) is required to pick up the change. Subsequent file additions within a running session do trigger hot-reload via the `fs.watch` in `configureServer`.

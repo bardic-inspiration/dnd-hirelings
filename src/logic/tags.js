@@ -24,6 +24,13 @@ export const TAG_REGISTRY = {
     stealth: {}, survival: {},
   },
   tool: {}, trait: {}, class: {}, race: {}, level: {}, item: {},
+  // Stat paths for the reference D&D ruleset. `xp`, `hp`, and `hitdie` carry
+  // plain values; `level`, `ac`, `pb`, `hp:max`, and `xp:lvl(:max)` are meant
+  // to be authored as `dyn,` expression tags (see docs/architecture.md →
+  // Dynamic Tags). Structure only — no expressions live in the registry.
+  ac: {}, pb: {}, hitdie: {},
+  hp: { max: {} },
+  xp: { lvl: { max: {} } },
   // `bind` slots an item into the agent. Slot is optional (`bind:item:<name>`).
   // Slot NAMES are not hardcoded here — they are configured per card under
   // `cards.<card>.slots` in config/UI.yml (see logic/UI.js), so the registry

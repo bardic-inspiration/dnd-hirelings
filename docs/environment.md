@@ -20,11 +20,11 @@ Each scanned directory's `originals/` subfolder holds pre-conversion source imag
 
 All persistent state is stored in `localStorage`. Every key is defined in the `STORAGE_KEYS` object exported from `src/state/storage.js` — that is the single source of truth for auditing all keys.
 
-**Versioning strategy:** all keys carry a version suffix (`-v1`, `-v3`, …). The suffix is bumped only when the stored format changes in a breaking way. Any suffix bump must be accompanied by migration code (read the old key, write the new key, remove the old key on next save).
+**Versioning strategy:** all keys carry a version suffix (`-v1`, `-v3`, …). The suffix is bumped only when the stored format changes in a breaking way. A suffix bump ships either migration code (read the old key, write the new key) or an explicit abandonment note in `STORAGE_KEYS` (pre-release saves may be dropped, as at v6).
 
 | Key | `STORAGE_KEYS` field | Default | Description |
 |-----|----------------------|---------|-------------|
-| `dnd-hirelings-state-v4` | `STATE` | `DEFAULT_STATE` from `storage.js` | Full serialized game state (agents, tasks, inventory, session, tagRegistry). Loaded on startup; saved on every state change. Falls back to the legacy v3 key (`STATE_LEGACY`) on first read; `normalizeState` migrates the old format. |
+| `dnd-hirelings-state-v6` | `STATE` | `DEFAULT_STATE` from `storage.js` | Full serialized game state (agents, tasks, inventory, session, tagRegistry). Loaded on startup; saved on every state change. Pre-v6 keys are ignored (no migration — agent `xp`/`hp` became valued tags at the v6 bump). |
 | `dnd-hirelings-palette-v1` | `PALETTE` | `'dark'` | Name of the active color theme. One of: `light`, `dark`. On first read, falls back to the legacy unversioned key `dnd-hirelings-palette`. |
 | `dnd-hirelings-presets-agents-v1` | `PRESETS('agents')` | `[]` | User-authored agent presets. Bundled (standard) presets are not stored here. |
 | `dnd-hirelings-presets-tasks-v1` | `PRESETS('tasks')` | `[]` | User-authored task presets. |

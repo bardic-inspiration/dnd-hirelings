@@ -937,10 +937,8 @@ interface Agent {
   rate: number;           // cost per day
   rateUnit: string;       // display label, e.g. 'GP/DAY'
   description: string;
-  attributes: string[];   // tag strings (skills, abilities, traits…)
+  attributes: string[];   // tag strings (skills, abilities, traits, xp=…/hp=… values, dyn,… expressions)
   activities: string[];   // task:<id>, item:<name>=<qty>, bind:[<slot>:]item:<name>
-  xp: number;
-  hp: number | null;      // null = use computed hpMax
 }
 
 interface Task {
@@ -1006,6 +1004,6 @@ interface EventLogEntry {
 }
 ```
 
-> **Migration note:** `normalizeState` handles several schema changes from older saves: (1) `qty` → `quantity` on `InventoryItem` and `Task.results.items`/`agents`; (2) `session.timeStep` / `session.stepBack` coerced to positive numbers and `session.clock` to a non-negative integer tick count; (3) legacy `task.work` tags + `task.workProgress` buckets → `task.conditions` via `migrateLegacyWork` — `work=5` → tagPath `null`, `work:skill=8` → `'skill'`, `work:skill:arcana=10` → `'skill:arcana'`, with progress carried over from the matching bucket key; the deprecated `work` namespace is also pruned from stored tag registries. The storage key was bumped to `dnd-hirelings-state-v5` (the clock is now an integer tick count, not minutes, so pre-tick saves are not auto-loaded); `loadState` falls back to the v3 key. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected. (4) `eventLog` is defaulted to `[]` for saves that predate the event-log feature; rows are guarded via `normalizeEvent` and any lacking a `taskId` are dropped.
+> **Migration note:** `normalizeState` handles several schema changes from older saves: (1) `qty` → `quantity` on `InventoryItem` and `Task.results.items`/`agents`; (2) `session.timeStep` / `session.stepBack` coerced to positive numbers and `session.clock` to a non-negative integer tick count; (3) legacy `task.work` tags + `task.workProgress` buckets → `task.conditions` via `migrateLegacyWork` — `work=5` → tagPath `null`, `work:skill=8` → `'skill'`, `work:skill:arcana=10` → `'skill:arcana'`, with progress carried over from the matching bucket key; the deprecated `work` namespace is also pruned from stored tag registries. The storage key was bumped to `dnd-hirelings-state-v6` (agent `xp`/`hp` fields became plain valued tags and dynamic stats became `dyn,` tags; pre-v6 saves are abandoned without migration — no legacy-key fallback remains). Stale agent `xp`/`hp` fields in imported session JSON are stripped on load. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected. (4) `eventLog` is defaulted to `[]` for saves that predate the event-log feature; rows are guarded via `normalizeEvent` and any lacking a `taskId` are dropped.
 
 > ⚠️ **Naming:** `session.workRate` and `session.skillBonus` predate the conditions system; the field names are kept for save compatibility. `workRate` is the base per-tick rate of every `'work'` tracker, and `skillBonus` multiplies the value of *any* matched tag link (not just skills).
