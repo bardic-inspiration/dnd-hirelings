@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { advanceTime } from './clock.js';
 import {
-  rollbackTick, getRollbackHorizon, normalizeRollbackConfig, DEFAULT_ROLLBACK_CONFIG,
+  rollbackTick, rollbackTime, getRollbackHorizon, normalizeRollbackConfig, DEFAULT_ROLLBACK_CONFIG,
 } from './rollback.js';
 
 // Same minimal world as clock.test.js: one agent working one single-condition task.
@@ -71,25 +71,25 @@ describe('rollbackTick', () => {
     const once = advanceTime(makeState()).newState;
     const twice = advanceTime(once).newState;
     const { newState } = rollbackTick(twice);
-    expect(newState.session.clock).toBe(1440);
+    expect(newState.session.clock).toBe(1);
     expect(newState.tasks[0].conditions[0].progress).toBe(4);
     expect(newState.eventLog).toEqual(once.eventLog);
     expect(rollbackTick(newState).newState.session.clock).toBe(0);
   });
 
-  it('makes each day of a multi-day step independently reversible', () => {
+  it('makes each tick of a multi-tick step independently reversible', () => {
     const after = advanceTime(makeState({ session: { timeStep: 3 } })).newState;
-    expect(after.session.clock).toBe(3 * 1440);
-    expect(after.session.bank).toBe(94);                       // 100 − 2/day × 3
-    expect(after.tasks[0].conditions[0].progress).toBe(12);   // 4/day × 3
+    expect(after.session.clock).toBe(3);
+    expect(after.session.bank).toBe(94);                       // 100 − 2/tick × 3
+    expect(after.tasks[0].conditions[0].progress).toBe(12);   // 4/tick × 3
     expect(after.eventLog.filter(row => row.eventType === 'tick')).toHaveLength(3);
 
-    // Each step-back reverses exactly one day.
+    // Each step-back reverses exactly one tick.
     const back1 = rollbackTick(after).newState;
-    expect(back1.session.clock).toBe(2 * 1440);
+    expect(back1.session.clock).toBe(2);
     expect(back1.tasks[0].conditions[0].progress).toBe(8);
     const back2 = rollbackTick(back1).newState;
-    expect(back2.session.clock).toBe(1440);
+    expect(back2.session.clock).toBe(1);
     const back3 = rollbackTick(back2).newState;
     expect(back3.session.clock).toBe(0);
     expect(back3.session.bank).toBe(100);
@@ -166,8 +166,8 @@ describe('rollbackTick', () => {
     expect(newState.tasks[0].conditions[0].progress).toBe(46); // 50 − 4, not snapshot 0
   });
 
-  it('uses the recorded stepMins even when timeStep changed since', () => {
-    const after = advanceTime(makeState()).newState;        // 1-day tick recorded
+  it('reverses exactly one tick regardless of a later timeStep change', () => {
+    const after = advanceTime(makeState()).newState;        // one tick recorded
     after.session.timeStep = 7;                             // changed afterwards
     expect(rollbackTick(after).newState.session.clock).toBe(0);
   });
@@ -177,8 +177,25 @@ describe('rollbackTick', () => {
     // FIFO trim dropped the whole first group (work + tick boundary).
     const trimmed = { ...twice, eventLog: twice.eventLog.slice(2) };
     const { newState } = rollbackTick(trimmed);
-    expect(newState.session.clock).toBe(1440); // second tick fully reverts
-    expect(newState.eventLog).toEqual([]);     // group start fell back to index 0
+    expect(newState.session.clock).toBe(1); // second tick fully reverts
+    expect(newState.eventLog).toEqual([]);  // group start fell back to index 0
     expect(rollbackTick(newState)).toBeNull(); // horizon reached
+  });
+});
+
+describe('rollbackTime', () => {
+  it('reverses `count` ticks and stops at the horizon rather than erroring', () => {
+    const after = advanceTime(makeState({ session: { timeStep: 3 } })).newState; // 3 ticks
+    const { newState } = rollbackTime(after, { count: 2 });
+    expect(newState.session.clock).toBe(1);
+    // Asking for more ticks than exist winds to the origin, not past it.
+    const { newState: origin } = rollbackTime(newState, { count: 5 });
+    expect(origin.session.clock).toBe(0);
+    expect(rollbackTime(origin, { count: 1 })).toBeNull(); // nothing left to reverse
+  });
+
+  it('defaults count to session.stepBack', () => {
+    const after = advanceTime(makeState({ session: { timeStep: 3, stepBack: 2 } })).newState;
+    expect(rollbackTime(after).newState.session.clock).toBe(1); // reversed 2 ticks
   });
 });
