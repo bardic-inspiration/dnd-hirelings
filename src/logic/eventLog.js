@@ -1,5 +1,5 @@
 // Event log: an append-only record of every contribution to (sub)task progress,
-// one row per (agent, condition, game day), a row whenever a task changes
+// one row per (agent, condition, tick), a row whenever a task changes
 // completion state, and one `'tick'` boundary row sealing each tick's batch
 // (ordering contract: `work* → task_complete* → tick`). The live log lives in
 // `state.eventLog` (persisted to localStorage with the rest of the game state);
@@ -19,12 +19,12 @@ export const MAX_LOG_ROWS = 50000;
  * @type {string[]}
  */
 export const EVENT_LOG_COLUMNS = [
-  'seq', 'eventType', 'clock', 'day',
+  'seq', 'eventType', 'clock',
   'agentId', 'agentName', 'taskId', 'taskName',
   'conditionId', 'conditionName', 'delta', 'progress', 'target', 'data',
 ];
 
-const NUMERIC_COLUMNS = new Set(['seq', 'clock', 'day', 'delta', 'progress', 'target']);
+const NUMERIC_COLUMNS = new Set(['seq', 'clock', 'delta', 'progress', 'target']);
 
 const CSV_TYPES = [{ description: 'Hireling event log', accept: { 'text/csv': ['.csv'] } }];
 
@@ -32,9 +32,8 @@ const CSV_TYPES = [{ description: 'Hireling event log', accept: { 'text/csv': ['
  * @typedef {object} EventLogEntry
  * @property {number} seq - Monotonic id assigned at append time (stable across FIFO trim)
  * @property {string} eventType - `'work_contribution'` | `'task_complete'` | `'tick'`
- * @property {number} clock - In-game minutes the row represents (a day boundary;
- *   for `tick`, the clock AFTER the tick)
- * @property {number} day - Clock expressed in whole game days, denormalized for readability
+ * @property {number} clock - Elapsed ticks the row represents (for `tick`, the
+ *   clock AFTER the tick). One tick = one day.
  * @property {string} agentId - Contributing agent (`''` for `task_complete`/`tick`)
  * @property {string} agentName
  * @property {string} taskId - `''` for `tick`
@@ -46,23 +45,22 @@ const CSV_TYPES = [{ description: 'Hireling event log', accept: { 'text/csv': ['
  * @property {number} target - `condition.target`, denormalized (`0` otherwise)
  * @property {object} data - Extension payload. `work_contribution`: `{}`.
  *   `task_complete`: `{ isComplete, attributes, results, spawnedAgentIds, unassignedAgentIds }`.
- *   `tick`: `{ stepMins, wagesTotal, wages: [{ agentId, agentName, amount }] }`.
+ *   `tick`: `{ wagesTotal, wages: [{ agentId, agentName, amount }] }`.
  */
 
 /**
  * Builds a `work_contribution` entry: one agent's progress toward one condition
- * on one game day.
+ * on one tick.
  *
- * @param {{ seq: number, clock: number, day: number, agent: object, task: object,
+ * @param {{ seq: number, clock: number, agent: object, task: object,
  *   condition: object, delta: number, progress: number }} params
  * @returns {EventLogEntry}
  */
-export function makeWorkEvent({ seq, clock, day, agent, task, condition, delta, progress }) {
+export function makeWorkEvent({ seq, clock, agent, task, condition, delta, progress }) {
   return {
     seq,
     eventType: 'work_contribution',
     clock,
-    day,
     agentId: agent.id ?? '',
     agentName: agent.name ?? '',
     taskId: task.id ?? '',
@@ -82,16 +80,15 @@ export function makeWorkEvent({ seq, clock, day, agent, task, condition, delta, 
  * of agents spawned and unassigned by the completion, so `rollbackTick` can
  * reverse the completion precisely.
  *
- * @param {{ seq: number, clock: number, day: number, task: object,
+ * @param {{ seq: number, clock: number, task: object,
  *   spawnedAgentIds?: string[], unassignedAgentIds?: string[] }} params
  * @returns {EventLogEntry}
  */
-export function makeCompleteEvent({ seq, clock, day, task, spawnedAgentIds = [], unassignedAgentIds = [] }) {
+export function makeCompleteEvent({ seq, clock, task, spawnedAgentIds = [], unassignedAgentIds = [] }) {
   return {
     seq,
     eventType: 'task_complete',
     clock,
-    day,
     agentId: '',
     agentName: '',
     taskId: task.id ?? '',
@@ -112,22 +109,22 @@ export function makeCompleteEvent({ seq, clock, day, task, spawnedAgentIds = [],
 }
 
 /**
- * Builds a `'tick'` boundary entry sealing one tick's event batch. Records the
- * step size and wage payments at the time of the tick, so rollback can reverse
- * the tick exactly even if `timeStep` or agent rates change later.
+ * Builds a `'tick'` boundary entry sealing one tick's event batch. Every tick
+ * advances the clock by exactly one, so rollback rewinds one tick per boundary
+ * — no step size is recorded. Records the wage payments at the time of the tick
+ * so rollback can refund them exactly even if agent rates change later.
  * `wagesTotal` is the exact (cent-rounded) bank delta; `wages` itemizes it per
  * agent for log readability. Both are zero/empty when payment was skipped.
  *
- * @param {{ seq: number, clock: number, day: number, stepMins: number,
+ * @param {{ seq: number, clock: number,
  *   wagesTotal: number, wages: { agentId: string, agentName: string, amount: number }[] }} params
  * @returns {EventLogEntry}
  */
-export function makeTickEvent({ seq, clock, day, stepMins, wagesTotal, wages }) {
+export function makeTickEvent({ seq, clock, wagesTotal, wages }) {
   return {
     seq,
     eventType: 'tick',
     clock,
-    day,
     agentId: '',
     agentName: '',
     taskId: '',
@@ -137,7 +134,7 @@ export function makeTickEvent({ seq, clock, day, stepMins, wagesTotal, wages }) 
     delta: 0,
     progress: 0,
     target: 0,
-    data: { stepMins, wagesTotal, wages },
+    data: { wagesTotal, wages },
   };
 }
 
@@ -161,7 +158,6 @@ export function normalizeEvent(raw) {
     seq: num(source.seq),
     eventType: typeof source.eventType === 'string' && source.eventType ? source.eventType : 'work_contribution',
     clock: num(source.clock),
-    day: num(source.day),
     agentId: String(source.agentId ?? ''),
     agentName: String(source.agentName ?? ''),
     taskId: String(source.taskId ?? ''),
