@@ -6,6 +6,7 @@ import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
 import { parseTag, buildTag } from '../../logic/tags.js';
 import { getConsumedTagPaths, isTagConsumed } from '../../logic/UI.js';
 import { formatCount } from '../../logic/format.js';
+import { truncateEnd } from '../../logic/truncation.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import { useUIConfig } from '../../hooks/useUIConfig.js';
 import { CardMedallion, StatBox, StatBar, StatField, StatValue } from './AgentCardElements.jsx';
@@ -210,14 +211,16 @@ export default function AgentCard({ agent }) {
       {/* 1. Name (always visible; hosts the medallion and collapse toggle) */}
       <div className="agent-card-header">
         {cardConfig.medallion && <CardMedallion source={cardConfig.medallion} context={elementContext} />}
-        <EditableSpan
-          className="agent-name"
-          value={agent.name}
-          singleLine
-          maxChars={nameMaxChars}
-          innerRef={nameRef}
-          onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { name: v || 'NEW HIRELING' } })}
-        />
+        <Tooltip content={agent.name} disabled={!truncateEnd(agent.name || '', nameMaxChars).truncated}>
+          <EditableSpan
+            className="agent-name"
+            value={agent.name}
+            singleLine
+            maxChars={nameMaxChars}
+            innerRef={nameRef}
+            onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { name: v || 'NEW HIRELING' } })}
+          />
+        </Tooltip>
         <Tooltip content={isCollapsed ? 'Expand' : 'Collapse'}>
           <button
             className="agent-toggle"
