@@ -229,6 +229,24 @@ terminal, or a registered non-leaf (structural reference) all resolve `null`.
 `getRegistryNode` / `isRegisteredLeaf` are the shared registry-reading supports
 the resolvers compose from.
 
+### `src/logic/expressions.js`
+
+```js
+EXPRESSION_FUNCTIONS: { [name: string]: { arity?: number, variadic?: boolean, apply: (...args) => number } }
+parseExpression(source: string): { ast: AstNode|null, error: string|null }   // never throws
+evaluateExpression(ast: AstNode, resolveReference: (path: string) => number): number
+collectReferences(ast: AstNode): string[]   // unique lowercase ref paths, first-appearance order
+```
+
+Arithmetic engine for `dyn,` tag payloads. Operators `+ - * / %` and parens;
+functions `floor ceil round sqrt min max` (`EXPRESSION_FUNCTIONS` is the
+extension point); tag references are brace-wrapped paths (`{ability:dex}`,
+wildcards allowed: `{class:*}`). Bare identifiers are parse errors unless they
+are function calls. Parsing is context-free — reference resolution and
+defaulting policy live in the caller (`logic/dynamicTags.js`), which injects
+`resolveReference`. Non-finite results (division by zero) propagate to the
+caller.
+
 ### `src/logic/agents.js`
 
 ```js
