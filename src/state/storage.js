@@ -12,7 +12,7 @@ import { normalizeEvent } from '../logic/eventLog.js';
  * falls back to the v3 key; `normalizeState` migrates the legacy fields.
  */
 export const STORAGE_KEYS = {
-  STATE:        'dnd-hirelings-state-v4',
+  STATE:        'dnd-hirelings-state-v5',
   STATE_LEGACY: 'dnd-hirelings-state-v3',
   PALETTE: 'dnd-hirelings-palette-v1',
   /** @param {string} type - 'agents' | 'tasks' | 'items' */
@@ -292,15 +292,18 @@ export function normalizeState(raw) {
   // Legacy `session.logging` is stripped — logging config moved to rollback.yml.
   const rawSession = { ...(raw.session || {}) };
   delete rawSession.logging;
-  // `timeStep` / `stepBack` are stored as numbers (days per forward / backward
+  // `timeStep` / `stepBack` are stored as numbers (ticks per forward / backward
   // step). Legacy sessions persisted them as strings, so coerce here; only
   // non-positive or non-numeric values fall back to 1 — range bounds are
-  // enforced at edit sites against clock.yml.
+  // enforced at edit sites against clock.yml. `clock` is a non-negative whole
+  // tick count (one tick = one day).
   const timeStepNumber = parseFloat(rawSession.timeStep);
   const stepBackNumber = parseFloat(rawSession.stepBack);
+  const clockNumber    = Number(rawSession.clock);
   state.session = {
     ...DEFAULT_STATE.session,
     ...rawSession,
+    clock:          Number.isFinite(clockNumber) ? Math.max(0, Math.round(clockNumber)) : 0,
     timeStep:       (isNaN(timeStepNumber) || timeStepNumber <= 0) ? 1 : timeStepNumber,
     stepBack:       (isNaN(stepBackNumber) || stepBackNumber <= 0) ? 1 : stepBackNumber,
     rateMultiplier: rawSession.rateMultiplier ?? 1,

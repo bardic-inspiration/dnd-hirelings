@@ -3,7 +3,7 @@ import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { PALETTES } from '../../constants/palettes.js';
 import { applyPalette, getStoredPalette } from '../../hooks/usePalette.js';
-import { formatClockParts, clockMinutesFromParts } from '../../logic/time.js';
+import { formatClockParts, clockTicksFromParts } from '../../logic/time.js';
 import { getRollbackHorizon } from '../../logic/rollback.js';
 import { saveStateToFile, loadStateFromFile } from '../../logic/session.js';
 import { saveEventLogToFile } from '../../logic/eventLog.js';
@@ -37,7 +37,7 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
   };
 
   const setClock = (y, d) => updateSession({
-    clock: clockMinutesFromParts(Math.max(1, y), Math.max(1, Math.min(calendar.daysPerYear, d)), calendar),
+    clock: clockTicksFromParts(Math.max(1, y), Math.max(1, Math.min(calendar.daysPerYear, d)), calendar),
   });
 
   const adjustRate = (delta) => {
