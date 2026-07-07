@@ -82,6 +82,10 @@ export function parseTruncationConfig(ymlText) {
       `charBudget.components.${component}.allowancePx must be a non-negative number`);
     assert(Number.isInteger(entry.fallbackChars) && entry.fallbackChars > 0,
       `charBudget.components.${component}.fallbackChars must be a positive integer`);
+    if (entry.minChars !== undefined) {
+      assert(Number.isInteger(entry.minChars) && entry.minChars > 0,
+        `charBudget.components.${component}.minChars must be a positive integer`);
+    }
   }
 
   return deepFreeze(config);

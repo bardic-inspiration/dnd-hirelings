@@ -1,6 +1,7 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { resolveTagSource } from '../../logic/UI.js';
-import { formatCount } from '../../logic/format.js';
+import { formatCount, formatCountFit } from '../../logic/format.js';
+import { useCharBudget } from '../../hooks/useCharBudget.js';
 import EditableSpan from '../EditableSpan.jsx';
 
 // Standard configurable card elements. Each one takes a `source` string from
@@ -28,9 +29,10 @@ function commitValue(dispatch, agentId, resolution, rawInput) {
  */
 export function CardMedallion({ source, context }) {
   const resolution = resolveTagSource(source, context);
+  const { ref, maxChars } = useCharBudget('stat-box');
   return (
-    <div className={`medallion${resolution.valid ? '' : ' medallion--invalid'}`} title={source}>
-      {resolution.valid && formatCount(resolution.value)}
+    <div ref={ref} className={`medallion${resolution.valid ? '' : ' medallion--invalid'}`} title={source}>
+      {resolution.valid && formatCountFit(resolution.value, maxChars)}
     </div>
   );
 }
@@ -45,9 +47,10 @@ export function CardMedallion({ source, context }) {
  */
 export function StatBox({ source, context }) {
   const resolution = resolveTagSource(source, context);
+  const { ref, maxChars } = useCharBudget('stat-box');
   return (
-    <div className={`stat-box${resolution.valid ? '' : ' stat-box--invalid'}`} title={source}>
-      {resolution.valid && formatCount(resolution.value)}
+    <div ref={ref} className={`stat-box${resolution.valid ? '' : ' stat-box--invalid'}`} title={source}>
+      {resolution.valid && formatCountFit(resolution.value, maxChars)}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatNumberShorthand, formatGold, formatCount } from './format.js';
+import { formatNumberShorthand, formatGold, formatCount, formatCountFit } from './format.js';
 
 describe('formatNumberShorthand', () => {
   it('matches every example from issue #69', () => {
@@ -164,5 +164,28 @@ describe('formatCount', () => {
   it('passes empty and non-numeric strings through unchanged', () => {
     expect(formatCount('')).toBe('');
     expect(formatCount('abc')).toBe('abc');
+  });
+});
+
+describe('formatCountFit', () => {
+  it('matches formatCount when the budget is not exceeded', () => {
+    expect(formatCountFit(1420, 5)).toBe('1.42K');
+    expect(formatCountFit(1420)).toBe('1.42K'); // default maxChars=Infinity
+    expect(formatCountFit(999)).toBe('999');
+  });
+
+  it('steps down through significant figures as the budget tightens', () => {
+    expect(formatCountFit(1420, 5)).toBe('1.42K');
+    expect(formatCountFit(1420, 4)).toBe('1.4K');
+    expect(formatCountFit(1420, 2)).toBe('1K');
+  });
+
+  it('floors at 1 significant figure and returns it even if still over budget', () => {
+    expect(formatCountFit(1420, 1)).toBe('1K');
+  });
+
+  it('passes empty and non-numeric strings through unchanged', () => {
+    expect(formatCountFit('')).toBe('');
+    expect(formatCountFit('abc', 2)).toBe('abc');
   });
 });

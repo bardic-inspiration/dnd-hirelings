@@ -31,7 +31,7 @@ function getSharedObserver() {
  *
  * Side effects: observes/unobserves the element on the shared ResizeObserver.
  *
- * @param {string} component - Key into `charBudget.components` (`'tag-chip'` | `'tag-row'` | `'text'`)
+ * @param {string} component - Key into `charBudget.components` (`'tag-chip'` | `'tag-row'` | `'text'` | `'agent-name'` | `'stat-box'`)
  * @returns {{ ref: (element: HTMLElement|null) => void, maxChars: number }}
  */
 export function useCharBudget(component) {
@@ -49,7 +49,7 @@ export function useCharBudget(component) {
       fontSizePx: parseFloat(getComputedStyle(element).fontSize),
       charWidthRatio: fonts[componentEntry.font],
       allowancePx: componentEntry.allowancePx,
-      minChars,
+      minChars: componentEntry.minChars ?? minChars,
       fallbackChars: componentEntry.fallbackChars,
     }));
   }, [componentEntry, fonts, minChars]);
