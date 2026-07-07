@@ -8,7 +8,7 @@ import { useConfig } from '../../state/ConfigContext.jsx';
 import { CONFIG_FILES, configFileById } from '../../logic/configRegistry.js';
 import {
   flattenConfigDoc, checkConfigDoc, schemaNodeAt, schemaChild, coerceScalarInput,
-  getAt, setValueAt, removeEntryAt, emptyValueFor, configSave, configLoad, VALUE_KINDS,
+  getAt, setValueAt, setValueAtPruning, removeEntryAt, emptyValueFor, configSave, configLoad, VALUE_KINDS,
 } from '../../logic/configEditor.js';
 
 const isMapping = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -147,7 +147,8 @@ export default function ConfigModal({ onRestartPlay }) {
       entry.binding.commit(dispatch, innerPath[0], value);
       effectHandlers[entry.binding.effects?.[innerPath[0]]]?.();
     } else {
-      updateDoc(fileId, setValueAt(getDoc(fileId), innerPath, value));
+      // Commit-with-prune: a cleared list/tuple value drops its emptied row.
+      updateDoc(fileId, setValueAtPruning(getDoc(fileId), entry.schema, innerPath, value));
     }
   };
 

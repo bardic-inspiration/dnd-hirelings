@@ -178,10 +178,12 @@ Three cooperating pieces:
   walking (`schemaNodeAt`), tree flattening for the editor view
   (`flattenConfigDoc`, insertion-order-preserving — deliberately separate from
   `flattenRegistry`'s sorted walk), immutable doc mutations (`setValueAt`,
-  `deleteAt`, and `removeEntryAt` — the modal's delete, which clears entries
+  `deleteAt`, `removeEntryAt` — the modal's delete, which clears entries
   named in their parent's schema `keys` to their empty shape instead of
-  removing them; list items and user-added keys delete outright), soft
-  validation (`checkConfigDoc` → warnings map), the
+  removing them; list items and user-added keys delete outright — and
+  `setValueAtPruning` — the modal's scalar commit, which prunes a list item
+  or tuple row its edit leaves fully empty), soft validation
+  (`checkConfigDoc` → warnings map), the
   pluggable `VALUE_KINDS` registry (string/number/boolean/slug/enum/
   `tagSource`), and YAML file I/O (`configSave`/`configLoad` via the shared
   `downloadFile`).

@@ -344,6 +344,39 @@ export function setValueAt(doc, path, value) {
   return root;
 }
 
+// True for the values an emptied scalar edit can leave behind.
+const isEmptyEntry = (entry) => entry === '' || entry === null || entry === undefined;
+
+/**
+ * Sets a scalar at a document path, then prunes rows the edit leaves fully
+ * empty: an `''` committed into a plain list splices that item, and an `''`
+ * in a tuple prunes the whole tuple row from its holding list once EVERY
+ * entry is empty (a half-empty tuple survives, to warn rather than vanish
+ * mid-edit). Nullable clears arrive as `null` (not `''`) and always stay, as
+ * do map keys — they are structure (see `removeEntryAt`). Pruning applies on
+ * commit only; the builder's ADD uses `setValueAt` so new empty entries live
+ * until edited.
+ *
+ * @param {object} doc - Raw config document
+ * @param {object|null} schema - Root schema node for `doc`
+ * @param {(string|number)[]} path - Destination path (non-empty)
+ * @param {string|number|boolean|null} value - Coerced scalar to place
+ * @returns {object} New root, or the same `doc` on a no-op
+ */
+export function setValueAtPruning(doc, schema, path, value) {
+  if (value !== '') return setValueAt(doc, path, value);
+  const parentPath = path.slice(0, -1);
+  const parent = parentPath.length ? getAt(doc, parentPath) : doc;
+  if (!Array.isArray(parent)) return setValueAt(doc, path, '');
+  if (schemaNodeAt(schema, parentPath)?.kind !== 'tuple') return deleteAt(doc, path);
+  const next = setValueAt(doc, path, '');
+  const holderPath = parentPath.slice(0, -1);
+  const holder = holderPath.length ? getAt(next, holderPath) : next;
+  return getAt(next, parentPath).every(isEmptyEntry) && Array.isArray(holder)
+    ? deleteAt(next, parentPath)
+    : next;
+}
+
 /**
  * Deletes the entry at a document path, returning a new root. List entries are
  * spliced (later indices shift down); map keys are removed.

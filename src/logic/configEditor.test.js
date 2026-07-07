@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   schemaNodeAt, flattenConfigDoc, checkConfigDoc, coerceScalarInput,
-  getAt, setValueAt, deleteAt, removeEntryAt, appendItemAt, emptyValueFor,
+  getAt, setValueAt, setValueAtPruning, deleteAt, removeEntryAt, appendItemAt, emptyValueFor,
   serializeConfigDoc, VALUE_KINDS,
 } from './configEditor.js';
 import { UI_SCHEMA } from './UI.js';
@@ -207,6 +207,38 @@ describe('document mutations', () => {
     const next = appendItemAt(DOC, ['cards', 'agentCard', 'fields'], 'dynamic:ac');
     expect(getAt(next, ['cards', 'agentCard', 'fields'])).toEqual(['rate', 'dynamic:ac']);
     expect(appendItemAt(DOC, ['cards', 'agentCard'], 'x')).toBe(DOC);
+  });
+
+  it('setValueAtPruning splices a list item cleared to empty', () => {
+    const next = setValueAtPruning(DOC, UI_SCHEMA, ['cards', 'agentCard', 'fields', 0], '');
+    expect(getAt(next, ['cards', 'agentCard', 'fields'])).toEqual([]);
+  });
+
+  it('setValueAtPruning prunes a tuple row only once every entry is empty', () => {
+    const half = setValueAtPruning(DOC, UI_SCHEMA, ['cards', 'agentCard', 'bars', 0, 1], '');
+    expect(getAt(half, ['cards', 'agentCard', 'bars', 0])).toEqual(['dynamic:hp', '']);
+    const gone = setValueAtPruning(half, UI_SCHEMA, ['cards', 'agentCard', 'bars', 0, 0], '');
+    expect(getAt(gone, ['cards', 'agentCard', 'bars'])).toEqual([
+      ['dynamic:xp-lvl', 'dynamic:xp-lvl-max'],
+    ]);
+  });
+
+  it('setValueAtPruning keeps nullable clears and map keys', () => {
+    const cleared = setValueAtPruning(DOC, UI_SCHEMA, ['cards', 'agentCard', 'medallion'], null);
+    expect(getAt(cleared, ['cards', 'agentCard', 'medallion'])).toBeNull();
+    const scalarSchema = { kind: 'map', keys: { rate: { kind: 'scalar', value: 'number' } } };
+    expect(setValueAtPruning({ rate: 5 }, scalarSchema, ['rate'], '')).toEqual({ rate: '' });
+  });
+
+  it('setValueAtPruning clears in place a tuple not held by a list', () => {
+    const pairSchema = { kind: 'map', keys: { pair: { kind: 'tuple', size: 2, item: { kind: 'scalar', value: 'string' } } } };
+    const next = setValueAtPruning({ pair: ['a', ''] }, pairSchema, ['pair', 0], '');
+    expect(next).toEqual({ pair: ['', ''] });
+  });
+
+  it('setValueAtPruning matches setValueAt for non-empty values', () => {
+    const next = setValueAtPruning(DOC, UI_SCHEMA, ['cards', 'agentCard', 'fields', 0], 'dynamic:ac');
+    expect(getAt(next, ['cards', 'agentCard', 'fields'])).toEqual(['dynamic:ac']);
   });
 
   it('removeEntryAt clears schema-named entries to their empty shape', () => {
