@@ -173,12 +173,18 @@ Three cooperating pieces:
   the user-edit **overlay**: a whole-document replacement persisted under
   `STORAGE_KEYS.CONFIG_OVERLAYS`. `getDoc(id)` returns `overlay ?? base ?? {}`;
   because documents live in React state, modal edits live-apply to every
-  consumer (e.g. `useUIConfig` → `AgentCard`). RESET drops the overlay.
+  consumer (e.g. `useUIConfig` → `AgentCard`). The modal's registry-wide
+  RESET drops every overlay at once (`resetAllDocs`).
 - **Editor logic** — `src/logic/configEditor.js` is the pure tier: schema
   walking (`schemaNodeAt`), tree flattening for the editor view
   (`flattenConfigDoc`, insertion-order-preserving — deliberately separate from
   `flattenRegistry`'s sorted walk), immutable doc mutations (`setValueAt`,
-  `deleteAt`), soft validation (`checkConfigDoc` → warnings map), the
+  `deleteAt`, `removeEntryAt` — the modal's delete, which clears entries
+  named in their parent's schema `keys` to their empty shape instead of
+  removing them; list items and user-added keys delete outright — and
+  `setValueAtPruning` — the modal's scalar commit, which prunes a list item
+  or tuple row its edit leaves fully empty), soft validation
+  (`checkConfigDoc` → warnings map), the
   pluggable `VALUE_KINDS` registry (string/number/boolean/slug/enum/
   `tagSource`), and YAML file I/O (`configSave`/`configLoad` via the shared
   `downloadFile`).
@@ -199,11 +205,15 @@ sections as one continuous folding tree in the Tag Registry Modal's idiom
 (line-number gutter, indent guides, fold boxes, ghost autocomplete in the
 builder input). Scalars edit inline through `EditableSpan` and commit
 immediately; out-of-schema keys and failing values draw warn styling with a
-tooltip. SAVE / LOAD / RESET act on the **active section** (the one containing
-the last-clicked key). Because a static-hosted SPA cannot write `public/`
-files, SAVE exports the merged document as YAML for the user to drop back into
-`public/config/`; LOAD imports one (rejecting only unparseable YAML or a
-non-mapping root — schema mismatches import fine and warn in the tree).
+tooltip. SAVE / LOAD act on the **active section** (the one containing the
+last-clicked key); RESET is **registry-wide** — it drops every file overlay
+and commits every state-bound section's manifest defaults, without firing
+binding effects, so the play clock's run state and game time are never
+touched (pacing re-seeds itself through `usePlayClock`'s config/rate effect).
+Because a static-hosted SPA cannot write `public/` files, SAVE exports the
+merged document as YAML for the user to drop back into `public/config/`;
+LOAD imports one (rejecting only unparseable YAML or a non-mapping root —
+schema mismatches import fine and warn in the tree).
 
 > ⚠️ **Needs clarification:** state-bound sections (session) hide SAVE/LOAD —
 > their values already round-trip through the session JSON export. A future

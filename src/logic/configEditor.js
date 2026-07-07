@@ -15,7 +15,7 @@
 // schema walker, value-kind suggestion/validation, and YAML file I/O.
 
 import yaml from 'js-yaml';
-import { parseTag } from './tags.js';
+import { parseTag, tagSyntaxWarning } from './tags.js';
 import { pathExists } from './tagRegistry.js';
 import { downloadFile } from './download.js';
 import { DYNAMIC_SOURCE_KEYS, AGENT_FIELD_SOURCE_KEYS } from './UI.js';
@@ -75,9 +75,13 @@ function registryPaths(tagRegistry) {
 
 // Soft-validates one tag-source string against the source grammar
 // (see logic/UI.js): dynamic:<key>, bare agent field, or attribute tag path.
-// A bare single segment may also be a one-segment tag path, so it only warns
-// when it is neither a known field nor a registered path.
+// Raw syntax is checked first — parseTag drops empty segments, so "skill:"
+// would otherwise pass as "skill". A bare single segment may also be a
+// one-segment tag path, so it only warns when it is neither a known field
+// nor a registered path.
 function checkTagSource(value, context) {
+  const syntax = tagSyntaxWarning(String(value ?? ''));
+  if (syntax) return syntax;
   const segments = parseTag(String(value ?? '')).segments.map(segment => segment.toLowerCase());
   if (!segments.length) return 'empty source';
   if (segments[0] === 'dynamic') {
@@ -344,6 +348,39 @@ export function setValueAt(doc, path, value) {
   return root;
 }
 
+// True for the values an emptied scalar edit can leave behind.
+const isEmptyEntry = (entry) => entry === '' || entry === null || entry === undefined;
+
+/**
+ * Sets a scalar at a document path, then prunes rows the edit leaves fully
+ * empty: an `''` committed into a plain list splices that item, and an `''`
+ * in a tuple prunes the whole tuple row from its holding list once EVERY
+ * entry is empty (a half-empty tuple survives, to warn rather than vanish
+ * mid-edit). Nullable clears arrive as `null` (not `''`) and always stay, as
+ * do map keys — they are structure (see `removeEntryAt`). Pruning applies on
+ * commit only; the builder's ADD uses `setValueAt` so new empty entries live
+ * until edited.
+ *
+ * @param {object} doc - Raw config document
+ * @param {object|null} schema - Root schema node for `doc`
+ * @param {(string|number)[]} path - Destination path (non-empty)
+ * @param {string|number|boolean|null} value - Coerced scalar to place
+ * @returns {object} New root, or the same `doc` on a no-op
+ */
+export function setValueAtPruning(doc, schema, path, value) {
+  if (value !== '') return setValueAt(doc, path, value);
+  const parentPath = path.slice(0, -1);
+  const parent = parentPath.length ? getAt(doc, parentPath) : doc;
+  if (!Array.isArray(parent)) return setValueAt(doc, path, '');
+  if (schemaNodeAt(schema, parentPath)?.kind !== 'tuple') return deleteAt(doc, path);
+  const next = setValueAt(doc, path, '');
+  const holderPath = parentPath.slice(0, -1);
+  const holder = holderPath.length ? getAt(next, holderPath) : next;
+  return getAt(next, parentPath).every(isEmptyEntry) && Array.isArray(holder)
+    ? deleteAt(next, parentPath)
+    : next;
+}
+
 /**
  * Deletes the entry at a document path, returning a new root. List entries are
  * spliced (later indices shift down); map keys are removed.
@@ -366,6 +403,29 @@ export function deleteAt(doc, path) {
     delete parent[last];
   }
   return root;
+}
+
+/**
+ * Removes the entry at a document path per the editor's delete semantics:
+ * an entry NAMED in its parent map's schema `keys` is structure — deleting it
+ * clears it to its empty schema shape (`emptyValueFor`) instead of removing
+ * the key. Everything else — list items, tuple rows, unknown keys, and
+ * `anyKey`-matched keys (user-added names, e.g. cards) — deletes outright.
+ *
+ * @param {object} doc - Raw config document
+ * @param {object|null} schema - Root schema node for `doc`
+ * @param {(string|number)[]} path - Path of the entry to remove (non-empty)
+ * @returns {object} New root, or the same `doc` on a no-op
+ */
+export function removeEntryAt(doc, schema, path) {
+  if (!path.length) return doc;
+  const last = path[path.length - 1];
+  const parentSchema = schemaNodeAt(schema, path.slice(0, -1));
+  const keySchema = parentSchema?.kind === 'map' ? parentSchema.keys?.[last] : null;
+  if (keySchema && getAt(doc, path) !== undefined) {
+    return setValueAt(doc, path, emptyValueFor(keySchema));
+  }
+  return deleteAt(doc, path);
 }
 
 /**

@@ -69,6 +69,29 @@ export function parseTag(tagString) {
 }
 
 /**
+ * Checks RAW tag syntax ahead of `parseTag`'s lenient segment-dropping
+ * (`"skill:"` and `"skill"` both parse to `['skill']`, so malformations are
+ * invisible after parsing). Strips the modifier and `=value` exactly as
+ * `parseTag` does, then flags any empty or whitespace-only path segment —
+ * leading/trailing/double colons (`"skill:"`, `":skill"`, `"a::b"`). An
+ * entirely empty path returns `null`; callers report that as their own
+ * "empty" case. Warning-only by design: parsing never rejects these strings.
+ *
+ * @param {string} tagString - Raw tag string as typed
+ * @returns {string|null} Warning message, or `null` when well-formed
+ */
+export function tagSyntaxWarning(tagString) {
+  const text = String(tagString ?? '');
+  const commaIdx = text.indexOf(',');
+  const parts = (commaIdx >= 0 ? text.slice(commaIdx + 1) : text).split(':');
+  const last = parts[parts.length - 1];
+  const eqIdx = last.indexOf('=');
+  if (eqIdx >= 0) parts[parts.length - 1] = last.slice(0, eqIdx);
+  if (parts.every(part => part.trim() === '')) return null;
+  return parts.some(part => part.trim() === '') ? 'malformed tag — empty path segment' : null;
+}
+
+/**
  * Serializes a parsed tag back into a tag string.
  *
  * @param {string[]} segments - Content path segments

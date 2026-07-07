@@ -24,7 +24,9 @@ import { useRollbackConfig } from './useRollbackConfig.js';
  * button advances `session.timeStep` ticks and step-back reverses
  * `session.stepBack` ticks.
  *
- * @returns {{ start: () => void, stop: () => void, advance: () => void, retreat: () => void }}
+ * @returns {{ start: () => void, stop: () => void, advance: () => void,
+ *   retreat: () => void, resync: () => void }} `resync` re-seeds a running
+ *   interval after a pacing edit and no-ops while stopped
  */
 export function usePlayClock() {
   const { state, dispatch } = useGame();
@@ -109,16 +111,25 @@ export function usePlayClock() {
     dispatch({ type: 'APPLY_ROLLBACK', newState: result.newState });
   }, [stop, dispatch]);
 
-  // Apply clock config edits immediately: recompute the interval mid-play
-  // (file configs have no binding effect to fire a restart from the modal).
+  // Re-seeds a RUNNING play interval from the current session/clock config;
+  // a no-op while stopped or paused — pacing edits must never change the
+  // clock's run state (issue #102).
+  const resync = useCallback(() => {
+    if (!playingRef.current || !intervalRef.current) return;
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    startInterval();
+  }, [startInterval]);
+
+  // Apply pacing edits immediately: recompute the interval mid-play on clock
+  // config changes (file configs have no binding effect to fire from the
+  // modal) and on rate edits. The rateMultiplier dep matters — dispatch is
+  // batched, so a synchronous resync from a modal commit would read the
+  // PRE-edit rate through stateRef; this effect runs after stateRef updates.
   useEffect(() => {
     clockConfigRef.current = clockConfig;
-    if (playingRef.current && intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-      startInterval();
-    }
-  }, [clockConfig, startInterval]);
+    resync();
+  }, [clockConfig, state.session.rateMultiplier, resync]);
 
   // Pause interval while any contenteditable has focus; resume after blur.
   useEffect(() => {
@@ -149,5 +160,5 @@ export function usePlayClock() {
     if (rafRef.current)      cancelAnimationFrame(rafRef.current);
   }, []);
 
-  return { start, stop, advance, retreat };
+  return { start, stop, advance, retreat, resync };
 }

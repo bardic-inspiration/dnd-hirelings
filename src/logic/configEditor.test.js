@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   schemaNodeAt, flattenConfigDoc, checkConfigDoc, coerceScalarInput,
-  getAt, setValueAt, deleteAt, appendItemAt, emptyValueFor,
+  getAt, setValueAt, setValueAtPruning, deleteAt, removeEntryAt, appendItemAt, emptyValueFor,
   serializeConfigDoc, VALUE_KINDS,
 } from './configEditor.js';
 import { UI_SCHEMA } from './UI.js';
@@ -120,6 +120,23 @@ describe('checkConfigDoc', () => {
     expect(warnings.has('cards:agentCard:boxes:2')).toBe(false);
   });
 
+  it('flags malformed tag syntax in tag sources without blocking', () => {
+    const doc = {
+      cards: {
+        agentCard: {
+          boxes: ['skill:', 'a::b', ':skill', 'skill', 'skill:arcana', ''],
+        },
+      },
+    };
+    const warnings = checkConfigDoc(doc, UI_SCHEMA, context);
+    expect(warnings.get('cards:agentCard:boxes:0')).toMatch(/empty path segment/);
+    expect(warnings.get('cards:agentCard:boxes:1')).toMatch(/empty path segment/);
+    expect(warnings.get('cards:agentCard:boxes:2')).toMatch(/empty path segment/);
+    expect(warnings.has('cards:agentCard:boxes:3')).toBe(false); // registered category
+    expect(warnings.has('cards:agentCard:boxes:4')).toBe(false);
+    expect(warnings.get('cards:agentCard:boxes:5')).toBe('empty source');
+  });
+
   it('lets a nullable scalar hold null without warning', () => {
     const warnings = checkConfigDoc({ cards: { agentCard: { medallion: null } } }, UI_SCHEMA, context);
     expect(warnings.size).toBe(0);
@@ -207,6 +224,63 @@ describe('document mutations', () => {
     const next = appendItemAt(DOC, ['cards', 'agentCard', 'fields'], 'dynamic:ac');
     expect(getAt(next, ['cards', 'agentCard', 'fields'])).toEqual(['rate', 'dynamic:ac']);
     expect(appendItemAt(DOC, ['cards', 'agentCard'], 'x')).toBe(DOC);
+  });
+
+  it('setValueAtPruning splices a list item cleared to empty', () => {
+    const next = setValueAtPruning(DOC, UI_SCHEMA, ['cards', 'agentCard', 'fields', 0], '');
+    expect(getAt(next, ['cards', 'agentCard', 'fields'])).toEqual([]);
+  });
+
+  it('setValueAtPruning prunes a tuple row only once every entry is empty', () => {
+    const half = setValueAtPruning(DOC, UI_SCHEMA, ['cards', 'agentCard', 'bars', 0, 1], '');
+    expect(getAt(half, ['cards', 'agentCard', 'bars', 0])).toEqual(['dynamic:hp', '']);
+    const gone = setValueAtPruning(half, UI_SCHEMA, ['cards', 'agentCard', 'bars', 0, 0], '');
+    expect(getAt(gone, ['cards', 'agentCard', 'bars'])).toEqual([
+      ['dynamic:xp-lvl', 'dynamic:xp-lvl-max'],
+    ]);
+  });
+
+  it('setValueAtPruning keeps nullable clears and map keys', () => {
+    const cleared = setValueAtPruning(DOC, UI_SCHEMA, ['cards', 'agentCard', 'medallion'], null);
+    expect(getAt(cleared, ['cards', 'agentCard', 'medallion'])).toBeNull();
+    const scalarSchema = { kind: 'map', keys: { rate: { kind: 'scalar', value: 'number' } } };
+    expect(setValueAtPruning({ rate: 5 }, scalarSchema, ['rate'], '')).toEqual({ rate: '' });
+  });
+
+  it('setValueAtPruning clears in place a tuple not held by a list', () => {
+    const pairSchema = { kind: 'map', keys: { pair: { kind: 'tuple', size: 2, item: { kind: 'scalar', value: 'string' } } } };
+    const next = setValueAtPruning({ pair: ['a', ''] }, pairSchema, ['pair', 0], '');
+    expect(next).toEqual({ pair: ['', ''] });
+  });
+
+  it('setValueAtPruning matches setValueAt for non-empty values', () => {
+    const next = setValueAtPruning(DOC, UI_SCHEMA, ['cards', 'agentCard', 'fields', 0], 'dynamic:ac');
+    expect(getAt(next, ['cards', 'agentCard', 'fields'])).toEqual(['dynamic:ac']);
+  });
+
+  it('removeEntryAt clears schema-named entries to their empty shape', () => {
+    const bars = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard', 'bars']);
+    expect(getAt(bars, ['cards', 'agentCard', 'bars'])).toEqual([]);
+    const cards = removeEntryAt(DOC, UI_SCHEMA, ['cards']);
+    expect(getAt(cards, ['cards'])).toEqual({});
+    const medallion = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard', 'medallion']);
+    expect(getAt(medallion, ['cards', 'agentCard', 'medallion'])).toBeNull(); // nullable scalar
+    const scalarSchema = { kind: 'map', keys: { rate: { kind: 'scalar', value: 'number' } } };
+    expect(removeEntryAt({ rate: 5 }, scalarSchema, ['rate'])).toEqual({ rate: '' });
+  });
+
+  it('removeEntryAt deletes list items, anyKey-matched keys, and unknown keys', () => {
+    const withoutBar = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard', 'bars', 0]);
+    expect(getAt(withoutBar, ['cards', 'agentCard', 'bars'])).toEqual([
+      ['dynamic:xp-lvl', 'dynamic:xp-lvl-max'],
+    ]);
+    // A card name matches `anyKey`, not a named schema key — user content deletes.
+    const withoutCard = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard']);
+    expect(getAt(withoutCard, ['cards'])).toEqual({});
+    const doc = { cards: { agentCard: { sparkles: 1 } } };
+    const withoutUnknown = removeEntryAt(doc, UI_SCHEMA, ['cards', 'agentCard', 'sparkles']);
+    expect(getAt(withoutUnknown, ['cards', 'agentCard'])).toEqual({});
+    expect(removeEntryAt(DOC, UI_SCHEMA, ['cards', 'nope'])).toBe(DOC); // absent path no-ops
   });
 
   it('emptyValueFor matches the schema shape', () => {

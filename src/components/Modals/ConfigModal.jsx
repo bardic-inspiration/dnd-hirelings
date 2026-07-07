@@ -8,7 +8,7 @@ import { useConfig } from '../../state/ConfigContext.jsx';
 import { CONFIG_FILES, configFileById } from '../../logic/configRegistry.js';
 import {
   flattenConfigDoc, checkConfigDoc, schemaNodeAt, schemaChild, coerceScalarInput,
-  getAt, setValueAt, deleteAt, emptyValueFor, configSave, configLoad, VALUE_KINDS,
+  getAt, setValueAt, setValueAtPruning, removeEntryAt, emptyValueFor, configSave, configLoad, VALUE_KINDS,
 } from '../../logic/configEditor.js';
 
 const isMapping = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -24,21 +24,24 @@ const isMapping = (value) => value !== null && typeof value === 'object' && !Arr
  * file), state sections into the game reducer via their manifest binding. The
  * schema shapes affordances only: known keys ghost-complete in the builder and
  * out-of-schema entries draw warn styling with a tooltip, but nothing is
- * blocked. SAVE / LOAD / RESET act on the active section (the one containing
- * the last-clicked row).
+ * blocked. SAVE / LOAD act on the active section (the one containing the
+ * last-clicked row); RESET is registry-wide — every overlay drops and every
+ * state-bound section returns to its defaults, without touching the play
+ * clock's run state.
  *
  * Side effects: dispatches via manifest bindings (e.g. `SESSION_UPDATE`), fires
  * named binding effects resolved from props (`restartPlay` → `onRestartPlay`),
  * writes the config overlay store; closes itself via `closeConfig`.
  *
  * @param {object} props
- * @param {() => void} props.onRestartPlay - Restarts the play clock; resolved as
- *   the `restartPlay` binding effect (fires when `rateMultiplier` changes)
+ * @param {() => void} props.onRestartPlay - Re-seeds the running play clock
+ *   (no-op while paused); resolved as the `restartPlay` binding effect (fires
+ *   when `rateMultiplier` is edited — never from RESET)
  */
 export default function ConfigModal({ onRestartPlay }) {
   const { state, dispatch } = useGame();
   const { closeConfig } = useUI();
-  const { getDoc, updateDoc, resetDoc, isOverridden } = useConfig();
+  const { getDoc, updateDoc, resetAllDocs, isOverridden } = useConfig();
 
   const [expanded, setExpanded] = useState(() => new Set(CONFIG_FILES.map(entry => entry.id)));
   const [activePath, setActivePath] = useState([]);
@@ -147,15 +150,18 @@ export default function ConfigModal({ onRestartPlay }) {
       entry.binding.commit(dispatch, innerPath[0], value);
       effectHandlers[entry.binding.effects?.[innerPath[0]]]?.();
     } else {
-      updateDoc(fileId, setValueAt(getDoc(fileId), innerPath, value));
+      // Commit-with-prune: a cleared list/tuple value drops its emptied row.
+      updateDoc(fileId, setValueAtPruning(getDoc(fileId), entry.schema, innerPath, value));
     }
   };
 
+  // Delete clears schema-named entries to their empty shape (they are
+  // structure); everything else — list items, user-added keys — is removed.
   const handleDelete = (row) => {
     const [fileId, ...innerPath] = row.path;
     const entry = configFileById(fileId);
     if (entry?.kind !== 'file' || !innerPath.length) return;
-    updateDoc(fileId, deleteAt(getDoc(fileId), innerPath));
+    updateDoc(fileId, removeEntryAt(getDoc(fileId), entry.schema, innerPath));
     setActivePath(row.path.slice(0, -1));
   };
 
@@ -209,14 +215,17 @@ export default function ConfigModal({ onRestartPlay }) {
     e.target.value = '';
   };
 
+  // RESET is registry-wide: every file overlay drops and every state-bound
+  // section returns to its manifest defaults. Binding effects deliberately do
+  // NOT fire — reset must never touch the play clock's run state; pacing
+  // re-seeds itself via usePlayClock's config/rate effect (issue #102).
   const handleReset = () => {
-    if (activeEntry.kind === 'state') {
-      for (const [key, value] of Object.entries(activeEntry.binding.defaults)) {
-        activeEntry.binding.commit(dispatch, key, value);
-        effectHandlers[activeEntry.binding.effects?.[key]]?.();
+    resetAllDocs();
+    for (const entry of CONFIG_FILES) {
+      if (entry.kind !== 'state') continue;
+      for (const [key, value] of Object.entries(entry.binding.defaults)) {
+        entry.binding.commit(dispatch, key, value);
       }
-    } else {
-      resetDoc(activeFileId);
     }
   };
 
@@ -242,7 +251,7 @@ export default function ConfigModal({ onRestartPlay }) {
             <span className="library-heading">CONFIG</span>
             <span className="cfg-active">{activeEntry.label}</span>
             {activeEntry.kind === 'file' && isOverridden(activeFileId) && (
-              <Tooltip content="Edited in-app — RESET restores the shipped file">
+              <Tooltip content="Edited in-app — RESET restores all shipped files">
                 <span className="cfg-modified">●</span>
               </Tooltip>
             )}
@@ -265,9 +274,7 @@ export default function ConfigModal({ onRestartPlay }) {
                 />
               </>
             )}
-            <Tooltip content={activeEntry.kind === 'file'
-              ? 'Discard in-app edits; restore the shipped file'
-              : 'Restore default values'}>
+            <Tooltip content="Reset everything: discard all in-app file edits and restore session defaults">
               <button className="ctrl" onClick={handleReset}>RESET</button>
             </Tooltip>
           </div>
@@ -310,7 +317,7 @@ export default function ConfigModal({ onRestartPlay }) {
                   </span>
                 </Tooltip>
                 {isRoot && rootEntry?.kind === 'file' && isOverridden(rootEntry.id) && (
-                  <Tooltip content="Edited in-app — RESET restores the shipped file">
+                  <Tooltip content="Edited in-app — RESET restores all shipped files">
                     <span className="cfg-modified">●</span>
                   </Tooltip>
                 )}
