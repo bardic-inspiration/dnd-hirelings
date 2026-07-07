@@ -247,6 +247,27 @@ defaulting policy live in the caller (`logic/dynamicTags.js`), which injects
 `resolveReference`. Non-finite results (division by zero) propagate to the
 caller.
 
+### `src/logic/dynamicTags.js`
+
+```js
+evaluateDynamicTags(effectiveAttributes: string[], registry: TagRegistry): Map<string, DynResult>
+collectDynTagWarnings(state: GameState): Map<string, string[]>  // lowercase path → deduped messages
+// DynResult: { value: number|null, exprValue: number|null, expression: string,
+//              valid: boolean, warnings: string[] }
+```
+
+Evaluates every `dyn,` tag in an attribute list (entity-generic: agents pass
+effective attributes, items their attributes, tasks attributes+requirements).
+Resolution policy: literal refs read the same object's tags (`numeric`
+resolver); wildcard refs sum matching plain tags (open-mode glob);
+undefined/invalid/non-numeric refs default to 1 with a warning; dyn→dyn
+chains evaluate in dependency order with cycles collapsing to 1; a plain tag
+at a dyn path ADDS to the expression result (`value = exprValue + plain`),
+which is how bound-item `bonus,` injections stack onto computed stats.
+`valid: false` only on parse errors (element renders `--invalid`); warnings
+with `valid: true` render the warn state. `collectDynTagWarnings` feeds the
+registry modal's row flags.
+
 ### `src/logic/agents.js`
 
 ```js

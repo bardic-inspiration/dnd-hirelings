@@ -6,6 +6,7 @@ export const MODIFIER_REGISTRY = {
   req:   { prefix: 'Req',   description: 'Counterpart must carry this',     taskField: 'requirements' },
   block: { prefix: 'Block', description: 'Counterpart must not carry this', taskField: 'requirements' },
   bonus: { prefix: 'Bonus', description: 'Adds value to matching agent tag when bound' },
+  dyn:   { prefix: 'Dyn',   description: 'Value computed from an expression over sibling tags' },
 };
 
 // Content path namespace — the keys-only skeleton seeded into a fresh tag library

@@ -40,7 +40,10 @@ export function activeTaskCount(agent, tasks) {
  *
  * Forward check: every `req,*` tag on the task must be satisfied by the agent's
  * attributes + activities (value comparisons are ≥). Block tags must not match.
- * Item requirements are inventory concerns and are skipped here.
+ * Item requirements are inventory concerns and are skipped here. `dyn,` tags
+ * never satisfy or violate requirements — their payload is an expression, not
+ * a comparable value (computed values are invisible to matching by design;
+ * see docs/gotchas.md).
  *
  * Reverse check: every `req,*` tag on the agent must be matched by a corresponding
  * requirement on the task (the agent "requires" that context).
@@ -56,7 +59,10 @@ export function validateAssignment(agent, task) {
     // item requirements are inventory concerns, not agent-attribute concerns
     if (parsedReq.segments[0] === 'item') continue;
     const allTags = [...agent.attributes, ...agent.activities];
-    const match = allTags.find(tag => tagMatches(parseTag(tag), { segments: parsedReq.segments }));
+    const match = allTags.find(tag => {
+      const parsed = parseTag(tag);
+      return parsed.modifier !== 'dyn' && tagMatches(parsed, { segments: parsedReq.segments });
+    });
     if (!match) return false;
     if (parsedReq.value !== null) {
       const attrVal = parseFloat(parseTag(match).value);
@@ -67,7 +73,11 @@ export function validateAssignment(agent, task) {
     const parsedReq = parseTag(req);
     if (parsedReq.modifier !== 'block') continue;
     const allTags = [...agent.attributes, ...agent.activities];
-    if (allTags.some(tag => tagMatches(parseTag(tag), { segments: parsedReq.segments }))) return false;
+    const blocked = allTags.some(tag => {
+      const parsed = parseTag(tag);
+      return parsed.modifier !== 'dyn' && tagMatches(parsed, { segments: parsedReq.segments });
+    });
+    if (blocked) return false;
   }
   for (const attr of agent.attributes) {
     const parsedAttr = parseTag(attr);
