@@ -289,26 +289,29 @@ Conditions stored before the field normalize to `compare: null` on load.
 ### `src/logic/clock.js`
 
 ```js
-getStepMinutes(session: Session, clockConfig?: ClockConfig): number
 getPlayIntervalMs(session: Session, clockConfig?: ClockConfig): number
-advanceTime(state: GameState, configs?: { clockConfig?, rollbackConfig? }): { newState: GameState, flashAgentIds: string[], taskProgressPerTick: { [taskId]: { [conditionId]: number } } }
-updateClockDisplayDOM(state: GameState, tickInfo: TickInfo, clockConfig?: ClockConfig): void
+advanceTime(state: GameState, options?: { count?: number, rollbackConfig?: RollbackConfig }): { newState: GameState, flashAgentIds: string[], taskProgressPerTick: { [taskId]: { [conditionId]: number } } }
+updateClockDisplayDOM(state: GameState, tickInfo: TickInfo): void
 ```
 
-All functions default to `DEFAULT_CLOCK_CONFIG` / `DEFAULT_ROLLBACK_CONFIG`
-when no config is passed. `advanceTime` advances `session.timeStep` days by
-looping an internal single-day tick (`advanceDay`) once per day, so the event
-log stays tick-level regardless of step size. When `rollbackConfig.log.enabled`,
-each simulated day appends to `newState.eventLog`: one `work_contribution`
-entry per (agent, condition), one `task_complete` entry per task finishing that
-day, and one `'tick'` boundary entry sealing the day (`work* → task_complete* →
-tick`). A 10-day step therefore logs 10 tick groups. See `eventLog.js`.
+The clock's base unit is the tick (one tick = one day); `session.clock` is an
+integer tick count and the simulation never touches the calendar. `advanceTime`
+advances `count` ticks (default `session.timeStep`) by looping an internal
+single-tick simulation, so the event log stays tick-level regardless of how many
+ticks a call spans — the play loop passes `count: 1`, the step-forward button
+`count: session.timeStep`. `getPlayIntervalMs` is `max(minTickIntervalMs,
+msPerTick / rateMultiplier)`, independent of step size. When
+`rollbackConfig.log.enabled`, each tick appends to `newState.eventLog`: one
+`work_contribution` entry per (agent, condition), one `task_complete` entry per
+task finishing that tick, and one `'tick'` boundary entry sealing it (`work* →
+task_complete* → tick`). A 10-tick step therefore logs 10 tick groups. See
+`eventLog.js`.
 
 ### `src/logic/clockConfig.js`
 
 ```js
-DEFAULT_CLOCK_CONFIG  // { calendar: { minutesPerDay, daysPerYear }, timeStep: { min, max },
-                      //   rateMultiplier: { min, max }, realTime: { msPerStepDay, minTickIntervalMs } }
+DEFAULT_CLOCK_CONFIG  // { calendar: { daysPerYear }, timeStep: { min, max },
+                      //   rateMultiplier: { min, max }, realTime: { msPerTick, minTickIntervalMs } }
 CLOCK_SCHEMA          // config-editor schema for public/config/clock.yml
 normalizeClockConfig(doc: object): ClockConfig   // lenient per-field guard, min<=max enforced
 ```
@@ -322,13 +325,16 @@ ROLLBACK_SCHEMA          // config-editor schema for public/config/rollback.yml
 normalizeRollbackConfig(doc: object): RollbackConfig
 getRollbackHorizon(eventLog: EventLogEntry[]): { canStepBack: boolean, earliestClock: number|null }
 rollbackTick(state: GameState, rollbackConfig?: RollbackConfig): { newState: GameState } | null
+rollbackTime(state: GameState, options?: { count?: number, rollbackConfig?: RollbackConfig }): { newState: GameState } | null
 ```
 
-`rollbackTick` is the pure inverse of one simulated day (`advanceDay`): it
-reverses the most recent `'tick'` group in strict LIFO order (switchboard-gated,
-best-effort with clamps) and truncates the group off the log. Returns `null`
-at the horizon (no `'tick'` boundary in the log). Stepping back multiple days is
-done by the caller looping `rollbackTick` (see `usePlayClock`'s `retreat`).
+`rollbackTick` is the pure inverse of one tick (`advanceTick`): it reverses the
+most recent `'tick'` group in strict LIFO order (switchboard-gated, best-effort
+with clamps), decrements the clock by one, and truncates the group off the log.
+Returns `null` at the horizon (no `'tick'` boundary in the log). `rollbackTime`
+is the symmetric inverse of `advanceTime`: it loops `rollbackTick` `count` times
+(default `session.stepBack`), stopping at the horizon (see `usePlayClock`'s
+`retreat`).
 
 ### `src/logic/tagsConfig.js`
 
@@ -393,10 +399,13 @@ strings; `parseUIConfig` throws only on unparseable YAML.
 
 ### `src/logic/time.js`
 
+A UI-only calendar mapping elapsed ticks (one tick = one day) to a year/day
+label; the simulation never uses it.
+
 ```js
-DEFAULT_CALENDAR  // { minutesPerDay: 1440, daysPerYear: 364 }
-formatClockParts(totalMinutes: number, calendar?: Calendar): { year: number, day: number }
-clockMinutesFromParts(year: number, day: number, calendar?: Calendar): number
+DEFAULT_CALENDAR  // { daysPerYear: 364 }
+formatClockParts(totalTicks: number, calendar?: Calendar): { year: number, day: number }
+clockTicksFromParts(year: number, day: number, calendar?: Calendar): number
 ```
 
 ### `src/logic/tagRegistry.js`
@@ -505,9 +514,9 @@ loadStateFromFile(file: File): Promise<GameState>
 ```js
 EVENT_LOG_COLUMNS: string[]          // CSV column order (single source of truth)
 MAX_LOG_ROWS: number                 // default FIFO cap on the live log (50000)
-makeWorkEvent({ seq, clock, day, agent, task, condition, delta, progress }): EventLogEntry
-makeCompleteEvent({ seq, clock, day, task, spawnedAgentIds?, unassignedAgentIds? }): EventLogEntry
-makeTickEvent({ seq, clock, day, stepMins, wagesTotal, wages }): EventLogEntry
+makeWorkEvent({ seq, clock, agent, task, condition, delta, progress }): EventLogEntry
+makeCompleteEvent({ seq, clock, task, spawnedAgentIds?, unassignedAgentIds? }): EventLogEntry
+makeTickEvent({ seq, clock, wagesTotal, wages }): EventLogEntry
 normalizeEvent(raw: object): EventLogEntry | null   // null if missing taskId (tick rows exempt)
 capEventLog(eventLog: EventLogEntry[], maxRows?: number): EventLogEntry[]
 serializeEventLog(eventLog: EventLogEntry[]): string                // → CSV
@@ -646,7 +655,7 @@ interface TruncationConfig {
 | `start()` | Begin the game loop (interval + RAF) |
 | `stop()` | Halt the game loop |
 | `advance()` | Advance `session.timeStep` days manually (step-forward button) |
-| `retreat()` | Pause, then reverse `session.stepBack` days by looping `rollbackTick` (step-back button); stops early at the horizon, no-op if already there |
+| `retreat()` | Pause, then reverse `session.stepBack` ticks via `rollbackTime` (step-back button); stops early at the horizon, no-op if already there |
 
 Reads the live clock/rollback configs through refs; a clock config edit
 restarts a running interval so pacing changes apply immediately.
@@ -853,19 +862,19 @@ interface GameState {
   session: {
     id: string;           // user-defined session identifier
     title: string;        // guild name shown in TopBar
-    clock: number;        // total elapsed minutes
-    timeStep: number;     // days per forward step (e.g. 1)
-    stepBack: number;     // days per backward step (independent of timeStep)
+    clock: number;        // elapsed ticks (one tick = one day)
+    timeStep: number;     // ticks per forward step (e.g. 1)
+    stepBack: number;     // ticks per backward step (independent of timeStep)
     bank: number;         // gold balance
-    rateMultiplier: number; // ticks-per-second multiplier
-    workRate: number;     // base progress units per tick-day
+    rateMultiplier: number; // play-speed multiplier (ticks per msPerTick)
+    workRate: number;     // base progress units per tick
     skillBonus: number;   // multiplier applied to a matched tag link's value
   };
   agents: Agent[];
   tasks: Task[];
   inventory: InventoryItem[];
   tagRegistry: TagRegistry; // nested keys-only tree
-  eventLog: EventLogEntry[]; // append-only per-day progress log (FIFO-capped)
+  eventLog: EventLogEntry[]; // append-only per-tick progress log (FIFO-capped)
 }
 
 interface Agent {
@@ -929,23 +938,23 @@ type TagRegistry = { [key: string]: TagRegistry }; // recursive keys-only tree
 
 interface EventLogEntry {
   seq: number;          // monotonic id assigned at append (stable across FIFO trim)
-  eventType: string;    // 'work_contribution' | 'task_complete'
-  clock: number;        // in-game minutes this row represents (a day boundary)
-  day: number;          // floor(clock / 1440), denormalized for readability
-  agentId: string;      // contributing agent ('' for task_complete)
+  eventType: string;    // 'work_contribution' | 'task_complete' | 'tick'
+  clock: number;        // elapsed ticks this row represents (for 'tick', after the tick)
+  agentId: string;      // contributing agent ('' for task_complete/tick)
   agentName: string;
   taskId: string;
   taskName: string;
-  conditionId: string;  // target condition ('' for task_complete)
+  conditionId: string;  // target condition ('' for task_complete/tick)
   conditionName: string;
-  delta: number;        // progress added this day to this condition (0 for completion)
+  delta: number;        // progress added this tick to this condition (0 for completion)
   progress: number;     // resulting condition.progress snapshot (0 for completion)
   target: number;       // condition.target, denormalized (0 for completion)
   data: object;         // extension payload — work: {} ;
-                        // task_complete: { isComplete, attributes, results }
+                        // task_complete: { isComplete, attributes, results, spawnedAgentIds, unassignedAgentIds } ;
+                        // tick: { wagesTotal, wages }
 }
 ```
 
-> **Migration note:** `normalizeState` handles several schema changes from older saves: (1) `qty` → `quantity` on `InventoryItem` and `Task.results.items`/`agents`; (2) `session.timeStep` coerced from legacy string to `number`; (3) legacy `task.work` tags + `task.workProgress` buckets → `task.conditions` via `migrateLegacyWork` — `work=5` → tagPath `null`, `work:skill=8` → `'skill'`, `work:skill:arcana=10` → `'skill:arcana'`, with progress carried over from the matching bucket key; the deprecated `work` namespace is also pruned from stored tag registries. The storage key was bumped to `dnd-hirelings-state-v4`; `loadState` falls back to the v3 key. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected. (4) `eventLog` is defaulted to `[]` for saves that predate the event-log feature; rows are guarded via `normalizeEvent` and any lacking a `taskId` are dropped. This is a backward-compatible additive field, so the storage key is **not** bumped.
+> **Migration note:** `normalizeState` handles several schema changes from older saves: (1) `qty` → `quantity` on `InventoryItem` and `Task.results.items`/`agents`; (2) `session.timeStep` / `session.stepBack` coerced to positive numbers and `session.clock` to a non-negative integer tick count; (3) legacy `task.work` tags + `task.workProgress` buckets → `task.conditions` via `migrateLegacyWork` — `work=5` → tagPath `null`, `work:skill=8` → `'skill'`, `work:skill:arcana=10` → `'skill:arcana'`, with progress carried over from the matching bucket key; the deprecated `work` namespace is also pruned from stored tag registries. The storage key was bumped to `dnd-hirelings-state-v5` (the clock is now an integer tick count, not minutes, so pre-tick saves are not auto-loaded); `loadState` falls back to the v3 key. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected. (4) `eventLog` is defaulted to `[]` for saves that predate the event-log feature; rows are guarded via `normalizeEvent` and any lacking a `taskId` are dropped.
 
-> ⚠️ **Naming:** `session.workRate` and `session.skillBonus` predate the conditions system; the field names are kept for save compatibility. `workRate` is the base per-tick-day rate of every `'work'` tracker, and `skillBonus` multiplies the value of *any* matched tag link (not just skills).
+> ⚠️ **Naming:** `session.workRate` and `session.skillBonus` predate the conditions system; the field names are kept for save compatibility. `workRate` is the base per-tick rate of every `'work'` tracker, and `skillBonus` multiplies the value of *any* matched tag link (not just skills).

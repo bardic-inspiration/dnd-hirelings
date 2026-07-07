@@ -64,9 +64,9 @@ The only current kind, `'work'`, gates and modulates by `tracker.tagPath`:
 - No match → the agent contributes **0** to that condition (and flashes if it contributed to nothing on the task).
 - `tagPath: null` → every assigned agent contributes the base rate.
 
-A task with **zero conditions** carries an implied "clock advanced" condition: it completes at the end of any day in which at least one eligible agent worked it. It never completes on its own.
+A task with **zero conditions** carries an implied "clock advanced" condition: it completes at the end of any tick in which at least one eligible agent worked it. It never completes on its own.
 
-Completion is evaluated once per simulated day inside `advanceTime` (plus the manual ✓ button) — a task that reaches its target mid-step completes on that day and stops accruing work/wages for the rest of the step, and manually editing a condition's progress to ≥ target completes the task on the *next day*, not instantly.
+Completion is evaluated once per tick inside `advanceTime` (plus the manual ✓ button) — a task that reaches its target mid-step completes on that tick and stops accruing work/wages for the rest of the step, and manually editing a condition's progress to ≥ target completes the task on the *next tick*, not instantly.
 
 > ⚠️ **Needs clarification:** an agent can carry at most one attribute per exact path (`mergeAttribute` dedupes by path), so multi-match resolution is currently moot; if effective attributes ever stack duplicates (e.g. from bound-item bonuses), `workContribution`'s `.find` takes the first.
 
@@ -164,7 +164,7 @@ A related but separate pooling happens when `AGENT_DELETE` and `AGENT_RETURN_ITE
 
 ## Clock Display Uses Direct DOM Writes
 
-The year/day clock display and task progress bars in `ProgressSection` are updated directly via `document.getElementById` / `document.querySelector` inside `updateClockDisplayDOM()`, called from the RAF loop in `usePlayClock`. React does not control these DOM mutations between ticks.
+Task progress bars in `ProgressSection` are updated directly via `document.querySelector` inside `updateClockDisplayDOM()`, called from the RAF loop in `usePlayClock`. React does not control these DOM mutations between ticks. The year/day clock display is **not** interpolated — one tick is one day, so it advances via React on each committed tick.
 
 This means:
 - The elements must exist in the DOM when the RAF fires (they do, because they render before play starts).
@@ -317,13 +317,13 @@ The soft-enforcement traps to know:
 
 ---
 
-## Event Log is Per-Day, Tick-Driven, and Capped
+## Event Log is Per-Tick, Tick-Driven, and Capped
 
 `advanceTime` is the only writer of `state.eventLog`. Consequences:
 
-- **One tick group per game day.** A step-forward of `timeStep` days is simulated as that many single-day ticks (`advanceDay`), each emitting its own `work_contribution` rows (one per agent/condition, `delta` = that day's contribution) **and** its own `'tick'` boundary. So a 10-day step logs 10 tick groups, not one — this is what keeps rollback day-granular.
+- **One tick group per tick.** `advanceTime` runs `count` single-tick simulations (`advanceTick`) — `count` is `session.timeStep` for the step-forward button and `1` for each play interval — each emitting its own `work_contribution` rows (one per agent/condition, `delta` = that tick's contribution) **and** its own `'tick'` boundary. So a 10-tick step logs 10 tick groups, not one — this is what keeps rollback tick-granular.
 - **Only tick-driven progress is logged.** Editing a condition's `progress` by hand (the click-to-edit field) bypasses `advanceTime` and is therefore **not** recorded. Don't expect the log to explain manually-set progress.
-- **Every day appends a `'tick'` boundary row** (even a no-op day), sealing that day's batch in the ordering contract `work* → task_complete* → tick`. The row records `stepMins` (always one day's worth) and that day's exact wages; the log tail therefore always ends at a tick boundary (rollback preserves this invariant by truncating whole groups).
+- **Every tick appends a `'tick'` boundary row** (even a no-op tick), sealing that tick's batch in the ordering contract `work* → task_complete* → tick`. The row records that tick's exact wages (`data.wagesTotal`/`wages`); the log tail therefore always ends at a tick boundary (rollback preserves this invariant by truncating whole groups). No step size is stored — every tick advances the clock by exactly one.
 - **The log is FIFO-capped** at `rollback.yml`'s `log.maxRows` (default `MAX_LOG_ROWS`). Once trimmed, the oldest rows are gone — rollback can only reach back as far as the oldest retained `'tick'` row. `seq` is **not** renumbered on trim, so it stays a stable monotonic id (don't treat it as an array index).
 - **`session.logging` no longer exists.** Logging config moved to `public/config/rollback.yml` (`log.enabled`, `log.maxRows`), edited in the ConfigModal like any file config; `normalizeState` strips the legacy field from old saves.
 
@@ -331,11 +331,11 @@ The soft-enforcement traps to know:
 
 ## Rollback Reverses Tick Effects Only, Best-Effort
 
-`rollbackTick` (`src/logic/rollback.js`) reverses exactly one day (one `'tick'` group), the inverse of one `advanceDay`, driven purely by the event log. The step-back button rewinds `session.stepBack` days by looping `rollbackTick` that many times (`usePlayClock`'s `retreat`), stopping early at the horizon. `session.stepBack` is an **independent** increment from the forward `session.timeStep` — the two buttons show and adjust separate values. Traps to know:
+`rollbackTick` (`src/logic/rollback.js`) reverses exactly one tick (one `'tick'` group), the inverse of one `advanceTick`, driven purely by the event log. The step-back button rewinds `session.stepBack` ticks via `rollbackTime` (which loops `rollbackTick`, `usePlayClock`'s `retreat`), stopping early at the horizon. `session.stepBack` is an **independent** increment from the forward `session.timeStep` — the two buttons show and adjust separate values. Traps to know:
 
 - **Only tick effects reverse.** Manual edits made since the tick (renames, assignments, bank spending, hand-set progress) survive: inverses subtract recorded deltas — `progress = max(0, progress − delta)` — never restore snapshots.
 - **Every inverse is best-effort.** Entities deleted since the tick are skipped; bank and item quantities clamp at 0; spawned agents are deleted even if edited since (items they hold are not returned — the spawn created them, not the items). Rollback never blocks or throws.
 - **Rollback requires logging.** With `log.enabled: false` no tick rows accrue, so the horizon freezes at the last logged boundary; `EVENTLOG_CLEAR` empties it entirely (step-back dims).
 - **Legacy logs have no `'tick'` boundaries.** History recorded before the rollback feature is honestly unreachable — `getRollbackHorizon` reports `canStepBack: false` and the button dims. Same for pre-feature saves.
-- **The recorded `stepMins`/`wagesTotal` are authoritative.** Step-back reverts to the previous tick boundary as logged, immune to later `timeStep`, rate, or calendar changes.
+- **Each step-back rewinds exactly one tick, and the recorded `wagesTotal` is authoritative.** Step-back reverts to the previous tick boundary as logged (one tick of clock, that tick's exact wage refund), immune to later `timeStep`, rate, or calendar changes.
 - **An imported CSV log is trusted verbatim.** `rollbackTick` reads `state.eventLog` as-is; a foreign log that mismatches the live state degrades to clamped skips rather than erroring.
