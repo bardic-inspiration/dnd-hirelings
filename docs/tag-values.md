@@ -15,9 +15,10 @@ after `=` (`ability:str=14`), and the configurable UI elements (boxes, fields,
 values — `src/logic/UI.js`) read only that `parsed.value`. But much of the
 game data expresses value-like endpoints as tag *segments* instead:
 `class:druid`, `slot:armor`. These work like values in the ruleset (they are
-endpoints, one-per-category), and code already treats them that way ad hoc —
-`getTagSub()` in `src/logic/dynamicAttributes.js` reads segment 2 of `class:`
-as if it were a value.
+endpoints, one-per-category), and code already treated them that way ad hoc —
+`getTagSub()` in the since-retired `dynamicAttributes.js` (hard-coded stats,
+replaced by user-authored `dyn,` tags — see `docs/architecture.md` → Dynamic
+Tags) read segment 2 of `class:` as if it were a value.
 
 Two idioms exist because two kinds of category exist:
 
@@ -143,7 +144,8 @@ two idioms stop being an inconsistency and become the two declared modes.
   the tag registry where a use case's defaults are config-driven (e.g.
   card slots in `config/UI.yml`).
 - `getTagSub()` in `dynamicAttributes.js` becomes a call site of the
-  `display` resolver and is pruned.
+  `display` resolver and is pruned. (The whole module has since been retired
+  in favor of `dyn,` expression tags — `src/logic/dynamicTags.js`.)
 
 ### Value comparisons — conditions only (first pass)
 

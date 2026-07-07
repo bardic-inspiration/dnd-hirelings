@@ -388,50 +388,34 @@ Locked Tags Gate Creation Only): locked mode validates every new entity's tags
 against the live tag registry and blocks creation on unregistered tags;
 unlocked mode (the default) registers them on creation.
 
-### `src/logic/dynamicAttributes.js`
-
-```js
-computeDynamicAttributes(agent: Agent, inventory?: InventoryItem[], registry?: TagRegistry): {
-  xp: number, level: number, xpProgress: number, xpLvl: number, xpLvlMax: number,
-  proficiency: number, ac: number, hp: number, hpMax: number
-}
-xpForLevel(level: number): number   // total XP threshold for a level
-```
-
-`xpLvl` / `xpLvlMax` express XP relative to the current level (earned past the
-threshold / span to the next level); `xpProgress === xpLvl / xpLvlMax`. The
-class name behind the HP bonus is a registry-bounded display value
-(`tagValues.js`) — without the registry, `class:<name>` tags resolve no value
-and the bonus is 0 (an explicit `class=<name>` still resolves).
-
 ### `src/logic/UI.js`
 
 Pure tier of the configurable card element system (config: `public/config/UI.yml`).
 
 ```js
 EMPTY_CARD_CONFIG   // frozen { medallion: null, boxes: [], bars: [], fields: [], values: [], slots: [] }
-DYNAMIC_SOURCE_KEYS       // frozen list of known dynamic:<key> source keys
 AGENT_FIELD_SOURCE_KEYS   // frozen list of known bare agent-field sources
 UI_SCHEMA            // config-editor schema descriptor for UI.yml
 normalizeUIDoc(doc: object): { cards: { [cardName]: CardConfig } }
 parseUIConfig(ymlText: string): { cards: { [cardName]: CardConfig } }  // yaml.load + normalize
-resolveTagSource(source: string, context: { agent, dyn, attributes, registry }): {
+resolveTagSource(source: string, context: { agent, dynamics, attributes, registry }): {
   label: string,            // last path segment, uppercased
   value: number|null,
   valid: boolean,           // false → element renders empty in warning state
   set: ((value) => changes)|null,   // AGENT_UPDATE changes when writable
-  unitField: string|null    // editable unit sibling field (e.g. 'rateUnit')
+  unitField: string|null,   // editable unit sibling field (e.g. 'rateUnit')
+  warn: boolean             // dyn value evaluated with defaulted refs/cycles → warn state
 }
 getConsumedTagPaths(cardConfig: CardConfig): Set<string>  // lowercase seg:seg paths
-isTagConsumed(tag: string, consumedPaths: Set<string>): boolean  // plain tags only
+isTagConsumed(tag: string, consumedPaths: Set<string>): boolean  // plain + dyn tags
 ```
 
-Source grammar (resolution order): `dynamic:<key>` (computed stat: `level`,
-`hp`, `hp-max`, `xp`, `xp-lvl`, `xp-lvl-max`, `ac`, `pb`), bare agent field
-(`rate`), else an attribute tag path matched case-insensitively against the
-agent's effective attributes, resolved through the `numeric` value resolver
-(`tagValues.js` — only an explicit numeric `=value` displays; leaf strings
-stay invalid).
+Source grammar (resolution order): bare agent field (`rate`); a path carrying
+a `dyn,` tag on the agent (computed value from `evaluateDynamicTags` —
+read-only, `set: null`; `context.dynamics` is that evaluation's Map); else an
+attribute tag path matched case-insensitively against the agent's effective
+attributes, resolved through the `numeric` value resolver (`tagValues.js` —
+only an explicit numeric `=value` displays; leaf strings stay invalid).
 `normalizeUIDoc` is lenient: malformed sections degrade to empty element
 lists, and bar entries accept `[current, max]` lists or `"(current, max)"`
 strings; `parseUIConfig` throws only on unparseable YAML.
@@ -883,9 +867,11 @@ measuring ref so the span's own width sets its budget).
 
 The standard configurable card elements, each rendering one source string from
 the UI config against a shared resolution `context`
-(`{ agent, dyn, attributes }`); see `src/logic/UI.js` for resolution.
+(`{ agent, dynamics, attributes }`); see `src/logic/UI.js` for resolution.
 An invalid source renders the element with no value in its `--invalid` state
-(warning flash); the native `title` always exposes the assigned source.
+(warning flash); a dyn value that evaluated with defaulted references or a
+cycle renders in its `--warn` state (value shown, warn chrome); the native
+`title` always exposes the assigned source.
 
 ```jsx
 <CardMedallion source context />          // square badge beside the name; visible collapsed

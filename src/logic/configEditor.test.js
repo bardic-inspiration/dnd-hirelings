@@ -9,11 +9,11 @@ import { UI_SCHEMA } from './UI.js';
 const DOC = {
   cards: {
     agentCard: {
-      medallion: 'dynamic:level',
+      medallion: 'level',
       boxes: [],
       bars: [
-        ['dynamic:hp', 'dynamic:hp-max'],
-        ['dynamic:xp-lvl', 'dynamic:xp-lvl-max'],
+        ['hp', 'hp:max'],
+        ['xp:lvl', 'xp:lvl:max'],
       ],
       fields: ['rate'],
       slots: ['weapon', 'armor'],
@@ -21,7 +21,13 @@ const DOC = {
   },
 };
 
-const REGISTRY = { skill: { arcana: {}, stealth: {} }, ability: { str: {} } };
+const REGISTRY = {
+  skill: { arcana: {}, stealth: {} },
+  ability: { str: {} },
+  level: {}, ac: {},
+  hp: { max: {} },
+  xp: { lvl: { max: {} } },
+};
 
 describe('schemaNodeAt', () => {
   it('walks map keys, anyKey cards, and list/tuple items', () => {
@@ -65,9 +71,9 @@ describe('flattenConfigDoc', () => {
     expect(byPath['cards'].kind).toBe('map');
     expect(byPath['cards:agentCard:bars'].kind).toBe('list');
     expect(byPath['cards:agentCard:bars:0']).toMatchObject({
-      kind: 'tuple', value: ['dynamic:hp', 'dynamic:hp-max'], hasChildren: false,
+      kind: 'tuple', value: ['hp', 'hp:max'], hasChildren: false,
     });
-    expect(byPath['cards:agentCard:medallion']).toMatchObject({ kind: 'scalar', value: 'dynamic:level' });
+    expect(byPath['cards:agentCard:medallion']).toMatchObject({ kind: 'scalar', value: 'level' });
     expect(byPath['cards:agentCard:boxes']).toMatchObject({ kind: 'list', hasChildren: false });
   });
 
@@ -104,17 +110,18 @@ describe('checkConfigDoc', () => {
     expect(warnings.get('cards:agentCard:boxes')).toBe('expected a list');
   });
 
-  it('soft-checks tag sources against dynamic keys, fields, and the registry', () => {
+  it('soft-checks tag sources against agent fields and the registry', () => {
     const doc = {
       cards: {
         agentCard: {
-          medallion: 'dynamic:bogus',
+          // The retired `dynamic:` namespace warns as an ordinary unregistered path.
+          medallion: 'dynamic:level',
           boxes: ['skill:arcana', 'skill:missing', 'rate'],
         },
       },
     };
     const warnings = checkConfigDoc(doc, UI_SCHEMA, context);
-    expect(warnings.get('cards:agentCard:medallion')).toMatch(/unknown dynamic source/);
+    expect(warnings.get('cards:agentCard:medallion')).toBe('tag path not in the registry');
     expect(warnings.has('cards:agentCard:boxes:0')).toBe(false);
     expect(warnings.get('cards:agentCard:boxes:1')).toBe('tag path not in the registry');
     expect(warnings.has('cards:agentCard:boxes:2')).toBe(false);
@@ -144,13 +151,15 @@ describe('checkConfigDoc', () => {
 });
 
 describe('value kinds', () => {
-  it('suggests tag sources from dynamic keys, fields, and the live registry', () => {
+  it('suggests tag sources from agent fields and the live registry', () => {
     const node = { kind: 'scalar', value: 'tagSource' };
     const suggest = (prefix) => VALUE_KINDS.tagSource.suggest(prefix, node, { tagRegistry: REGISTRY });
-    expect(suggest('dynamic:h')).toEqual(['dynamic:hp', 'dynamic:hp-max']);
+    expect(suggest('hp')).toEqual(['hp:max']);
     // The exact match ('skill' itself) is excluded — a ghost has nothing to add.
     expect(suggest('skill')).toEqual(['skill:arcana', 'skill:stealth']);
     expect(suggest('ra')).toEqual(['rate']);
+    // The retired `dynamic:` namespace offers no completions.
+    expect(suggest('dynamic:')).toEqual([]);
   });
 
   it('checks numbers against schema minimums', () => {
@@ -179,7 +188,7 @@ describe('coerceScalarInput', () => {
   });
 
   it('keeps typed kinds as strings and returns null for empty nullables', () => {
-    expect(coerceScalarInput('dynamic:ac', sourceNode)).toBe('dynamic:ac');
+    expect(coerceScalarInput('ac', sourceNode)).toBe('ac');
     expect(coerceScalarInput('  ', sourceNode)).toBeNull();
     expect(coerceScalarInput('WeAPon', { kind: 'scalar', value: 'slug' })).toBe('weapon');
   });
@@ -199,21 +208,21 @@ describe('coerceScalarInput', () => {
 
 describe('document mutations', () => {
   it('setValueAt returns a new root and leaves the original untouched', () => {
-    const next = setValueAt(DOC, ['cards', 'agentCard', 'medallion'], 'dynamic:ac');
-    expect(getAt(next, ['cards', 'agentCard', 'medallion'])).toBe('dynamic:ac');
-    expect(getAt(DOC, ['cards', 'agentCard', 'medallion'])).toBe('dynamic:level');
+    const next = setValueAt(DOC, ['cards', 'agentCard', 'medallion'], 'ac');
+    expect(getAt(next, ['cards', 'agentCard', 'medallion'])).toBe('ac');
+    expect(getAt(DOC, ['cards', 'agentCard', 'medallion'])).toBe('level');
     expect(next.cards.agentCard.bars).toBe(DOC.cards.agentCard.bars); // untouched branch shared
   });
 
   it('setValueAt writes inside tuples via list indices', () => {
     const next = setValueAt(DOC, ['cards', 'agentCard', 'bars', 0, 1], 'ability:str');
-    expect(getAt(next, ['cards', 'agentCard', 'bars', 0])).toEqual(['dynamic:hp', 'ability:str']);
+    expect(getAt(next, ['cards', 'agentCard', 'bars', 0])).toEqual(['hp', 'ability:str']);
   });
 
   it('deleteAt splices list entries and removes map keys', () => {
     const withoutBar = deleteAt(DOC, ['cards', 'agentCard', 'bars', 0]);
     expect(getAt(withoutBar, ['cards', 'agentCard', 'bars'])).toEqual([
-      ['dynamic:xp-lvl', 'dynamic:xp-lvl-max'],
+      ['xp:lvl', 'xp:lvl:max'],
     ]);
     const withoutCard = deleteAt(DOC, ['cards', 'agentCard']);
     expect(getAt(withoutCard, ['cards'])).toEqual({});
@@ -221,8 +230,8 @@ describe('document mutations', () => {
   });
 
   it('appendItemAt appends to lists and no-ops elsewhere', () => {
-    const next = appendItemAt(DOC, ['cards', 'agentCard', 'fields'], 'dynamic:ac');
-    expect(getAt(next, ['cards', 'agentCard', 'fields'])).toEqual(['rate', 'dynamic:ac']);
+    const next = appendItemAt(DOC, ['cards', 'agentCard', 'fields'], 'ac');
+    expect(getAt(next, ['cards', 'agentCard', 'fields'])).toEqual(['rate', 'ac']);
     expect(appendItemAt(DOC, ['cards', 'agentCard'], 'x')).toBe(DOC);
   });
 
@@ -233,10 +242,10 @@ describe('document mutations', () => {
 
   it('setValueAtPruning prunes a tuple row only once every entry is empty', () => {
     const half = setValueAtPruning(DOC, UI_SCHEMA, ['cards', 'agentCard', 'bars', 0, 1], '');
-    expect(getAt(half, ['cards', 'agentCard', 'bars', 0])).toEqual(['dynamic:hp', '']);
+    expect(getAt(half, ['cards', 'agentCard', 'bars', 0])).toEqual(['hp', '']);
     const gone = setValueAtPruning(half, UI_SCHEMA, ['cards', 'agentCard', 'bars', 0, 0], '');
     expect(getAt(gone, ['cards', 'agentCard', 'bars'])).toEqual([
-      ['dynamic:xp-lvl', 'dynamic:xp-lvl-max'],
+      ['xp:lvl', 'xp:lvl:max'],
     ]);
   });
 
@@ -254,8 +263,8 @@ describe('document mutations', () => {
   });
 
   it('setValueAtPruning matches setValueAt for non-empty values', () => {
-    const next = setValueAtPruning(DOC, UI_SCHEMA, ['cards', 'agentCard', 'fields', 0], 'dynamic:ac');
-    expect(getAt(next, ['cards', 'agentCard', 'fields'])).toEqual(['dynamic:ac']);
+    const next = setValueAtPruning(DOC, UI_SCHEMA, ['cards', 'agentCard', 'fields', 0], 'ac');
+    expect(getAt(next, ['cards', 'agentCard', 'fields'])).toEqual(['ac']);
   });
 
   it('removeEntryAt clears schema-named entries to their empty shape', () => {
@@ -272,7 +281,7 @@ describe('document mutations', () => {
   it('removeEntryAt deletes list items, anyKey-matched keys, and unknown keys', () => {
     const withoutBar = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard', 'bars', 0]);
     expect(getAt(withoutBar, ['cards', 'agentCard', 'bars'])).toEqual([
-      ['dynamic:xp-lvl', 'dynamic:xp-lvl-max'],
+      ['xp:lvl', 'xp:lvl:max'],
     ]);
     // A card name matches `anyKey`, not a named schema key — user content deletes.
     const withoutCard = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard']);
@@ -296,7 +305,7 @@ describe('serializeConfigDoc', () => {
   it('round-trips through YAML under a generated header', () => {
     const yml = serializeConfigDoc(DOC);
     expect(yml.startsWith('# Guild Manager config')).toBe(true);
-    expect(yml).toContain('medallion: dynamic:level');
-    expect(yml).toContain('- - dynamic:hp');
+    expect(yml).toContain('medallion: level');
+    expect(yml).toContain('- - hp');
   });
 });

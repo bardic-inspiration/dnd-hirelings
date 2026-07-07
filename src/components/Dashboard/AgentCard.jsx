@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { isAttributeActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, firstFreeSlot, getEffectiveAttributes } from '../../logic/agents.js';
-import { computeDynamicAttributes } from '../../logic/dynamicAttributes.js';
+import { evaluateDynamicTags } from '../../logic/dynamicTags.js';
 import { parseTag, buildTag } from '../../logic/tags.js';
 import { getConsumedTagPaths, isTagConsumed } from '../../logic/UI.js';
 import { formatCount } from '../../logic/format.js';
@@ -80,15 +80,23 @@ export default function AgentCard({ agent }) {
 
   const personalItems   = getPersonalItems(agent.activities);
   const boundItems      = getBoundItems(agent.activities);
-  const dyn = computeDynamicAttributes(agent, state.inventory, state.tagRegistry);
   // Configurable elements (medallion/boxes/bars/fields/values) resolve their
-  // sources against this shared context; attribute-path sources read the
-  // effective (bonus-applied) tags, matching how dyn itself is computed.
+  // sources against this shared context. Effective (bonus-applied) tags feed
+  // both plain-path sources and dyn expression evaluation, memoized so
+  // expressions re-run only when tags, bindings, or the registry change.
   const cardConfig = useUIConfig('agentCard');
+  const effectiveAttributes = useMemo(
+    () => getEffectiveAttributes(agent.attributes ?? [], agent.activities ?? [], state.inventory),
+    [agent.attributes, agent.activities, state.inventory],
+  );
+  const dynamics = useMemo(
+    () => evaluateDynamicTags(effectiveAttributes, state.tagRegistry),
+    [effectiveAttributes, state.tagRegistry],
+  );
   const elementContext = {
     agent,
-    dyn,
-    attributes: getEffectiveAttributes(agent.attributes ?? [], agent.activities ?? [], state.inventory),
+    dynamics,
+    attributes: effectiveAttributes,
     registry: state.tagRegistry,
   };
   // Tags assigned to a configured element render there, not as chips.

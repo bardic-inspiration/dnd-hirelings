@@ -124,26 +124,73 @@ registry (issue #84). Binding an item fills the first unoccupied configured slot
 configured (or all full) the item binds without a slot. `parseUIConfig`
 lowercases slot names so they compose cleanly into tag paths.
 
-A source is a tag-like path: `dynamic:<key>` reads a computed stat from
-`computeDynamicAttributes`; a bare field name (`rate`) reads an agent scalar;
-any other path reads the numeric `=value` of the matching effective attribute
-tag. Resolution, config normalization, and write-back mapping live in
-`src/logic/UI.js`; `useUIConfig(cardName)` reads the live document from
-`ConfigContext` (fetched base file merged with any Configuration Modal
-overlay — see "Runtime Configuration System" below), so in-app edits re-render
-cards immediately. Because the file lives in `public/`, it ships with the
-deployed bundle and can be edited without a rebuild (unlike
-`config/truncation.yml`, which is inlined at build time).
+A source is a tag-like path: a bare field name (`rate`) reads an agent scalar;
+any other path reads the agent's tag at that path — a `dyn,` tag resolves to
+its **computed expression value** (read-only; see "Dynamic Tags" below), a
+plain tag to its numeric `=value` (editable, writes back). Resolution, config
+normalization, and write-back mapping live in `src/logic/UI.js`;
+`useUIConfig(cardName)` reads the live document from `ConfigContext` (fetched
+base file merged with any Configuration Modal overlay — see "Runtime
+Configuration System" below), so in-app edits re-render cards immediately.
+Because the file lives in `public/`, it ships with the deployed bundle and can
+be edited without a rebuild (unlike `config/truncation.yml`, which is inlined
+at build time).
 
-Two contract points from the spec:
+Contract points from the spec:
 
-- **Invalid sources** (unknown dynamic key, missing tag, non-numeric value)
-  render their element with **no value** in an `--invalid` state that flashes
-  the warning color and keeps warn-colored chrome.
+- **Invalid sources** (missing tag, non-numeric value, unparseable dyn
+  expression) render their element with **no value** in an `--invalid` state
+  that flashes the warning color and keeps warn-colored chrome.
+- **Warned sources**: a dyn value that evaluated but had defaulted references
+  or a cycle renders its value in the element's `--warn` state (warn chrome,
+  no flash).
 - **Consumed tags**: an attribute tag whose path is assigned to any element is
   omitted from the ATTRIBUTES chip list — only tags *not* mentioned in the
-  config render as chips (`getConsumedTagPaths` / `isTagConsumed`). Modifier
-  tags (`req,` / `bonus,`) are never consumed.
+  config render as chips (`getConsumedTagPaths` / `isTagConsumed`). Plain and
+  `dyn,` tags are consumable; relational modifiers (`req,` / `block,` /
+  `bonus,`) never are.
+
+### Dynamic Tags (expressions)
+
+A **dynamic tag** — `dyn,<path>=<expression>` — computes its value from the
+other tags on the same object. The `dyn` modifier lives in `MODIFIER_REGISTRY`
+(`src/logic/tags.js`); the payload is an arithmetic expression parsed by
+`src/logic/expressions.js` and evaluated per object by
+`src/logic/dynamicTags.js`. This is the first step toward a fully
+user-configurable ruleset: the previously hard-coded D&D stat pipeline is
+expressed as ordinary authorable tags.
+
+Grammar: numbers, `+ - * / %`, parens, `floor/ceil/round/sqrt/min/max`, and
+brace-wrapped tag references — `{ability:dex}` reads the same object's tag,
+`{class:*}` sums every matching plain tag (open-mode glob). Results keep
+decimals; round explicitly.
+
+Evaluation semantics (per object, over **effective** attributes so bound-item
+bonuses apply):
+
+- an undefined / invalid / non-numeric reference **defaults to 1** and flags a
+  warning (surfaced on the agent card and in the tag registry modal);
+- dyn tags may reference other dyn tags (dependency order); cycles collapse
+  every tag on the cycle to 1 + warning;
+- a **plain tag at the same path adds** to the expression result — which is
+  also how `bonus,` tags from bound items stack onto computed stats;
+- computed values are read-only in the UI; edit the input tags instead.
+
+The reference D&D ruleset as dyn expressions (authored onto agents via presets
+or the registry modal — the registry itself stays a keys-only structure):
+
+```
+dyn,level      = max(1, floor(0.5*(1+sqrt(1+{xp}/125))))
+dyn,pb         = 2+floor(({level}-1)/4)
+dyn,ac         = 10+floor(({ability:dex}-10)/2)
+dyn,hp:max     = max(1, 10+(5+{hitdie}+floor(({ability:con}-10)/2))*{level})
+dyn,xp:lvl     = {xp}-125*((2*{level}-1)*(2*{level}-1)-1)
+dyn,xp:lvl:max = 125*((2*{level}+1)*(2*{level}+1)-1)-125*((2*{level}-1)*(2*{level}-1)-1)
+```
+
+`xp`, `hp`, and `hitdie` are plain valued tags (`xp=3200`), not agent fields;
+the class hit-die bonus is authored per agent instead of switching on the
+class name.
 
 ### Runtime Configuration System (Config Modal)
 

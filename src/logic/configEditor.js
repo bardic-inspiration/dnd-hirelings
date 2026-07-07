@@ -18,7 +18,7 @@ import yaml from 'js-yaml';
 import { parseTag, tagSyntaxWarning } from './tags.js';
 import { pathExists } from './tagRegistry.js';
 import { downloadFile } from './download.js';
-import { DYNAMIC_SOURCE_KEYS, AGENT_FIELD_SOURCE_KEYS } from './UI.js';
+import { AGENT_FIELD_SOURCE_KEYS } from './UI.js';
 
 const isMapping = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -74,7 +74,8 @@ function registryPaths(tagRegistry) {
 }
 
 // Soft-validates one tag-source string against the source grammar
-// (see logic/UI.js): dynamic:<key>, bare agent field, or attribute tag path.
+// (see logic/UI.js): bare agent field or attribute tag path (a path carrying
+// a `dyn,` tag resolves to its computed value — same path grammar).
 // Raw syntax is checked first — parseTag drops empty segments, so "skill:"
 // would otherwise pass as "skill". A bare single segment may also be a
 // one-segment tag path, so it only warns when it is neither a known field
@@ -84,11 +85,6 @@ function checkTagSource(value, context) {
   if (syntax) return syntax;
   const segments = parseTag(String(value ?? '')).segments.map(segment => segment.toLowerCase());
   if (!segments.length) return 'empty source';
-  if (segments[0] === 'dynamic') {
-    return segments.length === 2 && DYNAMIC_SOURCE_KEYS.includes(segments[1])
-      ? null
-      : `unknown dynamic source — known: ${DYNAMIC_SOURCE_KEYS.join(', ')}`;
-  }
   const registry = context?.tagRegistry ?? {};
   if (segments.length === 1) {
     return AGENT_FIELD_SOURCE_KEYS.includes(segments[0]) || pathExists(registry, segments)
@@ -98,10 +94,9 @@ function checkTagSource(value, context) {
   return pathExists(registry, segments) ? null : 'tag path not in the registry';
 }
 
-// All tag-source completions: dynamic keys, agent fields, live registry paths.
+// All tag-source completions: agent fields and live registry paths.
 function tagSourceCandidates(context) {
   return [
-    ...DYNAMIC_SOURCE_KEYS.map(key => `dynamic:${key}`),
     ...AGENT_FIELD_SOURCE_KEYS,
     ...registryPaths(context?.tagRegistry ?? {}),
   ];

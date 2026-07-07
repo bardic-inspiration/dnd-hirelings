@@ -17,31 +17,12 @@ export const EMPTY_CARD_CONFIG = Object.freeze({
   slots: Object.freeze([]),
 });
 
-// Sources under the `dynamic:` namespace — computed stats from
-// computeDynamicAttributes rather than authored tags. `key` names the field on
-// the computed object; `set` (optional) converts an edited display value into
-// an AGENT_UPDATE changes object, making the source writable.
-const DYNAMIC_SOURCE_REGISTRY = {
-  'level':      { key: 'level' },
-  'hp':         { key: 'hp',    set: (value) => ({ hp: Math.max(0, value) }) },
-  'hp-max':     { key: 'hpMax' },
-  'xp':         { key: 'xp',    set: (value) => ({ xp: Math.max(0, value) }) },
-  // Editing per-level XP rebases the raw total around the current level threshold.
-  'xp-lvl':     { key: 'xpLvl', set: (value, dyn) => ({ xp: Math.max(0, dyn.xp - dyn.xpLvl + value) }) },
-  'xp-lvl-max': { key: 'xpLvlMax' },
-  'ac':         { key: 'ac' },
-  'pb':         { key: 'proficiency' },
-};
-
 // Bare (single-segment) sources that read/write a scalar field on the agent
 // object itself. `unitField` names a sibling text field rendered as an
 // editable unit suffix (e.g. rate's "gp/day").
 const AGENT_FIELD_SOURCES = {
   rate: { set: (value) => ({ rate: value }), unitField: 'rateUnit' },
 };
-
-/** Known `dynamic:<key>` source keys, exposed for schema autocomplete/validation. */
-export const DYNAMIC_SOURCE_KEYS = Object.freeze(Object.keys(DYNAMIC_SOURCE_REGISTRY));
 
 /** Known bare agent-field source names, exposed for schema autocomplete/validation. */
 export const AGENT_FIELD_SOURCE_KEYS = Object.freeze(Object.keys(AGENT_FIELD_SOURCES));
@@ -151,18 +132,22 @@ export function parseUIConfig(ymlText) {
  * Resolves a config source string to a numeric value on one agent.
  *
  * Source grammar (matched in order):
- * 1. `dynamic:<key>` — computed stat from `DYNAMIC_SOURCE_REGISTRY`
- * 2. `<field>` — bare agent scalar field from `AGENT_FIELD_SOURCES`
+ * 1. `<field>` — bare agent scalar field from `AGENT_FIELD_SOURCES`
+ * 2. a path carrying a `dyn,` tag on the agent — the computed value from
+ *    `evaluateDynamicTags` (READ-ONLY: computed values have no `set`)
  * 3. `<seg>:<seg>...` — attribute tag path, matched case-insensitively against
  *    the agent's effective (bonus-applied) plain attributes; uses its `=value`
  *
  * A source is `valid` only when it yields a finite number; per the config
  * contract, invalid sources display no value and flash the warning color.
+ * `warn` is true when a dyn value evaluated but had defaulted references or
+ * cycles — the element shows the value in the warn state.
  *
  * @param {string} source - Source string from the UI config
  * @param {object} context - Per-agent resolution context
  * @param {Agent} context.agent - The agent (raw fields + raw attributes)
- * @param {object} context.dyn - Output of `computeDynamicAttributes(agent, …)`
+ * @param {Map<string, DynResult>} context.dynamics - Output of
+ *   `evaluateDynamicTags(effectiveAttributes, registry)` (`logic/dynamicTags.js`)
  * @param {string[]} context.attributes - The agent's effective attribute tags
  * @param {TagRegistry} [context.registry] - Tag registry, passed through to the
  *   numeric value resolver (`logic/tagValues.js`)
@@ -171,29 +156,17 @@ export function parseUIConfig(ymlText) {
  *   value: number|null,
  *   valid: boolean,
  *   set: ((value: number) => object)|null,
- *   unitField: string|null
+ *   unitField: string|null,
+ *   warn: boolean
  * }} `label` is the last path segment uppercased; `set` (when writable) maps a
  *   new value to an `AGENT_UPDATE` changes object; `unitField` names an
  *   editable unit sibling field, if any
  */
-export function resolveTagSource(source, { agent, dyn, attributes, registry }) {
+export function resolveTagSource(source, { agent, dynamics, attributes, registry }) {
   const segments = parseTag(source).segments.map(segment => segment.toLowerCase());
   const label = (segments[segments.length - 1] ?? '').toUpperCase();
-  const invalid = { label, value: null, valid: false, set: null, unitField: null };
+  const invalid = { label, value: null, valid: false, set: null, unitField: null, warn: false };
   if (!segments.length) return invalid;
-
-  if (segments[0] === 'dynamic') {
-    const entry = DYNAMIC_SOURCE_REGISTRY[segments[1]];
-    if (!entry || segments.length !== 2) return invalid;
-    const value = dyn[entry.key];
-    return {
-      label,
-      value: Number.isFinite(value) ? value : null,
-      valid: Number.isFinite(value),
-      set: entry.set ? (newValue) => entry.set(newValue, dyn) : null,
-      unitField: null,
-    };
-  }
 
   if (segments.length === 1 && AGENT_FIELD_SOURCES[segments[0]]) {
     const entry = AGENT_FIELD_SOURCES[segments[0]];
@@ -204,10 +177,24 @@ export function resolveTagSource(source, { agent, dyn, attributes, registry }) {
       valid: Number.isFinite(value),
       set: entry.set,
       unitField: entry.unitField ?? null,
+      warn: false,
     };
   }
 
   const path = segments.join(':');
+  const dyn = dynamics?.get(path);
+  if (dyn) {
+    const valid = dyn.valid && Number.isFinite(dyn.value);
+    return {
+      label,
+      value: valid ? dyn.value : null,
+      valid,
+      set: null, // computed values are read-only; edit the input tags instead
+      unitField: null,
+      warn: dyn.warnings.length > 0,
+    };
+  }
+
   for (const tag of attributes) {
     const parsed = parseTag(tag);
     if (parsed.modifier) continue;
@@ -222,6 +209,7 @@ export function resolveTagSource(source, { agent, dyn, attributes, registry }) {
       // tag's authored value (bonus-applied display deltas are not unwound).
       set: (newValue) => ({ attributes: mergeAttribute(agent.attributes, buildTag(segments, newValue)) }),
       unitField: null,
+      warn: false,
     };
   }
   return invalid;
@@ -257,8 +245,10 @@ export function getConsumedTagPaths(cardConfig) {
  * Returns true if a tag is displayed by a configured card element and should
  * therefore be omitted from the generic tag-chip list.
  *
- * Only plain (modifier-less) tags are ever consumed — `req,`/`bonus,` tags
- * carry relational semantics the value elements don't express.
+ * Plain (modifier-less) tags and `dyn,` tags are consumable — a configured
+ * element displays exactly their (computed) value. `req,`/`block,`/`bonus,`
+ * tags carry relational semantics the value elements don't express, so they
+ * always stay chips.
  *
  * @param {string} tag - Raw tag string from an agent's attribute list
  * @param {Set<string>} consumedPaths - Output of `getConsumedTagPaths`
@@ -266,6 +256,6 @@ export function getConsumedTagPaths(cardConfig) {
  */
 export function isTagConsumed(tag, consumedPaths) {
   const parsed = parseTag(tag);
-  if (parsed.modifier) return false;
+  if (parsed.modifier && parsed.modifier !== 'dyn') return false;
   return consumedPaths.has(parsed.segments.join(':').toLowerCase());
 }
