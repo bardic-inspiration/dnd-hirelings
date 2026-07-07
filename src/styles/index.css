@@ -1672,6 +1672,8 @@ body {
   cursor: pointer;
 }
 .tagreg-key:hover { color: var(--accent); }
+/* Path with in-use dyn tags carrying warnings (messages in the tooltip). */
+.tagreg-key--warn { color: var(--warn); }
 .tagreg-colon { color: var(--dim); }
 .tagreg-match { color: var(--highlight); }
 
@@ -1705,6 +1707,15 @@ body {
   display: flex;
   gap: 8px;
   align-items: stretch;
+}
+
+/* Soft warning under the builder (tag syntax / dyn expression parse errors):
+   warn-colored, never blocking — mirrors the Config Modal's cfg-*--warn. */
+.tagreg-warning {
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  color: var(--warn);
+  padding: 2px 2px 0;
 }
 
 .tagreg-prefix {

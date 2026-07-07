@@ -3,8 +3,10 @@ import Modal from './Modal.jsx';
 import Tooltip from '../Tooltip.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
-import { parseTag, buildTag, MODIFIER_REGISTRY } from '../../logic/tags.js';
+import { parseTag, buildTag, tagSyntaxWarning, MODIFIER_REGISTRY } from '../../logic/tags.js';
 import { parsePattern, matchTagPath } from '../../logic/tagMatching.js';
+import { parseExpression } from '../../logic/expressions.js';
+import { collectDynTagWarnings } from '../../logic/dynamicTags.js';
 import { conditionTemplateFromDraft, splitConditionDraft } from '../../logic/conditions.js';
 import {
   tagRegistrySave, tagRegistryLoad, flattenRegistry, tagsInUse, countTagsInUse,
@@ -25,13 +27,14 @@ function nodeAt(counts, segments) {
 // Splits a draft tag into lowercased path parts (modifier, value, and any
 // comparison term stripped). Keeps a trailing '' when the draft ends on a ':'
 // delimiter, so the last element is always the in-progress segment (what the
-// user is currently typing).
+// user is currently typing). The value strips FIRST so commas inside an
+// expression payload (`level=max(1,2)`) are never read as a modifier split.
 function draftParts(draft) {
   let text = draft;
-  const comma = text.indexOf(',');
-  if (comma >= 0) text = text.slice(comma + 1);   // drop modifier prefix
   const operator = text.search(/[<>=]/);
   if (operator >= 0) text = text.slice(0, operator); // drop value / comparison
+  const comma = text.indexOf(',');
+  if (comma >= 0) text = text.slice(comma + 1);   // drop modifier prefix
   return text.split(':').map(part => part.trim().toLowerCase());
 }
 
@@ -76,6 +79,29 @@ export default function TagRegistryModal() {
     () => countTagsInUse(registry, tagsInUse(state)),
     [registry, state.agents, state.tasks, state.inventory]
   );
+
+  // Dyn tag warnings per path across every carrying object (defaulted refs,
+  // cycles, parse errors — logic/dynamicTags.js). Rows on a flagged path show
+  // the warn state with the messages in their tooltip.
+  const dynWarnings = useMemo(
+    () => collectDynTagWarnings(state),
+    [registry, state.agents, state.tasks, state.inventory]
+  );
+
+  // Live soft warning under the builder: raw tag syntax, plus expression
+  // parse errors when the dyn modifier is selected. Never blocks ADD/APPLY —
+  // same philosophy as the Config Modal's soft checks.
+  const draftWarning = useMemo(() => {
+    if (isConditionMode || !draft.trim()) return null;
+    const syntax = tagSyntaxWarning(draft);
+    if (syntax) return syntax;
+    if (modifier === 'dyn') {
+      const { value } = parseTag(draft.trim());
+      const { error } = parseExpression(value ?? '');
+      if (error) return `expression — ${error}`;
+    }
+    return null;
+  }, [draft, modifier, isConditionMode]);
 
   // True when the draft carries pattern syntax (wildcards or escapes). Pattern
   // drafts never ADD ('*' is not a valid registry key — a pattern names a match,
@@ -283,6 +309,7 @@ export default function TagRegistryModal() {
               const n = matchLen(row);
               const cnode = nodeAt(counts, row.segments);
               const count = cnode ? (row.hasChildren && !row.isOpen ? cnode.total : cnode.count) : 0;
+              const warnings = dynWarnings.get(row.pathStr);
               return (
               <div className="tagreg-row" key={row.pathStr}>
                 <span className="tagreg-ln">{row.lineNo}</span>
@@ -300,8 +327,11 @@ export default function TagRegistryModal() {
                 ) : (
                   <span className={`tagreg-tick${row.isLast ? ' tagreg-tick--last' : ''}`} />
                 )}
-                <Tooltip content={row.pathStr}>
-                  <span className="tagreg-key" onClick={() => handleKeyClick(row)}>
+                <Tooltip content={warnings ? `${row.pathStr} — ${warnings.join(' · ')}` : row.pathStr}>
+                  <span
+                    className={`tagreg-key${warnings ? ' tagreg-key--warn' : ''}`}
+                    onClick={() => handleKeyClick(row)}
+                  >
                     {n > 0 && <span className="tagreg-match">{row.key.slice(0, n)}</span>}
                     {row.key.slice(n)}
                     <span className="tagreg-colon">:</span>
@@ -356,6 +386,7 @@ export default function TagRegistryModal() {
             <button className="ctrl" onClick={handleApply} disabled={!canApply}>APPLY</button>
           </Tooltip>
         </div>
+        {draftWarning && <div className="tagreg-warning">{draftWarning}</div>}
       </div>
     </Modal>
   );
