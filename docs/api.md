@@ -798,7 +798,7 @@ the OS-native dropdown, which a portal tooltip cannot anchor to. Wrapping an
 `EditableSpan` is safe — it composes an injected `onFocus`/`onBlur` ahead of
 its own select-all / commit handlers rather than letting them be clobbered.
 
-### `<TagLabel tag maxChars? variant? truncate? tooltip? shorthand? onValueCommit? onReplace? />`
+### `<TagLabel tag maxChars? variant? truncate? tooltip? shorthand? displayValue? onValueCommit? onReplace? />`
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
@@ -808,6 +808,7 @@ its own select-all / commit handlers rather than letting them be clobbered.
 | `truncate` | `boolean` | `true` | Structural truncation toggle |
 | `tooltip` | `boolean` | `true` | Tooltip-on-difference toggle |
 | `shorthand` | `boolean` | `true` | Number shorthand on the value |
+| `displayValue` | `string \| number` | — | Overrides the **rendered** value text only; the raw value stays the edit seed and the tooltip always shows the raw tag (dyn chips show the computed value this way) |
 | `onValueCommit` | `(value: string) => void` | — | Makes the **value** click-to-edit (issue #75); called with the edited value only when it round-trips cleanly (non-empty, grammar-safe) |
 | `onReplace` | `() => void` | — | Makes the **tag string** double-click-to-replace; the host opens the Tag Registry to pick a replacement |
 
@@ -823,8 +824,9 @@ per prop.
 **Editing (issue #75):** the tag *string* is never directly editable, only its
 value. When `onValueCommit` is set, single-clicking the value swaps it for an
 inline input (`.tag-value-input`); Enter/blur commits, Escape cancels, and an
-edit that would corrupt the grammar (empty, or a value containing `,`) is
-discarded — "invalid value → no change." When `onReplace` is set,
+edit that would corrupt the grammar (in practice: empty input) is
+discarded — "invalid value → no change." Editing a dyn chip edits the raw
+expression payload, not the computed `displayValue`. When `onReplace` is set,
 double-clicking the tag string fires it; double-clicking the value edits
 instead (the value swallows its own `dblclick`). Hosts wire value commits as an
 **in-place** array rewrite (order preserved) and replacement as remove-then-

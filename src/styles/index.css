@@ -619,6 +619,11 @@ body {
   border-color: var(--highlight);
   color: var(--highlight);
 }
+/* Dyn chip whose expression was flagged (defaulted refs, cycle, parse error). */
+.tag--warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
 /* Interactive chip: left/right-click drives an action (allocate, bind, unbind). */
 .tag--action { cursor: pointer; }
 .tag--action:hover { border-color: var(--highlight); }

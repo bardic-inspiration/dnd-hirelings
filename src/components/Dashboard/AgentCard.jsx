@@ -21,17 +21,27 @@ import { flashAgentCard } from '../../logic/dom.js';
 // measured budget with the full string in a tooltip. Attribute chips pass
 // `onValueCommit`/`onReplace` to make the value editable (issue #75); task
 // chips omit them (their label is a task name, not an editable tag).
-function TagChip({ tagStr, active, maxChars, onRemove, onValueCommit, onReplace }) {
+// A dyn chip passes its `DynResult`: the chip shows the computed value (the
+// raw expression stays the edit seed and hover text) and takes the warn state
+// when the evaluation was flagged; an unparseable expression shows raw.
+function TagChip({ tagStr, active, maxChars, onRemove, onValueCommit, onReplace, dyn }) {
   const parsed = parseTag(tagStr);
   const { state } = useGame();
   const task = parsed.segments[0] === 'task'
     ? state.tasks.find(task => task.id === parsed.segments[1])
     : null;
+  const warn = dyn && (!dyn.valid || dyn.warnings.length > 0);
   return (
-    <span className={`tag${active ? ' tag--active' : ''}`}>
+    <span className={`tag${active ? ' tag--active' : ''}${warn ? ' tag--warn' : ''}`}>
       {task
         ? <TruncatedText text={task.name} maxChars={maxChars} />
-        : <TagLabel tag={tagStr} maxChars={maxChars} onValueCommit={onValueCommit} onReplace={onReplace} />}
+        : <TagLabel
+            tag={tagStr}
+            maxChars={maxChars}
+            displayValue={dyn?.valid ? dyn.exprValue : undefined}
+            onValueCommit={onValueCommit}
+            onReplace={onReplace}
+          />}
       <Tooltip content="Remove">
         <span className="x" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
       </Tooltip>
@@ -307,14 +317,15 @@ export default function AgentCard({ agent }) {
             <div className="tag-label">ATTRIBUTES</div>
             <div className="tag-list" ref={tagListRef}>
               {agent.attributes
-                .map((tag, index) => ({ tag, index }))
+                .map((tag, index) => ({ tag, index, parsed: parseTag(tag) }))
                 .filter(({ tag }) => !isTagConsumed(tag, consumedPaths))
-                .map(({ tag, index }) => (
+                .map(({ tag, index, parsed }) => (
                   <TagChip
                     key={index}
                     tagStr={tag}
                     active={isAttributeActive(tag, agent, state.tasks)}
                     maxChars={maxChars}
+                    dyn={parsed.modifier === 'dyn' ? dynamics.get(parsed.segments.join(':').toLowerCase()) : undefined}
                     onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
                     {...attrEditProps(tag, index)}
                   />

@@ -64,16 +64,22 @@ function TagValueInput({ initial, onCommit, onCancel }) {
  * @param {boolean} [props.truncate=true] - Structural truncation toggle
  * @param {boolean} [props.tooltip=true] - Tooltip-on-difference toggle
  * @param {boolean} [props.shorthand=true] - Number shorthand on the value
+ * @param {string|number} [props.displayValue] - Overrides the *rendered* value
+ *   text while the raw value stays the edit seed and the tooltip always shows
+ *   the raw tag. Used by dyn tag chips to show the computed value in place of
+ *   the expression payload.
  * @param {(value: string) => void} [props.onValueCommit] - Commit an edited value
  * @param {() => void} [props.onReplace] - Open a replacement picker for the whole tag
  * @returns {JSX.Element}
  */
-export default function TagLabel({ tag, maxChars, variant = 'chip', truncate = true, tooltip = true, shorthand = true, onValueCommit, onReplace }) {
+export default function TagLabel({ tag, maxChars, variant = 'chip', truncate = true, tooltip = true, shorthand = true, displayValue, onValueCommit, onReplace }) {
   const [editing, setEditing] = useState(false);
   const parsed = parseTag(tag);
+  const overridden = displayValue !== undefined && displayValue !== null;
+  const displayParsed = overridden ? { ...parsed, value: String(displayValue) } : parsed;
   const fallbackChars = TRUNCATION_CONFIG.charBudget.components[variant === 'row' ? 'tag-row' : 'tag-chip'].fallbackChars;
   const budget = truncate ? (maxChars ?? fallbackChars) : Infinity;
-  const { parts, truncated, valueShortened } = truncateTagParts(parsed, budget, { variant, shorthand });
+  const { parts, truncated, valueShortened } = truncateTagParts(displayParsed, budget, { variant, shorthand });
 
   // Split off the value (and its separator) so each variant can keep its
   // existing markup: chips put "=value" in .tag-value, rows embolden the path.
@@ -89,7 +95,8 @@ export default function TagLabel({ tag, maxChars, variant = 'chip', truncate = t
 
   // Accept the edit only if it round-trips through the tag grammar unchanged
   // apart from the value — this rejects empty input and values that would
-  // corrupt the tag (e.g. a comma, which parseTag reads as a modifier).
+  // corrupt the tag (values may contain any character after the first `=`,
+  // expression payloads included, so in practice only emptiness rejects).
   const commitValue = (raw) => {
     setEditing(false);
     const next = raw.trim();
@@ -127,7 +134,7 @@ export default function TagLabel({ tag, maxChars, variant = 'chip', truncate = t
     </span>
   );
 
-  const differs = truncated || valueShortened;
+  const differs = truncated || valueShortened || overridden;
   const label = (
     <span
       className={`tag-string${differs ? ' tag-string--truncated' : ''}`}
