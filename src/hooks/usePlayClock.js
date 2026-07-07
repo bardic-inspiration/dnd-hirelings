@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import { useGame } from '../state/GameContext.jsx';
 import { useUI } from '../state/UIContext.jsx';
 import { advanceTime, getPlayIntervalMs, updateClockDisplayDOM } from '../logic/clock.js';
-import { rollbackTick } from '../logic/rollback.js';
+import { rollbackTime } from '../logic/rollback.js';
 import { flashAgentCard } from '../logic/dom.js';
 import { useClockConfig } from './useClockConfig.js';
 import { useRollbackConfig } from './useRollbackConfig.js';
@@ -18,7 +18,11 @@ import { useRollbackConfig } from './useRollbackConfig.js';
  * Side effects:
  * - Dispatches `APPLY_TICK` on every tick and `APPLY_ROLLBACK` on `retreat`
  * - Adds/removes `agent-card--flash-error` CSS class on agent cards
- * - Directly mutates clock and progress-bar DOM nodes every frame
+ * - Directly mutates progress-bar DOM nodes every frame
+ *
+ * The play interval advances exactly one tick per fire; the manual step-forward
+ * button advances `session.timeStep` ticks and step-back reverses
+ * `session.stepBack` ticks.
  *
  * @returns {{ start: () => void, stop: () => void, advance: () => void, retreat: () => void }}
  */
@@ -42,13 +46,13 @@ export function usePlayClock() {
   useEffect(() => { playingRef.current = playing; }, [playing]);
   useEffect(() => { rollbackConfigRef.current = rollbackConfig; }, [rollbackConfig]);
 
-  // One simulation tick: advance state, publish the per-tick progress rates for
+  // Advance `count` ticks: advance state, publish the per-tick progress rates for
   // the RAF loop, commit, and flash agents that couldn't contribute.
   // `resetWallTime` restarts the interpolation clock — true for interval ticks,
   // false for a manual step (the RAF loop only interpolates while playing).
-  const runTick = useCallback((resetWallTime) => {
+  const runTick = useCallback((resetWallTime, count) => {
     const result = advanceTime(stateRef.current, {
-      clockConfig: clockConfigRef.current,
+      count,
       rollbackConfig: rollbackConfigRef.current,
     });
     stateRef.current = result.newState;
@@ -58,12 +62,13 @@ export function usePlayClock() {
     result.flashAgentIds.forEach(flashAgentCard);
   }, [dispatch]);
 
-  const tick    = useCallback(() => runTick(true), [runTick]);
-  const advance = useCallback(() => runTick(false), [runTick]);
+  // Play interval fires one tick; the manual button advances the full step.
+  const tick    = useCallback(() => runTick(true, 1), [runTick]);
+  const advance = useCallback(() => runTick(false, stateRef.current.session.timeStep), [runTick]);
 
   const rafLoop = useCallback(() => {
     if (!playingRef.current) return;
-    updateClockDisplayDOM(stateRef.current, tickInfoRef.current, clockConfigRef.current);
+    updateClockDisplayDOM(stateRef.current, tickInfoRef.current);
     rafRef.current = requestAnimationFrame(rafLoop);
   }, []);
 
@@ -89,11 +94,15 @@ export function usePlayClock() {
     setPlaying(false);
   }, [setPlaying]);
 
-  // One step back: pause first (so the RAF loop can't fight the rewound
-  // state), then reverse the most recent logged tick. No-ops at the horizon.
+  // Step back by `session.stepBack` ticks: pause first (so the RAF loop can't
+  // fight the rewound state), then reverse that many logged ticks. No-ops (no
+  // dispatch) when already at the horizon.
   const retreat = useCallback(() => {
     stop();
-    const result = rollbackTick(stateRef.current, rollbackConfigRef.current);
+    const result = rollbackTime(stateRef.current, {
+      count: stateRef.current.session.stepBack,
+      rollbackConfig: rollbackConfigRef.current,
+    });
     if (!result) return;
     stateRef.current = result.newState;
     tickInfoRef.current.taskProgressPerTick = {};

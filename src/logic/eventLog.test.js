@@ -27,17 +27,17 @@ describe('normalizeEvent', () => {
   });
 
   it('keeps tick boundary rows despite their empty taskId', () => {
-    const tick = makeTickEvent({ seq: 3, clock: 1440, day: 1, stepMins: 1440, wagesTotal: 2, wages: [] });
-    expect(normalizeEvent(tick)).toMatchObject({ eventType: 'tick', taskId: '', data: { stepMins: 1440 } });
+    const tick = makeTickEvent({ seq: 3, clock: 1, wagesTotal: 2, wages: [] });
+    expect(normalizeEvent(tick)).toMatchObject({ eventType: 'tick', taskId: '', data: { wagesTotal: 2 } });
   });
 });
 
 describe('makeCompleteEvent', () => {
   it('records the spawn/unassign ids rollback needs, defaulting to empty', () => {
-    expect(makeCompleteEvent({ seq: 0, clock: 0, day: 0, task }).data)
+    expect(makeCompleteEvent({ seq: 0, clock: 0, task }).data)
       .toMatchObject({ spawnedAgentIds: [], unassignedAgentIds: [] });
     const event = makeCompleteEvent({
-      seq: 0, clock: 0, day: 0, task, spawnedAgentIds: ['s1'], unassignedAgentIds: ['a1'],
+      seq: 0, clock: 0, task, spawnedAgentIds: ['s1'], unassignedAgentIds: ['a1'],
     });
     expect(event.data.spawnedAgentIds).toEqual(['s1']);
     expect(event.data.unassignedAgentIds).toEqual(['a1']);
@@ -47,10 +47,10 @@ describe('makeCompleteEvent', () => {
 describe('CSV round-trip', () => {
   it('serializes and re-parses work, completion, and tick events without loss', () => {
     const log = [
-      makeWorkEvent({ seq: 0, clock: 1440, day: 1, agent, task, condition, delta: 4, progress: 4 }),
-      makeCompleteEvent({ seq: 1, clock: 2880, day: 2, task, spawnedAgentIds: ['s1'], unassignedAgentIds: ['a1'] }),
+      makeWorkEvent({ seq: 0, clock: 1, agent, task, condition, delta: 4, progress: 4 }),
+      makeCompleteEvent({ seq: 1, clock: 2, task, spawnedAgentIds: ['s1'], unassignedAgentIds: ['a1'] }),
       makeTickEvent({
-        seq: 2, clock: 2880, day: 2, stepMins: 1440, wagesTotal: 2,
+        seq: 2, clock: 2, wagesTotal: 2,
         wages: [{ agentId: 'a1', agentName: 'Ada', amount: 2 }],
       }),
     ];
@@ -59,7 +59,7 @@ describe('CSV round-trip', () => {
   });
 
   it('quotes and recovers fields containing a comma', () => {
-    const log = [makeWorkEvent({ seq: 0, clock: 0, day: 0, agent, task, condition, delta: 1, progress: 1 })];
+    const log = [makeWorkEvent({ seq: 0, clock: 0, agent, task, condition, delta: 1, progress: 1 })];
     const csv = serializeEventLog(log);
     expect(csv).toContain('"Task, One"');
     expect(parseEventLog(csv)[0].taskName).toBe('Task, One');
@@ -71,8 +71,8 @@ describe('CSV round-trip', () => {
   });
 
   it('falls back to {} for a corrupt data cell rather than throwing', () => {
-    const header = 'seq,eventType,clock,day,agentId,agentName,taskId,taskName,conditionId,conditionName,delta,progress,target,data';
-    const row = '0,work_contribution,0,0,a1,Ada,t1,T,c1,ARCANA,1,1,100,{not json';
+    const header = 'seq,eventType,clock,agentId,agentName,taskId,taskName,conditionId,conditionName,delta,progress,target,data';
+    const row = '0,work_contribution,0,a1,Ada,t1,T,c1,ARCANA,1,1,100,{not json';
     expect(parseEventLog(`${header}\n${row}`)[0].data).toEqual({});
   });
 });

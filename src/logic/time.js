@@ -1,35 +1,40 @@
-/**
- * Fallback calendar used when no clock config is supplied: how in-game minutes
- * (the clock's base unit) roll up into days and years. Runtime overrides come
- * from `public/config/clock.yml` via `normalizeClockConfig` (logic/clockConfig.js).
- *
- * @type {{ minutesPerDay: number, daysPerYear: number }}
- */
-export const DEFAULT_CALENDAR = { minutesPerDay: 1440, daysPerYear: 364 };
+// Calendar — a purely presentational mapping from the simulation's base time
+// unit (the tick) to a human year/day label. The game loop counts ticks and
+// knows nothing about calendars; only the UI converts a tick count for display.
+// One tick equals one day. Runtime overrides (e.g. `daysPerYear`) come from
+// `public/config/clock.yml` via `normalizeClockConfig` (logic/clockConfig.js).
 
 /**
- * Converts total elapsed minutes to calendar year and day.
- * Year and day are 1-indexed (year 1, day 1 = 0 minutes).
+ * Fallback calendar used when no clock config is supplied.
  *
- * @param {number} totalMinutes
- * @param {{ minutesPerDay: number, daysPerYear: number }} [calendar]
+ * @type {{ daysPerYear: number }}
+ */
+export const DEFAULT_CALENDAR = { daysPerYear: 364 };
+
+/**
+ * Converts an elapsed tick count to a calendar year and day. One tick = one day.
+ * Year and day are 1-indexed (tick 0 = year 1, day 1).
+ *
+ * @param {number} totalTicks
+ * @param {{ daysPerYear: number }} [calendar]
  * @returns {{ year: number, day: number }}
  */
-export function formatClockParts(totalMinutes, calendar = DEFAULT_CALENDAR) {
-  const totalDays = Math.floor(Math.max(0, totalMinutes || 0) / calendar.minutesPerDay);
-  const year = Math.floor(totalDays / calendar.daysPerYear) + 1;
-  const day  = (totalDays % calendar.daysPerYear) + 1;
+export function formatClockParts(totalTicks, calendar = DEFAULT_CALENDAR) {
+  const days = Math.floor(Math.max(0, totalTicks || 0));
+  const year = Math.floor(days / calendar.daysPerYear) + 1;
+  const day  = (days % calendar.daysPerYear) + 1;
   return { year, day };
 }
 
 /**
- * Converts a year + day pair back to total elapsed minutes. Inverse of `formatClockParts`.
+ * Converts a year + day pair back to an elapsed tick count.
+ * Inverse of `formatClockParts`.
  *
  * @param {number} year - 1-indexed
  * @param {number} day - 1-indexed
- * @param {{ minutesPerDay: number, daysPerYear: number }} [calendar]
- * @returns {number} Total minutes
+ * @param {{ daysPerYear: number }} [calendar]
+ * @returns {number} Elapsed ticks
  */
-export function clockMinutesFromParts(year, day, calendar = DEFAULT_CALENDAR) {
-  return ((year - 1) * calendar.daysPerYear + (day - 1)) * calendar.minutesPerDay;
+export function clockTicksFromParts(year, day, calendar = DEFAULT_CALENDAR) {
+  return (year - 1) * calendar.daysPerYear + (day - 1);
 }

@@ -1,12 +1,13 @@
-# Clock configuration — game time as the relationship between three layers.
-# See docs/architecture.md → "Game Clock & Tick Rollback".
+# Clock configuration. The simulation's base time unit is the tick (one tick =
+# one day); the calendar below is a UI-only mapping from elapsed ticks to a
+# year/day label. See docs/architecture.md → "Game Clock & Tick Rollback".
 
-# How in-game minutes (the clock's base unit) roll up into days and years.
+# How many days make up a display year.
 calendar:
-  minutesPerDay: 1440
   daysPerYear: 364
 
-# Bounds on the per-tick step (days) adjusted by hold-dragging the step buttons.
+# Bounds on the per-step size (ticks/days) adjusted by hold-dragging the step
+# buttons; shared by the forward and backward step increments.
 timeStep:
   min: 1
   max: 364
@@ -16,8 +17,8 @@ rateMultiplier:
   min: 0.1
   max: 100
 
-# Wall-clock pacing: real milliseconds per stepped day, floored at a minimum
-# interval between ticks (~60fps).
+# Wall-clock pacing: real milliseconds per tick, floored at a minimum interval
+# between ticks (~60fps).
 realTime:
-  msPerStepDay: 1000
+  msPerTick: 1000
   minTickIntervalMs: 16

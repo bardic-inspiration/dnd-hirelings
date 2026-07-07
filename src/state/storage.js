@@ -12,7 +12,7 @@ import { normalizeEvent } from '../logic/eventLog.js';
  * falls back to the v3 key; `normalizeState` migrates the legacy fields.
  */
 export const STORAGE_KEYS = {
-  STATE:        'dnd-hirelings-state-v4',
+  STATE:        'dnd-hirelings-state-v5',
   STATE_LEGACY: 'dnd-hirelings-state-v3',
   PALETTE: 'dnd-hirelings-palette-v1',
   /** @param {string} type - 'agents' | 'tasks' | 'items' */
@@ -150,6 +150,7 @@ export const DEFAULT_STATE = {
     title: 'GUILD MANAGER',
     clock: 0,
     timeStep: 1,
+    stepBack: 1,
     bank: 100,
     rateMultiplier: 1,
     workRate: 1,
@@ -227,8 +228,8 @@ export function migrateTag(tag) {
  * - `tagLibrary` → `tagRegistry` field rename
  * - Corrupt or missing `tagRegistry` (falls back to `seedTagRegistry()`)
  * - `qty` → `quantity` field rename on inventory items and task result items
- * - `timeStep` coerced to a positive number (legacy string values are parsed);
- *   range bounds are enforced at edit sites against `clock.yml`, not at load
+ * - `timeStep` / `stepBack` coerced to positive numbers (legacy string values are
+ *   parsed); range bounds are enforced at edit sites against `clock.yml`, not at load
  * - Legacy `task.work` tags + `task.workProgress` buckets migrated to `task.conditions`
  *   via `migrateLegacyWork` (v3 → v4); the deprecated `work` namespace is pruned from
  *   stored tag registries
@@ -291,14 +292,20 @@ export function normalizeState(raw) {
   // Legacy `session.logging` is stripped — logging config moved to rollback.yml.
   const rawSession = { ...(raw.session || {}) };
   delete rawSession.logging;
-  // `timeStep` is stored as a number (days per tick). Legacy sessions persisted it
-  // as a string, so coerce here; only non-positive or non-numeric values fall
-  // back to 1 — range bounds are enforced at edit sites against clock.yml.
+  // `timeStep` / `stepBack` are stored as numbers (ticks per forward / backward
+  // step). Legacy sessions persisted them as strings, so coerce here; only
+  // non-positive or non-numeric values fall back to 1 — range bounds are
+  // enforced at edit sites against clock.yml. `clock` is a non-negative whole
+  // tick count (one tick = one day).
   const timeStepNumber = parseFloat(rawSession.timeStep);
+  const stepBackNumber = parseFloat(rawSession.stepBack);
+  const clockNumber    = Number(rawSession.clock);
   state.session = {
     ...DEFAULT_STATE.session,
     ...rawSession,
+    clock:          Number.isFinite(clockNumber) ? Math.max(0, Math.round(clockNumber)) : 0,
     timeStep:       (isNaN(timeStepNumber) || timeStepNumber <= 0) ? 1 : timeStepNumber,
+    stepBack:       (isNaN(stepBackNumber) || stepBackNumber <= 0) ? 1 : stepBackNumber,
     rateMultiplier: rawSession.rateMultiplier ?? 1,
     workRate:       rawSession.workRate       ?? 1,
     skillBonus:     rawSession.skillBonus     ?? 1,

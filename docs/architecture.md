@@ -229,23 +229,23 @@ editable/non-editable values slot in with their group).
 
 ### Real-time Interpolated Display
 
-The game clock advances in discrete ticks (one `setInterval` per play interval). Between ticks, a `requestAnimationFrame` loop in `usePlayClock` calls `updateClockDisplayDOM()`, which directly manipulates the DOM to interpolate the clock year/day display and task progress bars. This bypasses React state for the interpolation so 60fps visuals don't force 60fps re-renders.
+The game clock advances in discrete ticks (one `setInterval` per play interval). Between ticks, a `requestAnimationFrame` loop in `usePlayClock` calls `updateClockDisplayDOM()`, which directly manipulates the DOM to interpolate task progress bars. This bypasses React state for the interpolation so 60fps visuals don't force 60fps re-renders. The clock year/day display is not interpolated — one tick is one day, so it simply advances via React on each committed tick.
 
 ### Event Log
 
-`advanceTime` records every contribution to (sub)task progress in `state.eventLog`: one `work_contribution` entry per **(agent, condition, game day)**, one `task_complete` entry per task that finishes the tick (a multi-day tick is split into one row per day), and one `'tick'` boundary entry sealing each tick's batch. The **ordering contract** is `work* → task_complete* → tick`; the tick entry appends on every tick (even a no-op one) and records `data: { stepMins, wagesTotal, wages }` — the step size and exact wage payments at the time — so rollback stays correct even if `timeStep` or agent rates change later. `task_complete` entries record the task's tags, `results`, and the exact `spawnedAgentIds` / `unassignedAgentIds` the completion produced. The log is the authoritative, in-state record — a browser SPA can't stream-append to a disk file, so the log lives in state (persisted to localStorage with everything else) and is exported to / imported from CSV on demand via `src/logic/eventLog.js` (`saveEventLogToFile` / `loadEventLogFromFile`, reusing the shared `src/logic/download.js` helper). Logging is configured by `public/config/rollback.yml` (`log.enabled`, `log.maxRows` FIFO cap).
+`advanceTime` records every contribution to (sub)task progress in `state.eventLog`, one **tick** at a time (a step-forward of `timeStep` ticks loops the internal single-tick `advanceTick`): per tick, one `work_contribution` entry per **(agent, condition)**, one `task_complete` entry per task that finishes that tick, and one `'tick'` boundary entry sealing the batch. The **ordering contract** is `work* → task_complete* → tick`; the tick entry appends on every tick (even a no-op one) and records `data: { wagesTotal, wages }` — that tick's exact wage payments — so rollback refunds correctly even if agent rates change later. Every tick advances the clock by exactly one, so no step size is stored and rollback rewinds one tick per boundary. `task_complete` entries record the task's tags, `results`, and the exact `spawnedAgentIds` / `unassignedAgentIds` the completion produced. The log is the authoritative, in-state record — a browser SPA can't stream-append to a disk file, so the log lives in state (persisted to localStorage with everything else) and is exported to / imported from CSV on demand via `src/logic/eventLog.js` (`saveEventLogToFile` / `loadEventLogFromFile`, reusing the shared `src/logic/download.js` helper). Logging is configured by `public/config/rollback.yml` (`log.enabled`, `log.maxRows` FIFO cap).
 
 ### Game Clock & Tick Rollback
 
-Game time is expressed as the relationship between three configurable layers in `public/config/clock.yml` (normalized by `src/logic/clockConfig.js`):
+The simulation's base time unit is the **tick**: `session.clock` counts elapsed ticks and every advance moves it by whole ticks. Calendar concepts (days, years) are a UI-only presentation of that count and never enter the game loop — one tick equals one day. `public/config/clock.yml` (normalized by `src/logic/clockConfig.js`) configures:
 
-- **calendar** — how in-game minutes (the clock's base unit, kept for future sub-day granularity) roll up into days and years (`minutesPerDay`, `daysPerYear`);
-- **timeStep / rateMultiplier bounds** — the clamps applied by the TopBar hold-drag adjustments;
-- **realTime** — wall-clock pacing (`msPerStepDay`, `minTickIntervalMs`).
+- **calendar** — the display-only mapping from elapsed ticks to a year/day label (`daysPerYear`); read by the TopBar, not by `advanceTime`;
+- **timeStep / rateMultiplier bounds** — the clamps applied by the TopBar hold-drag adjustments (the forward `session.timeStep` and backward `session.stepBack` increments are independent per-session values that share the `timeStep` bounds);
+- **realTime** — wall-clock pacing (`msPerTick`, `minTickIntervalMs`).
 
-Pure logic functions (`getStepMinutes`, `getPlayIntervalMs`, `advanceTime`, `updateClockDisplayDOM`, `formatClockParts`) take a normalized config **as a parameter** with `DEFAULT_CLOCK_CONFIG` / `DEFAULT_CALENDAR` fallbacks — no module singletons — threaded from the `useClockConfig()` / `useRollbackConfig()` hooks through `usePlayClock` refs (so interval callbacks never close over stale values; a clock-config edit restarts a running interval immediately).
+`advanceTime(state, { count })` is the sole clock-advance entry point: it runs `count` independent single-tick simulations (`advanceTick`), so the event log is always tick-level no matter how many ticks a call spans. The play loop calls it with `count: 1` — **each play interval advances exactly one tick**, decoupling play speed (`getPlayIntervalMs` = `msPerTick / rateMultiplier`) from the manual step size — and the step-forward button with `count: session.timeStep`. Pure logic functions take normalized config **as a parameter** with `DEFAULT_CLOCK_CONFIG` fallbacks — no module singletons — threaded from the `useClockConfig()` / `useRollbackConfig()` hooks through `usePlayClock` refs (so interval callbacks never close over stale values; a clock-config edit restarts a running interval immediately).
 
-**Rollback** (`src/logic/rollback.js`) makes the clock reversible, driven by the event log rather than snapshots. `rollbackTick(state, rollbackConfig)` finds the most recent `'tick'` boundary, reverses that tick's event group in strict LIFO order (completions and work rows first, then the boundary's wage refund and clock decrement), and truncates the group off the log — so the log tail always ends at a tick boundary and replaying forward regenerates fresh rows with continuing `seq`. It reverses **tick effects only**: inverses subtract recorded deltas (never restore snapshots), so manual edits made since the tick survive; every inverse is best-effort (missing entities skip, bank and quantities clamp at 0) so rollback never blocks. `public/config/rollback.yml` provides a per-category **switchboard** (`reverse.workProgress` / `wages` / `taskCompletion` / `rewardGold` / `rewardItems` / `spawnedAgents` / `agentReassignment`) plus the master `enabled` flag that shows/hides the TopBar step-back button. `getRollbackHorizon(eventLog)` derives the earliest reachable time (log-limited — the oldest `'tick'` entry); the step-back button dims at the horizon and the clock panel shows the earliest reachable YEAR/DAY.
+**Rollback** (`src/logic/rollback.js`) makes the clock reversible, driven by the event log rather than snapshots. `rollbackTick(state, rollbackConfig)` finds the most recent `'tick'` boundary (one tick), reverses that tick's event group in strict LIFO order (completions and work rows first, then the boundary's wage refund and the one-tick clock decrement), and truncates the group off the log — so the log tail always ends at a tick boundary and replaying forward regenerates fresh rows with continuing `seq`. `rollbackTime(state, { count })` is the symmetric inverse of `advanceTime`: the step-back button rewinds `session.stepBack` ticks by looping `rollbackTick` (`usePlayClock`'s `retreat`). Rollback reverses **tick effects only**: inverses subtract recorded deltas (never restore snapshots), so manual edits made since the tick survive; every inverse is best-effort (missing entities skip, bank and quantities clamp at 0) so rollback never blocks. `public/config/rollback.yml` provides a per-category **switchboard** (`reverse.workProgress` / `wages` / `taskCompletion` / `rewardGold` / `rewardItems` / `spawnedAgents` / `agentReassignment`) plus the master `enabled` flag that shows/hides the TopBar step-back button. `getRollbackHorizon(eventLog)` derives the earliest reachable time (log-limited — one tick before the oldest `'tick'` entry); the step-back button dims at the horizon and the clock panel shows the earliest reachable YEAR/DAY.
 
 ### Preset System with Source Forking
 
@@ -325,12 +325,13 @@ localStorage
 The game loop bypasses this flow for display interpolation:
 
 ```
-setInterval (tick)                        Step-back button
-     │  advanceTime(state, configs)            │  rollbackTick(state, rollbackConfig)
+setInterval (play)                        Step-back button
+     │  advanceTime(state, { count: 1 })       │  rollbackTime({ count: stepBack })
+     │  (one tick per interval)                │  (loops rollbackTick, one tick each)
      │  → dispatch(APPLY_TICK)                 │  → dispatch(APPLY_ROLLBACK)
-     ▼                                         ▼   (appended eventLog group truncated)
+     ▼                                         ▼   (reversed eventLog groups truncated)
 requestAnimationFrame loop
      │  updateClockDisplayDOM() → direct DOM writes
      ▼
-Clock display / progress bars (visual only, no React re-render)
+Progress bars (visual only, no React re-render)
 ```

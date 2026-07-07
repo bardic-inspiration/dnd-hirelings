@@ -1,10 +1,11 @@
 // Clock config — expresses game time as the relationship between three layers:
 //
-//   calendar   how in-game minutes (the clock's base unit) roll up into days
-//              and years; minutes stay the base unit for future granularity
-//   timeStep   bounds on the per-tick step (in days) the TopBar hold-drag edits
-//   realTime   wall-clock pacing: milliseconds of real time per stepped day,
-//              floored at a minimum tick interval
+//   calendar   how elapsed ticks map to a display day/year label (UI-only;
+//              the simulation counts ticks and ignores the calendar)
+//   timeStep   bounds on the per-step size (in ticks/days) the TopBar hold-drag
+//              edits, shared by the forward and backward step increments
+//   realTime   wall-clock pacing: milliseconds of real time per tick, floored
+//              at a minimum tick interval
 //
 // The shipped defaults live in `public/config/clock.yml`; this module owns the
 // schema, the defaults, and the normalizer that guards a raw fetched document.
@@ -13,18 +14,18 @@ import { DEFAULT_CALENDAR } from './time.js';
 
 /**
  * Fallback clock configuration used by pure logic functions when no document
- * is supplied (keeps `advanceTime` etc. callable without React context).
+ * is supplied (keeps `getPlayIntervalMs` etc. callable without React context).
  *
- * @type {{ calendar: { minutesPerDay: number, daysPerYear: number },
+ * @type {{ calendar: { daysPerYear: number },
  *   timeStep: { min: number, max: number },
  *   rateMultiplier: { min: number, max: number },
- *   realTime: { msPerStepDay: number, minTickIntervalMs: number } }}
+ *   realTime: { msPerTick: number, minTickIntervalMs: number } }}
  */
 export const DEFAULT_CLOCK_CONFIG = Object.freeze({
   calendar: Object.freeze({ ...DEFAULT_CALENDAR }),
   timeStep: Object.freeze({ min: 1, max: 364 }),
   rateMultiplier: Object.freeze({ min: 0.1, max: 100 }),
-  realTime: Object.freeze({ msPerStepDay: 1000, minTickIntervalMs: 16 }),
+  realTime: Object.freeze({ msPerTick: 1000, minTickIntervalMs: 16 }),
 });
 
 /**
@@ -39,8 +40,7 @@ export const CLOCK_SCHEMA = {
       kind: 'map',
       closed: true,
       keys: {
-        minutesPerDay: { kind: 'scalar', value: 'number', min: 1, label: 'MINUTES / DAY' },
-        daysPerYear:   { kind: 'scalar', value: 'number', min: 1, label: 'DAYS / YEAR' },
+        daysPerYear: { kind: 'scalar', value: 'number', min: 1, label: 'DAYS / YEAR' },
       },
     },
     timeStep: {
@@ -63,7 +63,7 @@ export const CLOCK_SCHEMA = {
       kind: 'map',
       closed: true,
       keys: {
-        msPerStepDay:      { kind: 'scalar', value: 'number', min: 1, label: 'MS / STEP DAY' },
+        msPerTick:         { kind: 'scalar', value: 'number', min: 1, label: 'MS / TICK' },
         minTickIntervalMs: { kind: 'scalar', value: 'number', min: 1, label: 'MIN TICK MS' },
       },
     },
@@ -98,13 +98,12 @@ export function normalizeClockConfig(doc) {
   const realTime = source.realTime && typeof source.realTime === 'object' ? source.realTime : {};
   return {
     calendar: {
-      minutesPerDay: positiveNumber(calendar.minutesPerDay, DEFAULT_CALENDAR.minutesPerDay),
-      daysPerYear:   positiveNumber(calendar.daysPerYear, DEFAULT_CALENDAR.daysPerYear),
+      daysPerYear: positiveNumber(calendar.daysPerYear, DEFAULT_CALENDAR.daysPerYear),
     },
     timeStep:       normalizeBounds(source.timeStep, DEFAULT_CLOCK_CONFIG.timeStep),
     rateMultiplier: normalizeBounds(source.rateMultiplier, DEFAULT_CLOCK_CONFIG.rateMultiplier),
     realTime: {
-      msPerStepDay:      positiveNumber(realTime.msPerStepDay, DEFAULT_CLOCK_CONFIG.realTime.msPerStepDay),
+      msPerTick:         positiveNumber(realTime.msPerTick, DEFAULT_CLOCK_CONFIG.realTime.msPerTick),
       minTickIntervalMs: positiveNumber(realTime.minTickIntervalMs, DEFAULT_CLOCK_CONFIG.realTime.minTickIntervalMs),
     },
   };

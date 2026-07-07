@@ -3,7 +3,7 @@ import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { PALETTES } from '../../constants/palettes.js';
 import { applyPalette, getStoredPalette } from '../../hooks/usePalette.js';
-import { formatClockParts, clockMinutesFromParts } from '../../logic/time.js';
+import { formatClockParts, clockTicksFromParts } from '../../logic/time.js';
 import { getRollbackHorizon } from '../../logic/rollback.js';
 import { saveStateToFile, loadStateFromFile } from '../../logic/session.js';
 import { saveEventLogToFile } from '../../logic/eventLog.js';
@@ -37,7 +37,7 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
   };
 
   const setClock = (y, d) => updateSession({
-    clock: clockMinutesFromParts(Math.max(1, y), Math.max(1, Math.min(calendar.daysPerYear, d)), calendar),
+    clock: clockTicksFromParts(Math.max(1, y), Math.max(1, Math.min(calendar.daysPerYear, d)), calendar),
   });
 
   const adjustRate = (delta) => {
@@ -50,6 +50,12 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
     const cur  = Number(session.timeStep) || 1;
     const next = Math.max(timeStep.min, Math.min(timeStep.max, Math.round(cur + delta)));
     updateSession({ timeStep: next });
+  };
+
+  const adjustStepBack = (delta) => {
+    const cur  = Number(session.stepBack) || 1;
+    const next = Math.max(timeStep.min, Math.min(timeStep.max, Math.round(cur + delta)));
+    updateSession({ stepBack: next });
   };
 
   const handleSave = () => saveStateToFile(state);
@@ -121,12 +127,12 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
           <HoldButton
             className="ctrl ctrl--combo"
             onClick={onStepBack}
-            onAdjust={adjustStep}
+            onAdjust={adjustStepBack}
             disabled={!horizon.canStepBack}
-            title="Click to step back, reversing the last tick. Hold and drag up/down to adjust step."
+            title="Click to step back by the shown number of days. Hold and drag up/down to adjust the step-back distance."
           >
             <span className="combo-glyph">|◀</span>
-            <span className="combo-value mono">{session.timeStep}</span>
+            <span className="combo-value mono">{session.stepBack}</span>
           </HoldButton>
         )}
         <HoldButton
