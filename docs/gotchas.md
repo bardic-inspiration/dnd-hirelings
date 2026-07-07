@@ -14,12 +14,26 @@ The grammar:
 [modifier,]segment[:segment...][=value]
 ```
 
-- The **modifier** (`req`, `block`, `bonus`) is separated from the content path by a comma, not a colon. This tripped up older code that used a colon and is what the migration in `normalizeState` → `migrateTag()` fixes. `migrateTag()` also strips the legacy `#` sigil (`#skill:x` → `skill:x`); it is applied both to loaded state and to preset tags on import (`constants/libraries.jsx`), so a legacy sigil never reaches the display.
+- The **modifier** (`req`, `block`, `bonus`, `dyn`) is separated from the content path by a comma, not a colon. This tripped up older code that used a colon and is what the migration in `normalizeState` → `migrateTag()` fixes. `migrateTag()` also strips the legacy `#` sigil (`#skill:x` → `skill:x`); it is applied both to loaded state and to preset tags on import (`constants/libraries.jsx`), so a legacy sigil never reaches the display. A comma only splits a modifier when it precedes the first `=` — commas after `=` belong to the value (`dyn,x=max(1,2)`).
 - **Segments** form a path. The full path is the identity key for deduplication (`mergeAttribute` replaces any tag with the same modifier + path).
+- The **value** is everything after the first `=` and is opaque — it may contain `:`, `,`, spaces, and operators (`dyn,` expression payloads rely on this). The path can never contain `=`.
 - `bind:[<slot>:]item:<name>` and `task:<id>` tags live in `activities`, not `attributes`. Don't look for them in `attributes`.
-- **A tag without `=value` is not valueless.** Under registry-bounded values (`docs/tag-values.md`, `src/logic/tagValues.js`), a tag ending on a registered leaf carries an implied value that varies by use case: `true` for matching, the terminal segment string for display (`class:fighter` → `fighter`), nothing for numeric card elements. Read values through `resolveTagValue(useCase, parsedTag, registry)` — never re-derive them ad hoc. The display read is **strict**: no registry in reach, an unregistered terminal, or a registered non-leaf all resolve `null` — so class HP bonuses vanish for `class:<name>` tags whose leaf was never registered (legacy saves are abandoned by design; re-register the path or use an explicit `class=<name>`). Note the resolver reads the **last** segment; the retired `getTagSub` read segment 2 — identical for two-segment tags, divergent for deeper paths.
+- **A tag without `=value` is not valueless.** Under registry-bounded values (`docs/tag-values.md`, `src/logic/tagValues.js`), a tag ending on a registered leaf carries an implied value that varies by use case: `true` for matching, the terminal segment string for display (`class:fighter` → `fighter`), nothing for numeric card elements. Read values through `resolveTagValue(useCase, parsedTag, registry)` — never re-derive them ad hoc. The display read is **strict**: no registry in reach, an unregistered terminal, or a registered non-leaf all resolve `null`. Note the resolver reads the **last** segment; the retired `getTagSub` read segment 2 — identical for two-segment tags, divergent for deeper paths.
 
 > ⚠️ **Needs clarification:** rule 3 keys off *leaf* status, so registering children under a preset in use (e.g. `class:druid` gaining `class:druid:circle`) silently flips existing `class:druid` tags from value to structure (display resolves `null`). Options when it bites: warn in the registry editor, or relax the read for a tag's terminal segment. See the same flag in `docs/tag-values.md`.
+
+---
+
+## Dynamic Tags (`dyn,`) — Expression Semantics
+
+Full design in `docs/architecture.md` → Dynamic Tags; the traps:
+
+- **References must be brace-wrapped** (`{ability:dex}`, `{class:*}`). A bare identifier in an expression is a parse error unless it is a function call (`floor(…)`); the braces are what isolate tag keys from operators and tag-string syntax, so any registered name — hyphens included — is referenceable.
+- **Computed values are invisible to matching.** `validateAssignment` skips `dyn,` tags entirely (an expression payload would `parseFloat` to its leading number and mis-satisfy `req,` values), and condition trackers read plain tags only. A requirement like `req,ac=12` is NOT satisfied by a computed `dyn,ac` — this is a known gap awaiting a computed-value matching pass.
+- **Wildcard refs sum only plain tags with numeric values.** `{class:*}` over a valueless leaf tag (`class:fighter`) contributes nothing; zero numeric matches default the whole ref to 1 + warning. This is why the canonical HP formula reads a plain `hitdie=<n>` tag instead of switching on the class name.
+- **Same-path plain tags add** to a dyn expression's result (`dyn,ac=<expr>` + `ac=2` → expr+2) — this is also how bound-item `bonus,` tags reach computed stats. Consequence: when the path is consumed by a configured card element, the plain part is temporarily uneditable from the card (the element is read-only for dyn paths); edit it via the registry modal or unconsume the path.
+- **Every defaulted reference is worth 1, not 0.** Undefined, non-numeric, cyclic, and non-finite cases all resolve to 1 with a warning (spec'd fallback) — formulas keep producing numbers, so watch for the warn state rather than expecting blanks.
+- Old saves were abandoned at the `dnd-hirelings-state-v6` key bump (agent `xp`/`hp` fields became valued tags); there is no migration by design.
 
 ---
 
