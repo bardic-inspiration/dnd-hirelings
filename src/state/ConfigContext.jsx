@@ -41,7 +41,8 @@ function fetchBaseDoc(url) {
  * Context value:
  * - `getDoc(id)` → the raw document (`overlay ?? base ?? {}`)
  * - `updateDoc(id, nextDoc)` → replaces the overlay (side effect: persists)
- * - `resetDoc(id)` → drops the overlay, reverting to the shipped file
+ * - `resetAllDocs()` → drops every overlay, reverting to the shipped files
+ *   (the modal's registry-wide RESET)
  * - `isOverridden(id)` → whether an overlay currently shadows the base
  *
  * @param {{ children: React.ReactNode }} props
@@ -70,19 +71,14 @@ export function ConfigProvider({ children }) {
   const updateDoc = useCallback((id, nextDoc) => {
     setOverlays(prev => ({ ...prev, [id]: nextDoc }));
   }, []);
-  const resetDoc = useCallback((id) => {
-    setOverlays(prev => {
-      if (!(id in prev)) return prev;
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+  const resetAllDocs = useCallback(() => {
+    setOverlays(prev => (Object.keys(prev).length ? {} : prev));
   }, []);
   const isOverridden = useCallback((id) => id in overlays, [overlays]);
 
   const value = useMemo(
-    () => ({ getDoc, updateDoc, resetDoc, isOverridden }),
-    [getDoc, updateDoc, resetDoc, isOverridden],
+    () => ({ getDoc, updateDoc, resetAllDocs, isOverridden }),
+    [getDoc, updateDoc, resetAllDocs, isOverridden],
   );
   return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>;
 }
@@ -91,7 +87,7 @@ export function ConfigProvider({ children }) {
  * Returns the config context value from the nearest `ConfigProvider`.
  *
  * @returns {{ getDoc: (id: string) => object, updateDoc: (id: string, nextDoc: object) => void,
- *   resetDoc: (id: string) => void, isOverridden: (id: string) => boolean }}
+ *   resetAllDocs: () => void, isOverridden: (id: string) => boolean }}
  */
 export function useConfig() {
   return useContext(ConfigContext);
