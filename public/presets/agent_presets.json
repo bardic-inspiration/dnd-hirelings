@@ -8,10 +8,16 @@
     "attributes": [
       "class:fighter",
       "race:human",
-      "level=4",
+      "ability:str=16",
+      "ability:dex=12",
+      "ability:con=15",
+      "ability:int=10",
+      "ability:wis=11",
+      "ability:cha=8",
       "skill:sword=2",
       "skill:shield=1"
-    ]
+    ],
+    "xp": 6000
   },
   {
     "name": "HEDGE WIZARD",
@@ -22,10 +28,16 @@
     "attributes": [
       "class:wizard",
       "race:human",
-      "level=3",
+      "ability:str=8",
+      "ability:dex=13",
+      "ability:con=11",
+      "ability:int=16",
+      "ability:wis=12",
+      "ability:cha=10",
       "skill:arcana=2",
       "tool:spellbook"
-    ]
+    ],
+    "xp": 3000
   },
   {
     "name": "ELVEN SCOUT",
@@ -36,11 +48,17 @@
     "attributes": [
       "class:ranger",
       "race:elf",
-      "level=3",
+      "ability:str=10",
+      "ability:dex=16",
+      "ability:con=12",
+      "ability:int=11",
+      "ability:wis=14",
+      "ability:cha=8",
       "skill:stealth=2",
       "skill:survival=2",
       "skill:bow=2"
-    ]
+    ],
+    "xp": 3000
   },
   {
     "name": "FIELD MEDIC",
@@ -51,11 +69,17 @@
     "attributes": [
       "class:cleric",
       "race:half-elf",
-      "level=4",
+      "ability:str=12",
+      "ability:dex=10",
+      "ability:con=14",
+      "ability:int=10",
+      "ability:wis=16",
+      "ability:cha=11",
       "skill:medicine=2",
       "tool:healers-kit",
       "tool:holy-symbol"
-    ]
+    ],
+    "xp": 6000
   },
   {
     "name": "DAY LABORER",
@@ -65,8 +89,15 @@
     "description": "Strong back, willing hands. Cheap and reliable.",
     "attributes": [
       "race:human",
+      "ability:str=14",
+      "ability:dex=10",
+      "ability:con=13",
+      "ability:int=8",
+      "ability:wis=10",
+      "ability:cha=8",
       "skill:athletics=1"
-    ]
+    ],
+    "xp": 0
   },
   {
     "name": "DWARVEN SMITH",
@@ -77,11 +108,17 @@
     "attributes": [
       "class:artificer",
       "race:dwarf",
-      "level=5",
+      "ability:str=13",
+      "ability:dex=8",
+      "ability:con=16",
+      "ability:int=15",
+      "ability:wis=10",
+      "ability:cha=10",
       "skill:smithing=3",
       "tool:smiths-tools",
       "trait:craft"
-    ]
+    ],
+    "xp": 10000
   },
   {
     "name": "HALFLING BURGLAR",
@@ -92,12 +129,18 @@
     "attributes": [
       "class:rogue",
       "race:halfling",
-      "level=3",
+      "ability:str=8",
+      "ability:dex=16",
+      "ability:con=12",
+      "ability:int=12",
+      "ability:wis=10",
+      "ability:cha=13",
       "skill:stealth=3",
       "skill:lockpicking=2",
       "skill:sleightofhand=2",
       "tool:thieves-tools"
-    ]
+    ],
+    "xp": 3000
   },
   {
     "name": "WANDERING BARD",
@@ -108,11 +151,17 @@
     "attributes": [
       "class:bard",
       "race:half-elf",
-      "level=3",
+      "ability:str=8",
+      "ability:dex=13",
+      "ability:con=11",
+      "ability:int=10",
+      "ability:wis=10",
+      "ability:cha=16",
       "skill:performance=2",
       "skill:persuasion=2",
       "tool:musical-instrument"
-    ]
+    ],
+    "xp": 3000
   },
   {
     "name": "TEMPLE PALADIN",
@@ -123,12 +172,18 @@
     "attributes": [
       "class:paladin",
       "race:human",
-      "level=5",
+      "ability:str=16",
+      "ability:dex=10",
+      "ability:con=14",
+      "ability:int=8",
+      "ability:wis=11",
+      "ability:cha=15",
       "skill:sword=2",
       "skill:religion=1",
       "tool:holy-symbol",
       "trait:combat"
-    ]
+    ],
+    "xp": 10000
   },
   {
     "name": "GROVE DRUID",
@@ -139,11 +194,17 @@
     "attributes": [
       "class:druid",
       "race:elf",
-      "level=4",
+      "ability:str=10",
+      "ability:dex=12",
+      "ability:con=13",
+      "ability:int=11",
+      "ability:wis=16",
+      "ability:cha=8",
       "skill:nature=3",
       "skill:animalhandling=2",
       "trait:wilderness"
-    ]
+    ],
+    "xp": 6000
   },
   {
     "name": "STREET TOUGH",
@@ -154,11 +215,17 @@
     "attributes": [
       "class:barbarian",
       "race:half-orc",
-      "level=2",
+      "ability:str=16",
+      "ability:dex=12",
+      "ability:con=15",
+      "ability:int=8",
+      "ability:wis=10",
+      "ability:cha=10",
       "skill:athletics=2",
       "skill:intimidation=2",
       "trait:urban"
-    ]
+    ],
+    "xp": 1000
   },
   {
     "name": "ARCANE APPRENTICE",
@@ -169,11 +236,17 @@
     "attributes": [
       "class:wizard",
       "race:gnome",
-      "level=1",
+      "ability:str=8",
+      "ability:dex=12",
+      "ability:con=11",
+      "ability:int=15",
+      "ability:wis=10",
+      "ability:cha=10",
       "skill:arcana=1",
       "tool:spellbook",
       "trait:study"
-    ]
+    ],
+    "xp": 0
   },
   {
     "name": "CARAVAN GUIDE",
@@ -184,11 +257,17 @@
     "attributes": [
       "class:ranger",
       "race:human",
-      "level=3",
+      "ability:str=11",
+      "ability:dex=14",
+      "ability:con=12",
+      "ability:int=10",
+      "ability:wis=15",
+      "ability:cha=10",
       "skill:navigation=2",
       "skill:survival=2",
       "trait:travel"
-    ]
+    ],
+    "xp": 3000
   },
   {
     "name": "GUILD ALCHEMIST",
@@ -199,11 +278,17 @@
     "attributes": [
       "class:artificer",
       "race:gnome",
-      "level=4",
+      "ability:str=8",
+      "ability:dex=12",
+      "ability:con=13",
+      "ability:int=16",
+      "ability:wis=10",
+      "ability:cha=10",
       "skill:alchemy=3",
       "tool:alchemists-supplies",
       "trait:craft"
-    ]
+    ],
+    "xp": 6000
   },
   {
     "name": "SHADOW ASSASSIN",
@@ -214,12 +299,18 @@
     "attributes": [
       "class:rogue",
       "race:tiefling",
-      "level=6",
+      "ability:str=10",
+      "ability:dex=17",
+      "ability:con=13",
+      "ability:int=12",
+      "ability:wis=10",
+      "ability:cha=12",
       "skill:stealth=3",
       "skill:deception=2",
       "skill:sword=2",
       "trait:stealth"
-    ]
+    ],
+    "xp": 15000
   },
   {
     "name": "DRAGONBORN MERCENARY",
@@ -230,11 +321,17 @@
     "attributes": [
       "class:fighter",
       "race:dragonborn",
-      "level=5",
+      "ability:str=17",
+      "ability:dex=10",
+      "ability:con=15",
+      "ability:int=8",
+      "ability:wis=10",
+      "ability:cha=12",
       "skill:sword=3",
       "skill:athletics=2",
       "trait:combat"
-    ]
+    ],
+    "xp": 10000
   },
   {
     "name": "CLOISTERED SCHOLAR",
@@ -244,11 +341,18 @@
     "description": "Pale, patient, and bottomless on matters of history.",
     "attributes": [
       "race:human",
+      "ability:str=8",
+      "ability:dex=10",
+      "ability:con=10",
+      "ability:int=16",
+      "ability:wis=13",
+      "ability:cha=10",
       "skill:history=3",
       "skill:investigation=2",
       "skill:arcana=1",
       "trait:study"
-    ]
+    ],
+    "xp": 0
   },
   {
     "name": "MARSH HUNTER",
@@ -259,11 +363,17 @@
     "attributes": [
       "class:ranger",
       "race:halfling",
-      "level=2",
+      "ability:str=11",
+      "ability:dex=15",
+      "ability:con=13",
+      "ability:int=10",
+      "ability:wis=14",
+      "ability:cha=8",
       "skill:survival=3",
       "skill:bow=1",
       "trait:foraging"
-    ]
+    ],
+    "xp": 1000
   },
   {
     "name": "WARLOCK BROKER",
@@ -274,11 +384,17 @@
     "attributes": [
       "class:warlock",
       "race:tiefling",
-      "level=4",
+      "ability:str=8",
+      "ability:dex=12",
+      "ability:con=12",
+      "ability:int=12",
+      "ability:wis=10",
+      "ability:cha=16",
       "skill:deception=3",
       "skill:arcana=2",
       "trait:diplomacy"
-    ]
+    ],
+    "xp": 6000
   },
   {
     "name": "MOUNTAIN GUARD",
@@ -289,11 +405,17 @@
     "attributes": [
       "class:fighter",
       "race:dwarf",
-      "level=4",
+      "ability:str=15",
+      "ability:dex=10",
+      "ability:con=16",
+      "ability:int=8",
+      "ability:wis=11",
+      "ability:cha=10",
       "skill:shield=2",
       "skill:athletics=1",
       "trait:combat"
-    ]
+    ],
+    "xp": 6000
   },
   {
     "name": "TRAVELING PRIEST",
@@ -304,11 +426,17 @@
     "attributes": [
       "class:cleric",
       "race:human",
-      "level=3",
+      "ability:str=10",
+      "ability:dex=10",
+      "ability:con=13",
+      "ability:int=10",
+      "ability:wis=16",
+      "ability:cha=12",
       "skill:medicine=2",
       "skill:religion=2",
       "tool:holy-symbol"
-    ]
+    ],
+    "xp": 3000
   },
   {
     "name": "SORCERER PRODIGY",
@@ -319,10 +447,16 @@
     "attributes": [
       "class:sorcerer",
       "race:half-elf",
-      "level=5",
+      "ability:str=8",
+      "ability:dex=13",
+      "ability:con=12",
+      "ability:int=10",
+      "ability:wis=10",
+      "ability:cha=16",
       "skill:arcana=3",
       "trait:ritual"
-    ]
+    ],
+    "xp": 10000
   },
   {
     "name": "MONASTERY ADEPT",
@@ -333,11 +467,17 @@
     "attributes": [
       "class:monk",
       "race:human",
-      "level=4",
+      "ability:str=12",
+      "ability:dex=16",
+      "ability:con=13",
+      "ability:int=10",
+      "ability:wis=15",
+      "ability:cha=8",
       "skill:acrobatics=3",
       "skill:insight=2",
       "trait:combat"
-    ]
+    ],
+    "xp": 6000
   },
   {
     "name": "DOCKSIDE COOK",
@@ -347,9 +487,16 @@
     "description": "Feeds a whole company on a copper and a prayer.",
     "attributes": [
       "race:halfling",
+      "ability:str=10",
+      "ability:dex=11",
+      "ability:con=12",
+      "ability:int=10",
+      "ability:wis=12",
+      "ability:cha=11",
       "skill:cooking=2",
       "skill:appraisal=1",
       "trait:urban"
-    ]
+    ],
+    "xp": 0
   }
 ]
