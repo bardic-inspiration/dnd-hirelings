@@ -369,6 +369,29 @@ export function deleteAt(doc, path) {
 }
 
 /**
+ * Removes the entry at a document path per the editor's delete semantics:
+ * an entry NAMED in its parent map's schema `keys` is structure — deleting it
+ * clears it to its empty schema shape (`emptyValueFor`) instead of removing
+ * the key. Everything else — list items, tuple rows, unknown keys, and
+ * `anyKey`-matched keys (user-added names, e.g. cards) — deletes outright.
+ *
+ * @param {object} doc - Raw config document
+ * @param {object|null} schema - Root schema node for `doc`
+ * @param {(string|number)[]} path - Path of the entry to remove (non-empty)
+ * @returns {object} New root, or the same `doc` on a no-op
+ */
+export function removeEntryAt(doc, schema, path) {
+  if (!path.length) return doc;
+  const last = path[path.length - 1];
+  const parentSchema = schemaNodeAt(schema, path.slice(0, -1));
+  const keySchema = parentSchema?.kind === 'map' ? parentSchema.keys?.[last] : null;
+  if (keySchema && getAt(doc, path) !== undefined) {
+    return setValueAt(doc, path, emptyValueFor(keySchema));
+  }
+  return deleteAt(doc, path);
+}
+
+/**
  * Appends an item to the list at a document path, returning a new root.
  * No-ops when the path does not hold an array.
  *

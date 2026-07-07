@@ -8,7 +8,7 @@ import { useConfig } from '../../state/ConfigContext.jsx';
 import { CONFIG_FILES, configFileById } from '../../logic/configRegistry.js';
 import {
   flattenConfigDoc, checkConfigDoc, schemaNodeAt, schemaChild, coerceScalarInput,
-  getAt, setValueAt, deleteAt, emptyValueFor, configSave, configLoad, VALUE_KINDS,
+  getAt, setValueAt, removeEntryAt, emptyValueFor, configSave, configLoad, VALUE_KINDS,
 } from '../../logic/configEditor.js';
 
 const isMapping = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -151,11 +151,13 @@ export default function ConfigModal({ onRestartPlay }) {
     }
   };
 
+  // Delete clears schema-named entries to their empty shape (they are
+  // structure); everything else — list items, user-added keys — is removed.
   const handleDelete = (row) => {
     const [fileId, ...innerPath] = row.path;
     const entry = configFileById(fileId);
     if (entry?.kind !== 'file' || !innerPath.length) return;
-    updateDoc(fileId, deleteAt(getDoc(fileId), innerPath));
+    updateDoc(fileId, removeEntryAt(getDoc(fileId), entry.schema, innerPath));
     setActivePath(row.path.slice(0, -1));
   };
 

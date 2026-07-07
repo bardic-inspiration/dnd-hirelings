@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   schemaNodeAt, flattenConfigDoc, checkConfigDoc, coerceScalarInput,
-  getAt, setValueAt, deleteAt, appendItemAt, emptyValueFor,
+  getAt, setValueAt, deleteAt, removeEntryAt, appendItemAt, emptyValueFor,
   serializeConfigDoc, VALUE_KINDS,
 } from './configEditor.js';
 import { UI_SCHEMA } from './UI.js';
@@ -207,6 +207,31 @@ describe('document mutations', () => {
     const next = appendItemAt(DOC, ['cards', 'agentCard', 'fields'], 'dynamic:ac');
     expect(getAt(next, ['cards', 'agentCard', 'fields'])).toEqual(['rate', 'dynamic:ac']);
     expect(appendItemAt(DOC, ['cards', 'agentCard'], 'x')).toBe(DOC);
+  });
+
+  it('removeEntryAt clears schema-named entries to their empty shape', () => {
+    const bars = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard', 'bars']);
+    expect(getAt(bars, ['cards', 'agentCard', 'bars'])).toEqual([]);
+    const cards = removeEntryAt(DOC, UI_SCHEMA, ['cards']);
+    expect(getAt(cards, ['cards'])).toEqual({});
+    const medallion = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard', 'medallion']);
+    expect(getAt(medallion, ['cards', 'agentCard', 'medallion'])).toBeNull(); // nullable scalar
+    const scalarSchema = { kind: 'map', keys: { rate: { kind: 'scalar', value: 'number' } } };
+    expect(removeEntryAt({ rate: 5 }, scalarSchema, ['rate'])).toEqual({ rate: '' });
+  });
+
+  it('removeEntryAt deletes list items, anyKey-matched keys, and unknown keys', () => {
+    const withoutBar = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard', 'bars', 0]);
+    expect(getAt(withoutBar, ['cards', 'agentCard', 'bars'])).toEqual([
+      ['dynamic:xp-lvl', 'dynamic:xp-lvl-max'],
+    ]);
+    // A card name matches `anyKey`, not a named schema key — user content deletes.
+    const withoutCard = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard']);
+    expect(getAt(withoutCard, ['cards'])).toEqual({});
+    const doc = { cards: { agentCard: { sparkles: 1 } } };
+    const withoutUnknown = removeEntryAt(doc, UI_SCHEMA, ['cards', 'agentCard', 'sparkles']);
+    expect(getAt(withoutUnknown, ['cards', 'agentCard'])).toEqual({});
+    expect(removeEntryAt(DOC, UI_SCHEMA, ['cards', 'nope'])).toBe(DOC); // absent path no-ops
   });
 
   it('emptyValueFor matches the schema shape', () => {
