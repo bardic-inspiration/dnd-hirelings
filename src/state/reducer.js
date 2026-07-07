@@ -70,7 +70,7 @@ const defined = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) =
 // templates; TASK_CREATE stamps them into live instances separately.
 const pickAgentFields = (preset) => defined({
   name: preset.name, icon: preset.icon, rate: preset.rate, rateUnit: preset.rateUnit,
-  description: preset.description, attributes: preset.attributes,
+  description: preset.description, attributes: preset.attributes, xp: preset.xp,
 });
 const pickTaskFields = (preset) => defined({
   name: preset.name, description: preset.description,
