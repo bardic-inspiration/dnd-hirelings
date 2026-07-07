@@ -15,7 +15,7 @@
 // schema walker, value-kind suggestion/validation, and YAML file I/O.
 
 import yaml from 'js-yaml';
-import { parseTag } from './tags.js';
+import { parseTag, tagSyntaxWarning } from './tags.js';
 import { pathExists } from './tagRegistry.js';
 import { downloadFile } from './download.js';
 import { DYNAMIC_SOURCE_KEYS, AGENT_FIELD_SOURCE_KEYS } from './UI.js';
@@ -75,9 +75,13 @@ function registryPaths(tagRegistry) {
 
 // Soft-validates one tag-source string against the source grammar
 // (see logic/UI.js): dynamic:<key>, bare agent field, or attribute tag path.
-// A bare single segment may also be a one-segment tag path, so it only warns
-// when it is neither a known field nor a registered path.
+// Raw syntax is checked first — parseTag drops empty segments, so "skill:"
+// would otherwise pass as "skill". A bare single segment may also be a
+// one-segment tag path, so it only warns when it is neither a known field
+// nor a registered path.
 function checkTagSource(value, context) {
+  const syntax = tagSyntaxWarning(String(value ?? ''));
+  if (syntax) return syntax;
   const segments = parseTag(String(value ?? '')).segments.map(segment => segment.toLowerCase());
   if (!segments.length) return 'empty source';
   if (segments[0] === 'dynamic') {

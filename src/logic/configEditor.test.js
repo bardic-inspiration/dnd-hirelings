@@ -120,6 +120,23 @@ describe('checkConfigDoc', () => {
     expect(warnings.has('cards:agentCard:boxes:2')).toBe(false);
   });
 
+  it('flags malformed tag syntax in tag sources without blocking', () => {
+    const doc = {
+      cards: {
+        agentCard: {
+          boxes: ['skill:', 'a::b', ':skill', 'skill', 'skill:arcana', ''],
+        },
+      },
+    };
+    const warnings = checkConfigDoc(doc, UI_SCHEMA, context);
+    expect(warnings.get('cards:agentCard:boxes:0')).toMatch(/empty path segment/);
+    expect(warnings.get('cards:agentCard:boxes:1')).toMatch(/empty path segment/);
+    expect(warnings.get('cards:agentCard:boxes:2')).toMatch(/empty path segment/);
+    expect(warnings.has('cards:agentCard:boxes:3')).toBe(false); // registered category
+    expect(warnings.has('cards:agentCard:boxes:4')).toBe(false);
+    expect(warnings.get('cards:agentCard:boxes:5')).toBe('empty source');
+  });
+
   it('lets a nullable scalar hold null without warning', () => {
     const warnings = checkConfigDoc({ cards: { agentCard: { medallion: null } } }, UI_SCHEMA, context);
     expect(warnings.size).toBe(0);

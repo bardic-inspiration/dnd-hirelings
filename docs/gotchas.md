@@ -317,6 +317,7 @@ The soft-enforcement traps to know:
 - **Deleting a schema-named entry clears it — the key stays.** The × on a recognized entry (`bars:`, `medallion:`) resets it to its empty schema shape (`[]` / `{}` / `null` / `''`) because those keys are structure mirroring the UI components. Only list items and user-added keys — unknown keys, and `anyKey` names like card names under `cards:` — are actually removed (`removeEntryAt` in `configEditor.js`).
 - **RESET is per-section** and means two different things: for a file section it drops the overlay (reverting to the deployed file); for SESSION it commits the manifest defaults through the reducer (and restarts the play clock via the `restartPlay` effect).
 - Deleting a registry path that a `tagSource` value references doesn't break anything — the value just gains a "not in the registry" warning, consistent with tag-registry soft enforcement.
+- **Malformed tag syntax warns, it is not normalized.** `parseTag` silently drops empty segments (`"skill:"` parses like `"skill"`), so `tagSource` values are syntax-checked on the RAW string first (`tagSyntaxWarning` in `tags.js`): stray leading/trailing/double colons draw the warn style but the text is kept verbatim — no hard stop, no auto-correction.
 
 ---
 
