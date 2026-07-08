@@ -7,10 +7,12 @@
 //   primary := number | reference | function '(' expr (',' expr)* ')' | '(' expr ')'
 //
 // - numbers   — integer or decimal literals (`10`, `0.5`, `.5`)
-// - reference — a tag path wrapped in braces: `{ability:dex}`, `{class:*}`.
-//   Braces isolate tag keys from operators, so any registered name (hyphens,
-//   digits) is referenceable. The path may contain wildcard segments
-//   (`*`/`**`) — resolution semantics are the caller's concern.
+// - reference — a tag address wrapped in braces. `{ability:dex}` reads the
+//   STATIC tag at the address; `{dyn,ability:dex}` (the `dyn,` prefix inside
+//   the braces) reads the DYNAMIC tag's total instead. Braces isolate tag
+//   keys from operators, so any registered name (hyphens, digits) is
+//   referenceable. The path may contain wildcard segments (`*`/`**`) —
+//   resolution semantics are the caller's concern.
 // - functions — bare identifiers are valid only as registered function names
 //   followed by `(` (see EXPRESSION_FUNCTIONS); anything else is a parse error.
 //
@@ -23,7 +25,9 @@
  * @property {'number'|'ref'|'call'|'unary'|'binary'} kind
  * Shapes by kind:
  * - `{ kind:'number', value:number }`
- * - `{ kind:'ref',    path:string }` — lowercased colon path, may contain wildcards
+ * - `{ kind:'ref',    scope:'static'|'dyn', path:string }` — lowercased colon
+ *   path, may contain wildcards; `scope` is `'dyn'` when the brace content
+ *   carried the `dyn,` prefix
  * - `{ kind:'call',   name:string, args:AstNode[] }`
  * - `{ kind:'unary',  op:'-', operand:AstNode }`
  * - `{ kind:'binary', op:'+'|'-'|'*'|'/'|'%', left:AstNode, right:AstNode }`
@@ -56,9 +60,11 @@ function tokenize(source) {
     if (ch === '{') {
       const end = source.indexOf('}', i + 1);
       if (end < 0) return { tokens: null, error: 'unclosed { reference' };
-      const path = source.slice(i + 1, end).trim().toLowerCase();
+      const content = source.slice(i + 1, end).trim().toLowerCase();
+      const scoped = content.startsWith('dyn,');
+      const path = (scoped ? content.slice('dyn,'.length) : content).trim();
       if (path === '') return { tokens: null, error: 'empty {} reference' };
-      tokens.push({ type: 'ref', value: path });
+      tokens.push({ type: 'ref', scope: scoped ? 'dyn' : 'static', value: path });
       i = end + 1;
       continue;
     }
@@ -139,7 +145,7 @@ export function parseExpression(source) {
     const token = peek();
     if (!token) return fail('unexpected end of expression');
     if (token.type === 'number') { pos += 1; return { kind: 'number', value: token.value }; }
-    if (token.type === 'ref') { pos += 1; return { kind: 'ref', path: token.value }; }
+    if (token.type === 'ref') { pos += 1; return { kind: 'ref', scope: token.scope, path: token.value }; }
     if (token.type === 'ident') return parseCall();
     if (token.type === 'op' && token.value === '(') {
       pos += 1;
@@ -181,7 +187,9 @@ export function parseExpression(source) {
   if (!ast) return { ast: null, error: failure ?? 'invalid expression' };
   if (pos < tokens.length) {
     const token = tokens[pos];
-    const text = token.type === 'ref' ? `{${token.value}}` : token.value;
+    const text = token.type === 'ref'
+      ? `{${token.scope === 'dyn' ? 'dyn,' : ''}${token.value}}`
+      : token.value;
     return { ast: null, error: `unexpected "${text}"` };
   }
   return { ast, error: null };
@@ -194,15 +202,15 @@ export function parseExpression(source) {
  * NaN/Infinity results.
  *
  * @param {AstNode} ast - Output of `parseExpression`
- * @param {(path: string) => number} resolveReference - Maps a `ref` path to a
- *   number. Defaulting/warning policy for unresolvable paths lives in the
- *   caller (see `logic/dynamicTags.js`).
+ * @param {(path: string, scope: 'static'|'dyn') => number} resolveReference -
+ *   Maps a `ref` path + scope to a number. Defaulting/warning policy for
+ *   unresolvable paths lives in the caller (see `logic/dynamicTags.js`).
  * @returns {number}
  */
 export function evaluateExpression(ast, resolveReference) {
   switch (ast.kind) {
     case 'number': return ast.value;
-    case 'ref':    return resolveReference(ast.path);
+    case 'ref':    return resolveReference(ast.path, ast.scope);
     case 'unary':  return -evaluateExpression(ast.operand, resolveReference);
     case 'call':
       return EXPRESSION_FUNCTIONS[ast.name].apply(
@@ -224,21 +232,25 @@ export function evaluateExpression(ast, resolveReference) {
 }
 
 /**
- * Collects the unique reference paths in an AST, in first-appearance order.
- * Feeds the dependency graph for dyn-tag evaluation ordering.
+ * Collects the unique references in an AST, in first-appearance order.
+ * Feeds the dependency graph for dyn-tag evaluation ordering (only
+ * `scope: 'dyn'` entries create evaluation-order edges).
  *
  * @param {AstNode} ast - Output of `parseExpression`
- * @returns {string[]} Deduped lowercase reference paths
+ * @returns {{ path: string, scope: 'static'|'dyn' }[]} Deduped references
  */
 export function collectReferences(ast) {
-  const paths = [];
+  const refs = [];
   const seen = new Set();
   const walk = (node) => {
-    if (node.kind === 'ref' && !seen.has(node.path)) { seen.add(node.path); paths.push(node.path); }
+    if (node.kind === 'ref') {
+      const key = `${node.scope}:${node.path}`;
+      if (!seen.has(key)) { seen.add(key); refs.push({ path: node.path, scope: node.scope }); }
+    }
     if (node.kind === 'unary') walk(node.operand);
     if (node.kind === 'call') node.args.forEach(walk);
     if (node.kind === 'binary') { walk(node.left); walk(node.right); }
   };
   walk(ast);
-  return paths;
+  return refs;
 }

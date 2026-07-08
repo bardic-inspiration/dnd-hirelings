@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { parseExpression, evaluateExpression, collectReferences } from './expressions.js';
 
 // Parses then evaluates in one step; fails the test on parse errors.
+// Dyn-scoped refs read from `refs` under a 'dyn,'-prefixed key.
 const evaluate = (source, refs = {}) => {
   const { ast, error } = parseExpression(source);
   expect(error).toBeNull();
-  return evaluateExpression(ast, (path) => refs[path]);
+  return evaluateExpression(ast, (path, scope) => refs[scope === 'dyn' ? `dyn,${path}` : path]);
 };
 
 describe('parseExpression + evaluateExpression', () => {
@@ -46,10 +47,21 @@ describe('parseExpression + evaluateExpression', () => {
     expect(evaluate('{ Ability:DEX }', { 'ability:dex': 14 })).toBe(14); // trimmed + lowercased
   });
 
-  it('parses wildcard reference paths', () => {
-    const { ast, error } = parseExpression('{class:*}+{skill:**}');
+  it('scopes dyn-prefixed references separately from static ones', () => {
+    // Same address, different scope: {level} is the static tag, {dyn,level} the dynamic total.
+    expect(evaluate('{level}+{dyn,level}', { level: 3, 'dyn,level': 5 })).toBe(8);
+    expect(evaluate('max(2, {dyn,level})', { 'dyn,level': 4 })).toBe(4); // commas stay unambiguous
+    expect(evaluate('{ DYN, Level }', { 'dyn,level': 5 })).toBe(5); // trimmed + lowercased
+  });
+
+  it('parses wildcard reference paths in both scopes', () => {
+    const { ast, error } = parseExpression('{class:*}+{skill:**}+{dyn,class:*}');
     expect(error).toBeNull();
-    expect(collectReferences(ast)).toEqual(['class:*', 'skill:**']);
+    expect(collectReferences(ast)).toEqual([
+      { path: 'class:*', scope: 'static' },
+      { path: 'skill:**', scope: 'static' },
+      { path: 'class:*', scope: 'dyn' },
+    ]);
   });
 
   it('propagates non-finite intermediates to the caller', () => {
@@ -100,9 +112,21 @@ describe('parseExpression errors', () => {
 });
 
 describe('collectReferences', () => {
-  it('returns unique paths in first-appearance order', () => {
+  it('returns unique typed refs in first-appearance order', () => {
     const { ast } = parseExpression('{a}+{b}*({a}-floor({c:d}))');
-    expect(collectReferences(ast)).toEqual(['a', 'b', 'c:d']);
+    expect(collectReferences(ast)).toEqual([
+      { path: 'a', scope: 'static' },
+      { path: 'b', scope: 'static' },
+      { path: 'c:d', scope: 'static' },
+    ]);
+  });
+
+  it('dedupes per scope, not per path', () => {
+    const { ast } = parseExpression('{a}+{dyn,a}+{a}');
+    expect(collectReferences(ast)).toEqual([
+      { path: 'a', scope: 'static' },
+      { path: 'a', scope: 'dyn' },
+    ]);
   });
 
   it('returns empty for reference-free expressions', () => {
