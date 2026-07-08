@@ -8,6 +8,7 @@ import {
 } from '../logic/tagRegistry.js';
 import { conditionFromTemplate } from '../logic/conditions.js';
 import { collectAllHeldItems, mergeItemQty } from '../logic/agents.js';
+import { reconcileDynamicTags } from '../logic/dynamicTags.js';
 
 // Registers any newly authored tag structures into the live tag registry. Returns
 // the same state reference when every path already exists, so it never forces an
@@ -471,6 +472,17 @@ export function reducer(state, action) {
 
     case 'TAGREG_REPLACE':
       return { ...state, tagRegistry: action.registry };
+
+    /* ---------- Dynamic tags ---------- */
+    // Materializes every dyn tag payload from the rules registry (see
+    // logic/dynamicTags.js). Rules live in ConfigContext, outside game state,
+    // so they ride in on the action (dispatched by hooks/useDynReconcile.js
+    // after every state or rules change). Returns the SAME state reference
+    // when nothing changed, so the reconcile effect never loops.
+    case 'DYN_RECONCILE': {
+      const { state: next, changed } = reconcileDynamicTags(state, action.rules);
+      return changed ? next : state;
+    }
 
     /* ---------- Bulk ---------- */
     case 'APPLY_TICK':
