@@ -27,8 +27,8 @@ function nodeAt(counts, segments) {
 // Splits a draft tag into lowercased path parts (modifier, value, and any
 // comparison term stripped). Keeps a trailing '' when the draft ends on a ':'
 // delimiter, so the last element is always the in-progress segment (what the
-// user is currently typing). The value strips FIRST so commas inside an
-// expression payload (`level=max(1,2)`) are never read as a modifier split.
+// user is currently typing). The value strips FIRST so a comma inside a value
+// (`x=1,2`) is never mistaken for a modifier split.
 function draftParts(draft) {
   let text = draft;
   const operator = text.search(/[<>=]/);
@@ -106,8 +106,7 @@ export default function TagRegistryModal() {
   // True when the draft's PATH carries pattern syntax (wildcards or escapes).
   // Pattern drafts never ADD ('*' is not a valid registry key — a pattern names
   // a match, not a structure node) and APPLY only as condition links. Only the
-  // pre-value text counts: values are opaque, and a dyn expression payload
-  // legitimately contains '*' (`dyn,ac=2*{level}`).
+  // pre-value text counts: values are opaque and may legitimately contain '*'.
   const operatorIdx = draft.search(/[<>=]/);
   const isPattern = /[\\*]/.test(operatorIdx >= 0 ? draft.slice(0, operatorIdx) : draft);
 

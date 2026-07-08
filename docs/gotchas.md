@@ -14,9 +14,9 @@ The grammar:
 [modifier,]segment[:segment...][=value]
 ```
 
-- The **modifier** (`req`, `block`, `bonus`, `dyn`) is separated from the content path by a comma, not a colon. This tripped up older code that used a colon and is what the migration in `normalizeState` → `migrateTag()` fixes. `migrateTag()` also strips the legacy `#` sigil (`#skill:x` → `skill:x`); it is applied both to loaded state and to preset tags on import (`constants/libraries.jsx`), so a legacy sigil never reaches the display. A comma only splits a modifier when it precedes the first `=` — commas after `=` belong to the value (`dyn,x=max(1,2)`).
+- The **modifier** (`req`, `block`, `bonus`, `dyn`) is separated from the content path by a comma, not a colon. This tripped up older code that used a colon and is what the migration in `normalizeState` → `migrateTag()` fixes. `migrateTag()` also strips the legacy `#` sigil (`#skill:x` → `skill:x`); it is applied both to loaded state and to preset tags on import (`constants/libraries.jsx`), so a legacy sigil never reaches the display. A comma only splits a modifier when it precedes the first `=` — commas after `=` belong to the value.
 - **Segments** form a path. The full path is the identity key for deduplication (`mergeAttribute` replaces any tag with the same modifier + path).
-- The **value** is everything after the first `=` and is opaque — it may contain `:`, `,`, spaces, and operators (`dyn,` expression payloads rely on this). The path can never contain `=`.
+- The **value** is everything after the first `=` and is opaque — it may contain `:`, `,`, spaces, and operators. The path can never contain `=`.
 - `bind:[<slot>:]item:<name>` and `task:<id>` tags live in `activities`, not `attributes`. Don't look for them in `attributes`.
 - **A tag without `=value` is not valueless.** Under registry-bounded values (`docs/tag-values.md`, `src/logic/tagValues.js`), a tag ending on a registered leaf carries an implied value that varies by use case: `true` for matching, the terminal segment string for display (`class:fighter` → `fighter`), nothing for numeric card elements. Read values through `resolveTagValue(useCase, parsedTag, registry)` — never re-derive them ad hoc. The display read is **strict**: no registry in reach, an unregistered terminal, or a registered non-leaf all resolve `null`. Note the resolver reads the **last** segment; the retired `getTagSub` read segment 2 — identical for two-segment tags, divergent for deeper paths.
 
@@ -24,16 +24,18 @@ The grammar:
 
 ---
 
-## Dynamic Tags (`dyn,`) — Expression Semantics
+## Dynamic Tags (`dyn,`) — Rules and Materialization
 
 Full design in `docs/architecture.md` → Dynamic Tags; the traps:
 
-- **References must be brace-wrapped** (`{ability:dex}`, `{class:*}`). A bare identifier in an expression is a parse error unless it is a function call (`floor(…)`); the braces are what isolate tag keys from operators and tag-string syntax, so any registered name — hyphens included — is referenceable.
-- **Computed values are invisible to matching.** `validateAssignment` skips `dyn,` tags entirely (an expression payload would `parseFloat` to its leading number and mis-satisfy `req,` values), and condition trackers read plain tags only. A requirement like `req,ac=12` is NOT satisfied by a computed `dyn,ac` — this is a known gap awaiting a computed-value matching pass.
-- **Wildcard refs sum only plain tags with numeric values.** `{class:*}` over a valueless leaf tag (`class:fighter`) contributes nothing; zero numeric matches default the whole ref to 1 + warning. This is why the canonical HP formula reads a plain `hitdie=<n>` tag instead of switching on the class name.
-- **Same-path plain tags add** to a dyn expression's result (`dyn,ac=<expr>` + `ac=2` → expr+2) — this is also how bound-item `bonus,` tags reach computed stats. Consequence: when the path is consumed by a configured card element, the plain part is temporarily uneditable from the card (the element is read-only for dyn paths); edit it via the registry modal or unconsume the path.
-- **Every defaulted reference is worth 1, not 0.** Undefined, non-numeric, cyclic, and non-finite cases all resolve to 1 with a warning (spec'd fallback) — formulas keep producing numbers, so watch for the warn state rather than expecting blanks.
-- Old saves were abandoned at the `dnd-hirelings-state-v6` key bump (agent `xp`/`hp` fields became valued tags); there is no migration by design.
+- **The expression is not in the tag.** An object carries a bare `dyn,<address>` marker; the governing expression lives in the rules registry (`public/config/rules.yml` → Config Modal RULES). The tag's payload is the *materialized computed total* (`dyn,ac=14`), rewritten by the reconciler — never hand-authored. Typing a payload on a `dyn,` draft is meaningless (the registry modal soft-warns); the reconciler overwrites it on the next pass.
+- **Rule expressions must be brace-wrapped AND bracket-enveloped, quoted in raw YAML.** In `rules.yml` an entry is `ac: "[10+floor(({ability:dex}-10)/2)]"`. Unquoted `[…{…}…]` is a YAML flow-collection parse error (`[` opens a sequence, `{` a mapping); `normalizeRulesConfig` also rejects a missing `[…]` envelope. Inside the expression, references are brace-wrapped (`{ability:dex}`); a bare identifier is a parse error unless it is a function call (`floor(…)`).
+- **Reference scope is strict.** `{addr}` reads STATIC tags only — a marker-only address (`dyn,level` with no plain `level`) makes `{level}` default to 1 + warning, it does NOT fall back to the dynamic total. Use `{dyn,addr}` to read the computed total. This is why the canonical rules reference `{dyn,level}`, not `{level}`.
+- **Missing/broken rule ⇒ invalid, not defaulted.** A marker whose address has no rule (renamed, deleted, never authored) or an unparseable rule has *no value*: the payload is stripped to a bare marker, the card element renders `--invalid`, and the registry row flags. Distinct from a defaulted *reference*, which is worth 1.
+- **Wildcard refs sum only numeric matches.** `{class:*}` over a valueless leaf tag (`class:fighter`) contributes nothing; zero numeric matches default the whole ref to 1 + warning. This is why the canonical HP rule reads a plain `hitdie=<n>` tag instead of switching on the class name.
+- **Same-address static values add** to the rule's result (`dyn,ac` rule `[8+{ability:dex}]` + a plain `ac=2` + an equipped `bonus,ac=1` → total 14) — this is how bound-item `bonus,` tags reach computed stats. Consequence: when the address is consumed by a configured card element, the plain part is uneditable from the card (dyn elements are read-only); edit it via the registry modal or unconsume the address.
+- **Materialized payloads ARE matchable.** `req,ac=12` is satisfied by `dyn,ac=14` (payloads are ordinary numeric values now). The earlier "computed values are invisible to matching" gap is closed.
+- Old saves were abandoned at the `dnd-hirelings-state-v6` key bump (agent `xp`/`hp` fields became valued tags); there is no further bump for the rules revision — stale dev-save payloads (from the earlier expression-in-payload format) are simply overwritten by the reconciler on load.
 
 ---
 

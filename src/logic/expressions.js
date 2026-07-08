@@ -1,4 +1,5 @@
-// Arithmetic expression engine for dynamic (`dyn,`) tag payloads.
+// Arithmetic expression engine for the dynamic-tag rules registry
+// (public/config/rules.yml → logic/rulesConfig.js).
 //
 // Grammar (whitespace-insensitive):
 //   expr    := term (('+'|'-') term)*

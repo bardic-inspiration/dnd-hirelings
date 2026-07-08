@@ -150,42 +150,56 @@ Contract points from the spec:
   `dyn,` tags are consumable; relational modifiers (`req,` / `block,` /
   `bonus,`) never are.
 
-### Dynamic Tags (expressions)
+### Dynamic Tags (rules registry)
 
-A **dynamic tag** — `dyn,<path>=<expression>` — computes its value from the
-other tags on the same object. The `dyn` modifier lives in `MODIFIER_REGISTRY`
-(`src/logic/tags.js`); the payload is an arithmetic expression parsed by
-`src/logic/expressions.js` and evaluated per object by
-`src/logic/dynamicTags.js`. This is the first step toward a fully
-user-configurable ruleset: the previously hard-coded D&D stat pipeline is
-expressed as ordinary authorable tags.
+A **dynamic tag** is a dependent variable: the object carries a
+`dyn,<address>` **marker**, the **rules registry** carries the governing
+expression, and the app **materializes** the computed total into the tag's
+payload (`dyn,ac=14` in state and saves). This splits the two concerns
+cleanly — the *tag registry* is session data (what tags exist, what each
+object carries), the *config registry* is configurable app behavior (how
+values are computed). This is the first fully config-driven slice of the game
+rules.
 
-Grammar: numbers, `+ - * / %`, parens, `floor/ceil/round/sqrt/min/max`, and
-brace-wrapped tag references — `{ability:dex}` reads the same object's tag,
-`{class:*}` sums every matching plain tag (open-mode glob). Results keep
-decimals; round explicitly.
+- **Rules** live in `public/config/rules.yml` → `logic/rulesConfig.js`
+  (`normalizeRulesConfig`), fetched and overlay-edited through the same
+  ConfigContext/Config Modal path as every other config file (registered in
+  the `CONFIG_FILES` manifest, id `rules`). The `dynamic:` section maps flat
+  hyphenated addresses to `"[…]"`-enveloped expressions; future rule kinds
+  become sibling sections. The deployed file ships the reference D&D ruleset.
+- **Grammar** (`logic/expressions.js`): numbers, `+ - * / %`, parens,
+  `floor/ceil/round/sqrt/min/max`, and brace-wrapped references. `{addr}`
+  reads the object's **static** tag value at the address; `{dyn,addr}` reads
+  the **dynamic total** at the address; wildcards sum matches per scope
+  (`{class:*}`, `{dyn,class:*}`). Results keep decimals; round explicitly.
+- **Materialization** (`logic/dynamicTags.js`): `evaluateDynamicTags` computes
+  a total per marker = expression result + the object's **effective** static
+  value at the same address (bound-item `bonus,` tags fold into plain tags via
+  `getEffectiveAttributes`, so armor bonuses stack onto computed stats).
+  `reconcileDynamicTags` writes those totals back into the stored tag strings;
+  the `DYN_RECONCILE` reducer action (dispatched by `hooks/useDynReconcile.js`
+  after any state or rules change) keeps them current and is loop-safe (it
+  returns the same state reference when nothing changed).
+- **Failure modes**: a marker with no rule (or a broken one) is **invalid** —
+  the payload is stripped and the UI renders the invalid state. Missing /
+  non-numeric references default to 1 + warning; `{dyn,…}` cycles collapse to
+  1 + warning; non-finite results default to 1 + warning. Warnings are always
+  derived, never stored.
+- Because payloads are ordinary numeric tag values, dyn tags are **matchable**:
+  `req,ac=12` is satisfied by `dyn,ac=14`. Computed values are read-only in
+  the UI; edit the input tags (or the rule) instead.
 
-Evaluation semantics (per object, over **effective** attributes so bound-item
-bonuses apply):
+The reference D&D ruleset (`public/config/rules.yml`, addresses applied to
+agents as `dyn,` markers via presets or the registry modal):
 
-- an undefined / invalid / non-numeric reference **defaults to 1** and flags a
-  warning (surfaced on the agent card and in the tag registry modal);
-- dyn tags may reference other dyn tags (dependency order); cycles collapse
-  every tag on the cycle to 1 + warning;
-- a **plain tag at the same path adds** to the expression result — which is
-  also how `bonus,` tags from bound items stack onto computed stats;
-- computed values are read-only in the UI; edit the input tags instead.
-
-The reference D&D ruleset as dyn expressions (authored onto agents via presets
-or the registry modal — the registry itself stays a keys-only structure):
-
-```
-dyn,level      = max(1, floor(0.5*(1+sqrt(1+{xp}/125))))
-dyn,pb         = 2+floor(({level}-1)/4)
-dyn,ac         = 10+floor(({ability:dex}-10)/2)
-dyn,hp:max     = max(1, 10+(5+{hitdie}+floor(({ability:con}-10)/2))*{level})
-dyn,xp:lvl     = {xp}-125*((2*{level}-1)*(2*{level}-1)-1)
-dyn,xp:lvl:max = 125*((2*{level}+1)*(2*{level}+1)-1)-125*((2*{level}-1)*(2*{level}-1)-1)
+```yaml
+dynamic:
+  level: "[max(1, floor(0.5*(1+sqrt(1+{xp}/125))))]"
+  pb: "[2+floor(({dyn,level}-1)/4)]"
+  ac: "[10+floor(({ability:dex}-10)/2)]"
+  hp-max: "[max(1, 10+(5+{hitdie}+floor(({ability:con}-10)/2))*{dyn,level})]"
+  xp-lvl: "[{xp}-125*((2*{dyn,level}-1)*(2*{dyn,level}-1)-1)]"
+  xp-lvl-max: "[125*((2*{dyn,level}+1)*(2*{dyn,level}+1)-1)-125*((2*{dyn,level}-1)*(2*{dyn,level}-1)-1)]"
 ```
 
 `xp`, `hp`, and `hitdie` are plain valued tags (`xp=3200`), not agent fields;

@@ -55,11 +55,10 @@ export const TAG_REGISTRY = {
  * Grammar: `[modifier,]segment[:segment...][=value]`
  * - `modifier` — token before the first comma, or null if absent. A comma
  *   counts as the modifier separator only when it precedes the first `=`;
- *   commas inside a value (e.g. `dyn,x=max(1,2)`) never split a modifier.
+ *   commas inside a value (e.g. `mod,x=1,2`) never split a modifier.
  * - `segments` — the content path only (modifier excluded)
  * - `value` — everything after the first `=`, or null. Values are opaque and
- *   may contain any character, including `:`, `,`, spaces, and operators
- *   (`dyn,` expression payloads rely on this).
+ *   may contain any character, including `:`, `,`, spaces, and operators.
  *
  * @param {string} tagString - Raw tag string
  * @returns {{ modifier: string|null, segments: string[], value: string|null }}
