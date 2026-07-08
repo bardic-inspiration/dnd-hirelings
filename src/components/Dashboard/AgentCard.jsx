@@ -22,9 +22,9 @@ import { flashAgentCard } from '../../logic/dom.js';
 // measured budget with the full string in a tooltip. Attribute chips pass
 // `onValueCommit`/`onReplace` to make the value editable (issue #75); task
 // chips omit them (their label is a task name, not an editable tag).
-// A dyn chip passes its `DynResult`: the chip shows the computed value (the
-// raw expression stays the edit seed and hover text) and takes the warn state
-// when the evaluation was flagged; an unparseable expression shows raw.
+// A dyn chip passes its `DynResult`: the payload it renders IS the
+// materialized total (logic/dynamicTags.js); the chip takes the warn state
+// when the evaluation was flagged or the marker has no rule.
 function TagChip({ tagStr, active, maxChars, onRemove, onValueCommit, onReplace, dyn }) {
   const parsed = parseTag(tagStr);
   const { state } = useGame();
@@ -36,13 +36,7 @@ function TagChip({ tagStr, active, maxChars, onRemove, onValueCommit, onReplace,
     <span className={`tag${active ? ' tag--active' : ''}${warn ? ' tag--warn' : ''}`}>
       {task
         ? <TruncatedText text={task.name} maxChars={maxChars} />
-        : <TagLabel
-            tag={tagStr}
-            maxChars={maxChars}
-            displayValue={dyn?.valid ? dyn.exprValue : undefined}
-            onValueCommit={onValueCommit}
-            onReplace={onReplace}
-          />}
+        : <TagLabel tag={tagStr} maxChars={maxChars} onValueCommit={onValueCommit} onReplace={onReplace} />}
       <Tooltip content="Remove">
         <span className="x" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
       </Tooltip>
@@ -195,11 +189,12 @@ export default function AgentCard({ agent }) {
   // Editable-tag wiring (issue #75) for an attribute chip. Committing a value
   // rewrites the tag in place (order preserved — the path is unchanged, so it
   // can't collide with another entry); replacing removes the old tag then
-  // applies whatever the registry returns.
+  // applies whatever the registry returns. Dyn payloads are computed by the
+  // reconciler, never hand-edited, so dyn chips get no value editor.
   const attrEditProps = (tag, index) => {
     const { segments, modifier } = parseTag(tag);
     return {
-      onValueCommit: (value) => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: {
+      onValueCommit: modifier === 'dyn' ? undefined : (value) => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: {
         attributes: agent.attributes.map((current, i) => i === index ? buildTag(segments, value, modifier) : current),
       } }),
       onReplace: () => openTagRegistry({ onApply: (newTag) => {

@@ -147,6 +147,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
+| `DYN_RECONCILE` | `{ rules: RulesConfig }` | Materialize every dyn tag payload from the rules registry (`reconcileDynamicTags`); returns the same state reference when nothing changed — never logs |
 | `APPLY_TICK` | `{ newState: GameState }` | Replace state with a pre-computed tick result (includes the appended `eventLog`) |
 | `APPLY_ROLLBACK` | `{ newState: GameState }` | Replace state with a pre-computed `rollbackTick` result (reverted tick group truncated off `eventLog`) |
 | `REPLACE_STATE` | `{ newState: object }` | Load external state; runs through `normalizeState()` |
@@ -250,23 +251,28 @@ caller.
 ### `src/logic/dynamicTags.js`
 
 ```js
-evaluateDynamicTags(effectiveAttributes: string[], registry: TagRegistry): Map<string, DynResult>
-collectDynTagWarnings(state: GameState): Map<string, string[]>  // lowercase path → deduped messages
-// DynResult: { value: number|null, exprValue: number|null, expression: string,
-//              valid: boolean, warnings: string[] }
+evaluateDynamicTags(effectiveAttributes: string[], rulesConfig: RulesConfig, registry: TagRegistry): Map<string, DynResult>
+reconcileDynamicTags(state: GameState, rulesConfig: RulesConfig): { state: GameState, changed: boolean }
+collectDynTagWarnings(state: GameState, rulesConfig: RulesConfig): Map<string, string[]>
+// DynResult: { value: number|null, valid: boolean, warnings: string[], expression: string|null }
 ```
 
-Evaluates every `dyn,` tag in an attribute list (entity-generic: agents pass
-effective attributes, items their attributes, tasks attributes+requirements).
-Resolution policy: literal refs read the same object's tags (`numeric`
-resolver); wildcard refs sum matching plain tags (open-mode glob);
-undefined/invalid/non-numeric refs default to 1 with a warning; dyn→dyn
-chains evaluate in dependency order with cycles collapsing to 1; a plain tag
-at a dyn path ADDS to the expression result (`value = exprValue + plain`),
-which is how bound-item `bonus,` injections stack onto computed stats.
-`valid: false` only on parse errors (element renders `--invalid`); warnings
-with `valid: true` render the warn state. `collectDynTagWarnings` feeds the
-registry modal's row flags.
+Evaluates every `dyn,<address>` marker in an attribute list against the rules
+registry (`rulesConfig` = `normalizeRulesConfig` output; entity-generic:
+agents pass effective attributes, items their attributes, tasks
+attributes+requirements). Total = expression result + effective static value
+at the address (bound-item `bonus,` tags arrive pre-folded into plain tags).
+Reference scoping is strict: `{addr}` reads static tags only, `{dyn,addr}`
+the referenced marker's total (dependency order, cycles collapse to 1 +
+warning); wildcards sum per scope; undefined/non-numeric refs default to 1 +
+warning. `valid: false` when the address has no rule or a broken one (element
+renders `--invalid`, payload stripped); warnings with `valid: true` render
+the warn state and stay derived — never stored. `reconcileDynamicTags`
+materializes totals into the stored tag strings (`dyn,ac=14`) across the
+whole state, preserving object identity when unchanged (the `DYN_RECONCILE`
+reducer action's loop-safety contract; dispatched by
+`hooks/useDynReconcile.js`). `collectDynTagWarnings` feeds the registry
+modal's row flags.
 
 ### `src/logic/agents.js`
 
@@ -816,7 +822,7 @@ the OS-native dropdown, which a portal tooltip cannot anchor to. Wrapping an
 `EditableSpan` is safe — it composes an injected `onFocus`/`onBlur` ahead of
 its own select-all / commit handlers rather than letting them be clobbered.
 
-### `<TagLabel tag maxChars? variant? truncate? tooltip? shorthand? displayValue? onValueCommit? onReplace? />`
+### `<TagLabel tag maxChars? variant? truncate? tooltip? shorthand? onValueCommit? onReplace? />`
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
@@ -826,7 +832,6 @@ its own select-all / commit handlers rather than letting them be clobbered.
 | `truncate` | `boolean` | `true` | Structural truncation toggle |
 | `tooltip` | `boolean` | `true` | Tooltip-on-difference toggle |
 | `shorthand` | `boolean` | `true` | Number shorthand on the value |
-| `displayValue` | `string \| number` | — | Overrides the **rendered** value text only; the raw value stays the edit seed and the tooltip always shows the raw tag (dyn chips show the computed value this way) |
 | `onValueCommit` | `(value: string) => void` | — | Makes the **value** click-to-edit (issue #75); called with the edited value only when it round-trips cleanly (non-empty, grammar-safe) |
 | `onReplace` | `() => void` | — | Makes the **tag string** double-click-to-replace; the host opens the Tag Registry to pick a replacement |
 
@@ -843,8 +848,9 @@ per prop.
 value. When `onValueCommit` is set, single-clicking the value swaps it for an
 inline input (`.tag-value-input`); Enter/blur commits, Escape cancels, and an
 edit that would corrupt the grammar (in practice: empty input) is
-discarded — "invalid value → no change." Editing a dyn chip edits the raw
-expression payload, not the computed `displayValue`. When `onReplace` is set,
+discarded — "invalid value → no change." Dyn chips never receive
+`onValueCommit` — their payload is the reconciler-materialized total, not
+user data. When `onReplace` is set,
 double-clicking the tag string fires it; double-clicking the value edits
 instead (the value swallows its own `dblclick`). Hosts wire value commits as an
 **in-place** array rewrite (order preserved) and replacement as remove-then-
