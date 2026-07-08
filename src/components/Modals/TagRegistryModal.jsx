@@ -5,7 +5,6 @@ import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
 import { parseTag, buildTag, tagSyntaxWarning, MODIFIER_REGISTRY } from '../../logic/tags.js';
 import { parsePattern, matchTagPath } from '../../logic/tagMatching.js';
-import { parseExpression } from '../../logic/expressions.js';
 import { collectDynTagWarnings } from '../../logic/dynamicTags.js';
 import { useRulesConfig } from '../../hooks/useRulesConfig.js';
 import { conditionTemplateFromDraft, splitConditionDraft } from '../../logic/conditions.js';
@@ -90,17 +89,16 @@ export default function TagRegistryModal() {
     [registry, state.agents, state.tasks, state.inventory, rulesConfig]
   );
 
-  // Live soft warning under the builder: raw tag syntax, plus expression
-  // parse errors when the dyn modifier is selected. Never blocks ADD/APPLY —
-  // same philosophy as the Config Modal's soft checks.
+  // Live soft warning under the builder: raw tag syntax, plus a nudge when a
+  // dyn draft carries a payload — dyn payloads are computed by the reconciler
+  // from the rules registry (Config Modal → RULES), never typed. Never blocks
+  // ADD/APPLY — same philosophy as the Config Modal's soft checks.
   const draftWarning = useMemo(() => {
     if (isConditionMode || !draft.trim()) return null;
     const syntax = tagSyntaxWarning(draft);
     if (syntax) return syntax;
-    if (modifier === 'dyn') {
-      const { value } = parseTag(draft.trim());
-      const { error } = parseExpression(value ?? '');
-      if (error) return `expression — ${error}`;
+    if (modifier === 'dyn' && parseTag(draft.trim()).value !== null) {
+      return 'dyn tags take no value — payloads are computed from the rules registry';
     }
     return null;
   }, [draft, modifier, isConditionMode]);
