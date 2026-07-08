@@ -2,14 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { collectPresetTags, unregisteredEntityTags, seedTagRegistry } from './tagRegistry.js';
 
 describe('seedTagRegistry', () => {
-  it('seeds the reference stat paths as pure structure', () => {
+  it('seeds the reference stat addresses as flat leaves', () => {
     const seeded = seedTagRegistry();
-    expect(seeded.level).toEqual({});
-    expect(seeded.ac).toEqual({});
-    expect(seeded.pb).toEqual({});
-    expect(seeded.hitdie).toEqual({});
-    expect(seeded.hp).toEqual({ max: {} });
-    expect(seeded.xp).toEqual({ lvl: { max: {} } });
+    for (const address of ['level', 'ac', 'pb', 'hitdie', 'hp', 'hp-max', 'xp', 'xp-lvl', 'xp-lvl-max']) {
+      expect(seeded[address]).toEqual({});
+    }
   });
 });
 

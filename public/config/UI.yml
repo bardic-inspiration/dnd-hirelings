@@ -34,8 +34,8 @@ cards:
     medallion: "level"
     boxes: []
     bars:
-      - ["hp", "hp:max"]
-      - ["xp:lvl", "xp:lvl:max"]
+      - ["hp", "hp-max"]
+      - ["xp-lvl", "xp-lvl-max"]
     fields:
       - "rate"
     values:

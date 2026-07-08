@@ -12,8 +12,8 @@ const DOC = {
       medallion: 'level',
       boxes: [],
       bars: [
-        ['hp', 'hp:max'],
-        ['xp:lvl', 'xp:lvl:max'],
+        ['hp', 'hp-max'],
+        ['xp-lvl', 'xp-lvl-max'],
       ],
       fields: ['rate'],
       slots: ['weapon', 'armor'],
@@ -25,8 +25,8 @@ const REGISTRY = {
   skill: { arcana: {}, stealth: {} },
   ability: { str: {} },
   level: {}, ac: {},
-  hp: { max: {} },
-  xp: { lvl: { max: {} } },
+  hp: {}, 'hp-max': {},
+  xp: {}, 'xp-lvl': {}, 'xp-lvl-max': {},
 };
 
 describe('schemaNodeAt', () => {
@@ -71,7 +71,7 @@ describe('flattenConfigDoc', () => {
     expect(byPath['cards'].kind).toBe('map');
     expect(byPath['cards:agentCard:bars'].kind).toBe('list');
     expect(byPath['cards:agentCard:bars:0']).toMatchObject({
-      kind: 'tuple', value: ['hp', 'hp:max'], hasChildren: false,
+      kind: 'tuple', value: ['hp', 'hp-max'], hasChildren: false,
     });
     expect(byPath['cards:agentCard:medallion']).toMatchObject({ kind: 'scalar', value: 'level' });
     expect(byPath['cards:agentCard:boxes']).toMatchObject({ kind: 'list', hasChildren: false });
@@ -154,7 +154,7 @@ describe('value kinds', () => {
   it('suggests tag sources from agent fields and the live registry', () => {
     const node = { kind: 'scalar', value: 'tagSource' };
     const suggest = (prefix) => VALUE_KINDS.tagSource.suggest(prefix, node, { tagRegistry: REGISTRY });
-    expect(suggest('hp')).toEqual(['hp:max']);
+    expect(suggest('hp')).toEqual(['hp-max']);
     // The exact match ('skill' itself) is excluded — a ghost has nothing to add.
     expect(suggest('skill')).toEqual(['skill:arcana', 'skill:stealth']);
     expect(suggest('ra')).toEqual(['rate']);
@@ -231,7 +231,7 @@ describe('document mutations', () => {
   it('deleteAt splices list entries and removes map keys', () => {
     const withoutBar = deleteAt(DOC, ['cards', 'agentCard', 'bars', 0]);
     expect(getAt(withoutBar, ['cards', 'agentCard', 'bars'])).toEqual([
-      ['xp:lvl', 'xp:lvl:max'],
+      ['xp-lvl', 'xp-lvl-max'],
     ]);
     const withoutCard = deleteAt(DOC, ['cards', 'agentCard']);
     expect(getAt(withoutCard, ['cards'])).toEqual({});
@@ -254,7 +254,7 @@ describe('document mutations', () => {
     expect(getAt(half, ['cards', 'agentCard', 'bars', 0])).toEqual(['hp', '']);
     const gone = setValueAtPruning(half, UI_SCHEMA, ['cards', 'agentCard', 'bars', 0, 0], '');
     expect(getAt(gone, ['cards', 'agentCard', 'bars'])).toEqual([
-      ['xp:lvl', 'xp:lvl:max'],
+      ['xp-lvl', 'xp-lvl-max'],
     ]);
   });
 
@@ -290,7 +290,7 @@ describe('document mutations', () => {
   it('removeEntryAt deletes list items, anyKey-matched keys, and unknown keys', () => {
     const withoutBar = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard', 'bars', 0]);
     expect(getAt(withoutBar, ['cards', 'agentCard', 'bars'])).toEqual([
-      ['xp:lvl', 'xp:lvl:max'],
+      ['xp-lvl', 'xp-lvl-max'],
     ]);
     // A card name matches `anyKey`, not a named schema key — user content deletes.
     const withoutCard = removeEntryAt(DOC, UI_SCHEMA, ['cards', 'agentCard']);

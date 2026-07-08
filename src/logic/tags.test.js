@@ -42,7 +42,7 @@ describe('tagSyntaxWarning', () => {
   it('accepts well-formed paths', () => {
     expect(tagSyntaxWarning('skill')).toBeNull();
     expect(tagSyntaxWarning('skill:arcana')).toBeNull();
-    expect(tagSyntaxWarning('hp:max')).toBeNull();
+    expect(tagSyntaxWarning('hp-max')).toBeNull();
   });
 
   it('strips modifier and =value the way parseTag does', () => {

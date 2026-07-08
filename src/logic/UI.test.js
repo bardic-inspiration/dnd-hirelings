@@ -10,8 +10,8 @@ cards:
     boxes:
       - "skill:arcana"
     bars:
-      - ["hp", "hp:max"]
-      - "(xp:lvl, xp:lvl:max)"
+      - ["hp", "hp-max"]
+      - "(xp-lvl, xp-lvl-max)"
     fields:
       - "rate"
     values:
@@ -29,8 +29,8 @@ describe('parseUIConfig', () => {
       medallion: 'level',
       boxes: ['skill:arcana'],
       bars: [
-        ['hp', 'hp:max'],
-        ['xp:lvl', 'xp:lvl:max'],
+        ['hp', 'hp-max'],
+        ['xp-lvl', 'xp-lvl-max'],
       ],
       fields: ['rate'],
       values: ['AC', 'pb'],
@@ -73,13 +73,13 @@ const RULES = normalizeRulesConfig({
     level: '[max(1, floor(0.5*(1+sqrt(1+{xp}/125))))]',
     pb: '[2+floor(({dyn,level}-1)/4)]',
     ac: '[10+floor(({ability:dex}-10)/2)]',
-    'hp:max': '[max(1, 10+(5+{hitdie}+floor(({ability:con}-10)/2))*{dyn,level})]',
-    'xp:lvl': '[{xp}-125*((2*{dyn,level}-1)*(2*{dyn,level}-1)-1)]',
+    'hp-max': '[max(1, 10+(5+{hitdie}+floor(({ability:con}-10)/2))*{dyn,level})]',
+    'xp-lvl': '[{xp}-125*((2*{dyn,level}-1)*(2*{dyn,level}-1)-1)]',
   },
 });
 
 // A level-3 fighter: xp 3200 ⇒ level 3 (threshold 3000), DEX 14 / CON 12,
-// hitdie 1 ⇒ hp:max 31, current hp 20.
+// hitdie 1 ⇒ hp-max 31, current hp 20.
 function makeAgent(overrides = {}) {
   return {
     id: 'a1',
@@ -88,7 +88,7 @@ function makeAgent(overrides = {}) {
     attributes: [
       'xp=3200', 'hp=20', 'hitdie=1',
       'ability:dex=14', 'ability:con=12', 'class:fighter', 'skill:arcana=3', 'trait:brave',
-      'dyn,level', 'dyn,pb', 'dyn,ac', 'dyn,hp:max', 'dyn,xp:lvl',
+      'dyn,level', 'dyn,pb', 'dyn,ac', 'dyn,hp-max', 'dyn,xp-lvl',
     ],
     activities: [],
     ...overrides,
@@ -114,12 +114,12 @@ describe('resolveTagSource', () => {
     expect(resolveTagSource('level', context)).toMatchObject({ value: 3, valid: true, label: 'LEVEL', warn: false });
     expect(resolveTagSource('AC', context)).toMatchObject({ value: 12, valid: true, label: 'AC' });
     expect(resolveTagSource('pb', context)).toMatchObject({ value: 2, valid: true, label: 'PB' });
-    expect(resolveTagSource('hp:max', context)).toMatchObject({ value: 31, valid: true, label: 'MAX' });
-    expect(resolveTagSource('xp:lvl', context)).toMatchObject({ value: 200, valid: true });
+    expect(resolveTagSource('hp-max', context)).toMatchObject({ value: 31, valid: true, label: 'HP-MAX' });
+    expect(resolveTagSource('xp-lvl', context)).toMatchObject({ value: 200, valid: true });
   });
 
   it('keeps dyn values read-only', () => {
-    for (const source of ['level', 'AC', 'hp:max', 'xp:lvl']) {
+    for (const source of ['level', 'AC', 'hp-max', 'xp-lvl']) {
       expect(resolveTagSource(source, context).set).toBeNull();
     }
   });
@@ -176,13 +176,13 @@ describe('consumed tag paths', () => {
     ...EMPTY_CARD_CONFIG,
     medallion: 'level',
     boxes: ['skill:arcana'],
-    bars: [['hp', 'hp:max']],
+    bars: [['hp', 'hp-max']],
     values: ['AC'],
   };
 
   it('collects every configured source path, lowercased', () => {
     expect(getConsumedTagPaths(cardConfig)).toEqual(new Set([
-      'level', 'skill:arcana', 'hp', 'hp:max', 'ac',
+      'level', 'skill:arcana', 'hp', 'hp-max', 'ac',
     ]));
   });
 
