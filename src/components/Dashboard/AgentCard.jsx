@@ -9,6 +9,7 @@ import { formatCount } from '../../logic/format.js';
 import { truncateEnd } from '../../logic/truncation.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import { useUIConfig } from '../../hooks/useUIConfig.js';
+import { useRulesConfig } from '../../hooks/useRulesConfig.js';
 import { CardMedallion, StatBox, StatBar, StatField, StatValue } from './AgentCardElements.jsx';
 import EditableSpan from '../EditableSpan.jsx';
 import TagLabel from '../TagLabel.jsx';
@@ -95,13 +96,14 @@ export default function AgentCard({ agent }) {
   // both plain-path sources and dyn expression evaluation, memoized so
   // expressions re-run only when tags, bindings, or the registry change.
   const cardConfig = useUIConfig('agentCard');
+  const rulesConfig = useRulesConfig();
   const effectiveAttributes = useMemo(
     () => getEffectiveAttributes(agent.attributes ?? [], agent.activities ?? [], state.inventory),
     [agent.attributes, agent.activities, state.inventory],
   );
   const dynamics = useMemo(
-    () => evaluateDynamicTags(effectiveAttributes, state.tagRegistry),
-    [effectiveAttributes, state.tagRegistry],
+    () => evaluateDynamicTags(effectiveAttributes, rulesConfig, state.tagRegistry),
+    [effectiveAttributes, rulesConfig, state.tagRegistry],
   );
   const elementContext = {
     agent,

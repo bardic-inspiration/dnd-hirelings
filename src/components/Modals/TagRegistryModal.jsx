@@ -7,6 +7,7 @@ import { parseTag, buildTag, tagSyntaxWarning, MODIFIER_REGISTRY } from '../../l
 import { parsePattern, matchTagPath } from '../../logic/tagMatching.js';
 import { parseExpression } from '../../logic/expressions.js';
 import { collectDynTagWarnings } from '../../logic/dynamicTags.js';
+import { useRulesConfig } from '../../hooks/useRulesConfig.js';
 import { conditionTemplateFromDraft, splitConditionDraft } from '../../logic/conditions.js';
 import {
   tagRegistrySave, tagRegistryLoad, flattenRegistry, tagsInUse, countTagsInUse,
@@ -80,12 +81,13 @@ export default function TagRegistryModal() {
     [registry, state.agents, state.tasks, state.inventory]
   );
 
-  // Dyn tag warnings per path across every carrying object (defaulted refs,
-  // cycles, parse errors — logic/dynamicTags.js). Rows on a flagged path show
-  // the warn state with the messages in their tooltip.
+  // Dyn tag warnings per address across every carrying object (defaulted
+  // refs, cycles, missing/broken rules — logic/dynamicTags.js). Rows on a
+  // flagged address show the warn state with the messages in their tooltip.
+  const rulesConfig = useRulesConfig();
   const dynWarnings = useMemo(
-    () => collectDynTagWarnings(state),
-    [registry, state.agents, state.tasks, state.inventory]
+    () => collectDynTagWarnings(state, rulesConfig),
+    [registry, state.agents, state.tasks, state.inventory, rulesConfig]
   );
 
   // Live soft warning under the builder: raw tag syntax, plus expression

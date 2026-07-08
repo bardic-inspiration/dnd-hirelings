@@ -10,17 +10,11 @@ describe('validateAssignment', () => {
     expect(validateAssignment(agent(['ability:str=8']), task(['req,ability:str=10']))).toBe(false);
   });
 
-  it('never lets dyn tags satisfy requirements', () => {
-    // parseFloat('10+floor(…)') would otherwise read as 10 and mis-satisfy.
-    const dynOnly = agent(['dyn,ac=10+floor(({ability:dex}-10)/2)']);
-    expect(validateAssignment(dynOnly, task(['req,ac=5']))).toBe(false);
-    expect(validateAssignment(dynOnly, task(['req,ac']))).toBe(false);
-  });
-
-  it('never lets dyn tags trip block requirements', () => {
-    const dynOnly = agent(['dyn,ac=10']);
-    expect(validateAssignment(dynOnly, task(['block,ac']))).toBe(true);
-    expect(validateAssignment(agent(['ac=10']), task(['block,ac']))).toBe(false);
+  it('matches dyn tags like any other — payloads are materialized totals', () => {
+    const computed = agent(['dyn,ac=14']);
+    expect(validateAssignment(computed, task(['req,ac=12']))).toBe(true);
+    expect(validateAssignment(computed, task(['req,ac=15']))).toBe(false);
+    expect(validateAssignment(computed, task(['block,ac']))).toBe(false);
   });
 });
 

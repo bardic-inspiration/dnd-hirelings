@@ -1,159 +1,241 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateDynamicTags, collectDynTagWarnings } from './dynamicTags.js';
+import { evaluateDynamicTags, reconcileDynamicTags, collectDynTagWarnings } from './dynamicTags.js';
+import { normalizeRulesConfig } from './rulesConfig.js';
 
 const registry = { ability: { str: {}, dex: {}, con: {} }, class: { fighter: {}, wizard: {} } };
 
+// The canonical D&D ruleset (mirrors public/config/rules.yml).
+const DND_RULES = normalizeRulesConfig({
+  dynamic: {
+    level: '[max(1, floor(0.5*(1+sqrt(1+{xp}/125))))]',
+    pb: '[2+floor(({dyn,level}-1)/4)]',
+    ac: '[10+floor(({ability:dex}-10)/2)]',
+    'hp-max': '[max(1, 10+(5+{hitdie}+floor(({ability:con}-10)/2))*{dyn,level})]',
+  },
+});
+
+const rules = (dynamic) => normalizeRulesConfig({ dynamic });
+
 describe('evaluateDynamicTags', () => {
-  it('evaluates the canonical D&D formulas from sibling tags', () => {
+  it('evaluates the canonical D&D rules from sibling tags', () => {
     const results = evaluateDynamicTags([
-      'xp=1000',
-      'ability:dex=14',
-      'ability:con=14',
-      'hitdie=1',
-      'dyn,level=max(1, floor(0.5*(1+sqrt(1+{xp}/125))))',
-      'dyn,pb=2+floor(({level}-1)/4)',
-      'dyn,ac=10+floor(({ability:dex}-10)/2)',
-      'dyn,hp:max=max(1, 10+(5+{hitdie}+floor(({ability:con}-10)/2))*{level})',
-    ], registry);
+      'xp=1000', 'ability:dex=14', 'ability:con=14', 'hitdie=1',
+      'dyn,level', 'dyn,pb', 'dyn,ac', 'dyn,hp-max',
+    ], DND_RULES, registry);
     expect(results.get('level').value).toBe(2);
     expect(results.get('pb').value).toBe(2);
     expect(results.get('ac').value).toBe(12);
-    expect(results.get('hp:max').value).toBe(26); // (5+1+2)*2 + 10
+    expect(results.get('hp-max').value).toBe(26); // 10 + (5+1+2)*2
     expect([...results.values()].every(result => result.valid && !result.warnings.length)).toBe(true);
   });
 
-  it('chains dyn references regardless of tag order', () => {
-    const results = evaluateDynamicTags([
-      'dyn,pb=2+floor(({level}-1)/4)',   // references a dyn tag listed later
-      'dyn,level=max(1, floor(0.5*(1+sqrt(1+{xp}/125))))',
-      'xp=6000',
-    ], registry);
-    expect(results.get('level').value).toBe(4);
-    expect(results.get('pb').value).toBe(2);
+  it("folds static and bonus values at the address into the total (user's example)", () => {
+    // rule [8+{ability:dex}], ability:dex=3, static ac=2, bonus-injected ac
+    // arrives pre-folded via getEffectiveAttributes → ac=3 in the effective list.
+    const results = evaluateDynamicTags(
+      ['ability:dex=3', 'ac=3', 'dyn,ac'],
+      rules({ ac: '[8+{ability:dex}]' }),
+      registry,
+    );
+    expect(results.get('ac').value).toBe(14);
   });
 
-  it('defaults unresolved references to 1 with a warning', () => {
-    const results = evaluateDynamicTags(['dyn,x={missing}+1'], registry);
-    expect(results.get('x').value).toBe(2);
-    expect(results.get('x').valid).toBe(true);
-    expect(results.get('x').warnings).toEqual(['unresolved reference "{missing}" (defaulted to 1)']);
+  it('marks markers with no rule invalid', () => {
+    const results = evaluateDynamicTags(['dyn,ac'], rules({}), registry);
+    expect(results.get('ac')).toMatchObject({ value: null, valid: false, expression: null });
+    expect(results.get('ac').warnings).toEqual(['no rule for "ac"']);
   });
 
-  it('defaults non-numeric references to 1 with a warning', () => {
-    // A leaf-terminal tag has no numeric value (leaf strings never coerce).
-    const results = evaluateDynamicTags(['class:fighter', 'dyn,x={class:fighter}*2'], registry);
-    expect(results.get('x').value).toBe(2);
-    expect(results.get('x').warnings).toHaveLength(1);
+  it('marks markers whose rule is broken invalid', () => {
+    const results = evaluateDynamicTags(['dyn,ac'], rules({ ac: '[1+]' }), registry);
+    expect(results.get('ac').valid).toBe(false);
+    expect(results.get('ac').warnings[0]).toMatch(/broken rule/);
   });
 
-  it('sums wildcard matches over plain tags', () => {
-    const results = evaluateDynamicTags([
-      'ability:str=2', 'ability:dex=3', 'skill:stealth=4',
-      'dyn,total={ability:*}',
-    ], registry);
-    expect(results.get('total').value).toBe(5);
-    expect(results.get('total').warnings).toEqual([]);
+  it('scopes references strictly: {addr} never reads a dyn total', () => {
+    // b's rule reads STATIC {a}; the object has only a dyn marker at a.
+    const results = evaluateDynamicTags(
+      ['dyn,a', 'dyn,b'],
+      rules({ a: '[7]', b: '[{a}+1]' }),
+      registry,
+    );
+    expect(results.get('a').value).toBe(7);
+    expect(results.get('b').value).toBe(2); // static {a} missing → 1, +1
+    expect(results.get('b').warnings).toEqual(['unresolved reference "{a}" (defaulted to 1)']);
   });
 
-  it('defaults empty wildcard matches to 1 with a warning', () => {
-    const results = evaluateDynamicTags(['dyn,x={class:*}'], registry);
-    expect(results.get('x').value).toBe(1);
-    expect(results.get('x').warnings).toEqual(['no tags match "{class:*}" (defaulted to 1)']);
+  it('resolves {dyn,addr} to the referenced total in dependency order', () => {
+    const results = evaluateDynamicTags(
+      ['dyn,b', 'dyn,a', 'a=2'], // marker order should not matter; a has static +2
+      rules({ a: '[7]', b: '[{dyn,a}*2]' }),
+      registry,
+    );
+    expect(results.get('a').value).toBe(9);
+    expect(results.get('b').value).toBe(18);
   });
 
-  it('collapses cycles to 1 and warns every tag on the cycle', () => {
-    const results = evaluateDynamicTags(['dyn,a={b}+5', 'dyn,b={a}+5'], registry);
+  it('defaults {dyn,addr} to 1 when the object lacks the marker', () => {
+    const results = evaluateDynamicTags(['dyn,b'], rules({ a: '[7]', b: '[{dyn,a}*2]' }), registry);
+    expect(results.get('b').value).toBe(2);
+    expect(results.get('b').warnings).toEqual(['unresolved reference "{dyn,a}" (defaulted to 1)']);
+  });
+
+  it('sums wildcards per scope', () => {
+    const results = evaluateDynamicTags(
+      ['ability:str=2', 'ability:dex=3', 'dyn,a', 'dyn,b', 'dyn,total', 'dyn,statics'],
+      rules({ a: '[5]', b: '[6]', total: '[{dyn,a}+{dyn,b}]', statics: '[{ability:*}]' }),
+      registry,
+    );
+    expect(results.get('statics').value).toBe(5);
+    expect(results.get('total').value).toBe(11);
+    const wild = evaluateDynamicTags(
+      ['dyn,a', 'dyn,b', 'dyn,total'],
+      rules({ a: '[5]', b: '[6]', total: '[{dyn,*}]' }),
+      registry,
+    );
+    // {dyn,*} matches a, b, and total itself → total is on the cycle.
+    expect(wild.get('total').warnings).toEqual(['circular reference (defaulted to 1)']);
+  });
+
+  it('collapses cycles to 1 and warns every marker on the cycle', () => {
+    const results = evaluateDynamicTags(
+      ['dyn,a', 'dyn,b'],
+      rules({ a: '[{dyn,b}+5]', b: '[{dyn,a}+5]' }),
+      registry,
+    );
     expect(results.get('a').value).toBe(1);
     expect(results.get('b').value).toBe(1);
     expect(results.get('a').warnings).toEqual(['circular reference (defaulted to 1)']);
     expect(results.get('b').warnings).toEqual(['circular reference (defaulted to 1)']);
   });
 
-  it('collapses self-references to 1 with a warning', () => {
-    const results = evaluateDynamicTags(['dyn,a={a}+1'], registry);
-    expect(results.get('a').value).toBe(1);
-    expect(results.get('a').warnings).toEqual(['circular reference (defaulted to 1)']);
-  });
-
-  it('warns transitively when referencing a tag that has warnings', () => {
-    const results = evaluateDynamicTags(['dyn,a={missing}+1', 'dyn,c={a}*2'], registry);
+  it('warns transitively when referencing a marker that has warnings', () => {
+    const results = evaluateDynamicTags(
+      ['dyn,a', 'dyn,c'],
+      rules({ a: '[{missing}+1]', c: '[{dyn,a}*2]' }),
+      registry,
+    );
+    expect(results.get('a').value).toBe(2);
     expect(results.get('c').value).toBe(4);
-    expect(results.get('c').warnings).toEqual(['references "{a}" which has warnings']);
+    expect(results.get('c').warnings).toEqual(['references "{dyn,a}" which has warnings']);
   });
 
-  it('adds a plain tag at the same path to the expression result', () => {
-    const results = evaluateDynamicTags(['dyn,ac=12', 'ac=2'], registry);
-    expect(results.get('ac').exprValue).toBe(12);
-    expect(results.get('ac').value).toBe(14);
+  it('defaults non-finite results to 1 and keeps decimals otherwise', () => {
+    const div = evaluateDynamicTags(['dyn,x'], rules({ x: '[1/0]' }), registry);
+    expect(div.get('x').value).toBe(1);
+    expect(div.get('x').warnings).toEqual(['non-finite result (defaulted to 1)']);
+    const half = evaluateDynamicTags(['dyn,x'], rules({ x: '[5/2]' }), registry);
+    expect(half.get('x').value).toBe(2.5);
   });
 
-  it('resolves references to a dyn path as the combined value', () => {
-    const results = evaluateDynamicTags(['dyn,b=3', 'b=2', 'dyn,c={b}'], registry);
-    expect(results.get('c').value).toBe(5);
-  });
-
-  it('marks parse errors invalid with a null value', () => {
-    const results = evaluateDynamicTags(['dyn,x=1+'], registry);
-    expect(results.get('x').valid).toBe(false);
-    expect(results.get('x').value).toBeNull();
-    expect(results.get('x').exprValue).toBeNull();
-    expect(results.get('x').warnings[0]).toMatch(/invalid expression/);
-  });
-
-  it('defaults non-finite results to 1 with a warning', () => {
-    const results = evaluateDynamicTags(['dyn,x=1/0'], registry);
-    expect(results.get('x').value).toBe(1);
-    expect(results.get('x').warnings).toEqual(['non-finite result (defaulted to 1)']);
-  });
-
-  it('keeps decimal results', () => {
-    const results = evaluateDynamicTags(['dyn,x=5/2'], registry);
-    expect(results.get('x').value).toBe(2.5);
-  });
-
-  it('exposes the raw expression text', () => {
-    const results = evaluateDynamicTags(['dyn,x=1+2'], registry);
+  it('exposes the governing expression text', () => {
+    const results = evaluateDynamicTags(['dyn,x'], rules({ x: '[1+2]' }), registry);
     expect(results.get('x').expression).toBe('1+2');
   });
+});
 
-  it('is entity-generic over any attribute list', () => {
-    const itemAttributes = ['quality=3', 'dyn,worth={quality}*10'];
-    expect(evaluateDynamicTags(itemAttributes, registry).get('worth').value).toBe(30);
+describe('reconcileDynamicTags', () => {
+  const baseState = (overrides) => ({
+    tagRegistry: registry,
+    agents: [], tasks: [], inventory: [],
+    ...overrides,
+  });
+
+  it('materializes totals into dyn tag payloads across entities', () => {
+    const state = baseState({
+      agents: [{ attributes: ['ability:dex=14', 'dyn,ac'], activities: [] }],
+      inventory: [{ name: 'orb', attributes: ['quality=3', 'dyn,worth'] }],
+      tasks: [{ attributes: ['dyn,pace'], requirements: [] }],
+    });
+    const config = rules({ ac: '[10+floor(({ability:dex}-10)/2)]', worth: '[{quality}*10]', pace: '[2]' });
+    const { state: next, changed } = reconcileDynamicTags(state, config);
+    expect(changed).toBe(true);
+    expect(next.agents[0].attributes).toContain('dyn,ac=12');
+    expect(next.inventory[0].attributes).toContain('dyn,worth=30');
+    expect(next.tasks[0].attributes).toContain('dyn,pace=2');
+  });
+
+  it('folds bound-item bonuses into agent totals', () => {
+    const state = baseState({
+      agents: [{ attributes: ['ability:dex=3', 'ac=2', 'dyn,ac'], activities: ['bind:item:ring'] }],
+      inventory: [{ name: 'ring', attributes: ['bonus,ac=1'] }],
+    });
+    const { state: next } = reconcileDynamicTags(state, rules({ ac: '[8+{ability:dex}]' }));
+    expect(next.agents[0].attributes).toContain('dyn,ac=14');
+  });
+
+  it('strips payloads for invalid markers (missing rule)', () => {
+    const state = baseState({
+      agents: [{ attributes: ['dyn,ac=99'], activities: [] }],
+    });
+    const { state: next, changed } = reconcileDynamicTags(state, rules({}));
+    expect(changed).toBe(true);
+    expect(next.agents[0].attributes).toEqual(['dyn,ac']);
+  });
+
+  it('overwrites stale hand-edited payloads', () => {
+    const state = baseState({
+      agents: [{ attributes: ['dyn,ac=99'], activities: [] }],
+    });
+    const { state: next } = reconcileDynamicTags(state, rules({ ac: '[5]' }));
+    expect(next.agents[0].attributes).toEqual(['dyn,ac=5']);
+  });
+
+  it('reaches a fixed point: a second pass changes nothing and keeps identity', () => {
+    const state = baseState({
+      agents: [{ attributes: ['ability:dex=14', 'dyn,ac'], activities: [] }],
+    });
+    const config = rules({ ac: '[10+floor(({ability:dex}-10)/2)]' });
+    const first = reconcileDynamicTags(state, config);
+    const second = reconcileDynamicTags(first.state, config);
+    expect(first.changed).toBe(true);
+    expect(second.changed).toBe(false);
+    expect(second.state).toBe(first.state);
+    expect(second.state.agents[0]).toBe(first.state.agents[0]);
+  });
+
+  it('leaves non-dyn tags and untouched entities alone', () => {
+    const untouched = { attributes: ['skill:arcana=3'], activities: [] };
+    const state = baseState({
+      agents: [untouched, { attributes: ['dyn,x'], activities: [] }],
+    });
+    const { state: next } = reconcileDynamicTags(state, rules({ x: '[1]' }));
+    expect(next.agents[0]).toBe(untouched);
+    expect(next.agents[1].attributes).toEqual(['dyn,x=1']);
   });
 });
 
 describe('collectDynTagWarnings', () => {
   const baseState = { tagRegistry: registry, agents: [], tasks: [], inventory: [] };
 
-  it('unions warnings per path across agents, items, and tasks', () => {
+  it('unions warnings per address across agents, items, and tasks', () => {
     const state = {
       ...baseState,
-      agents: [{ attributes: ['dyn,ac={missing}+1'], activities: [] }],
-      inventory: [{ name: 'orb', attributes: ['dyn,worth={quality}*10'] }],
-      tasks: [{ attributes: ['dyn,pace=1+'], requirements: [] }],
+      agents: [{ attributes: ['dyn,ac'], activities: [] }],
+      inventory: [{ name: 'orb', attributes: ['dyn,worth'] }],
     };
-    const warnings = collectDynTagWarnings(state);
+    const config = rules({ ac: '[{missing}+1]' }); // worth has no rule
+    const warnings = collectDynTagWarnings(state, config);
     expect(warnings.get('ac')).toEqual(['unresolved reference "{missing}" (defaulted to 1)']);
-    expect(warnings.get('worth')).toEqual(['unresolved reference "{quality}" (defaulted to 1)']);
-    expect(warnings.get('pace')[0]).toMatch(/invalid expression/);
+    expect(warnings.get('worth')).toEqual(['no rule for "worth"']);
   });
 
   it('dedupes identical warnings from multiple carriers', () => {
     const state = {
       ...baseState,
       agents: [
-        { attributes: ['dyn,ac={missing}+1'], activities: [] },
-        { attributes: ['dyn,ac={missing}+1'], activities: [] },
+        { attributes: ['dyn,ac'], activities: [] },
+        { attributes: ['dyn,ac'], activities: [] },
       ],
     };
-    expect(collectDynTagWarnings(state).get('ac')).toHaveLength(1);
+    expect(collectDynTagWarnings(state, rules({ ac: '[{missing}+1]' })).get('ac')).toHaveLength(1);
   });
 
-  it('reports nothing for clean dyn tags', () => {
+  it('reports nothing for clean markers', () => {
     const state = {
       ...baseState,
-      agents: [{ attributes: ['ability:dex=14', 'dyn,ac=10+floor(({ability:dex}-10)/2)'], activities: [] }],
+      agents: [{ attributes: ['ability:dex=14', 'dyn,ac'], activities: [] }],
     };
-    expect(collectDynTagWarnings(state).size).toBe(0);
+    expect(collectDynTagWarnings(state, rules({ ac: '[10+floor(({ability:dex}-10)/2)]' })).size).toBe(0);
   });
 });
