@@ -388,6 +388,24 @@ Locked Tags Gate Creation Only): locked mode validates every new entity's tags
 against the live tag registry and blocks creation on unregistered tags;
 unlocked mode (the default) registers them on creation.
 
+### `src/logic/rulesConfig.js`
+
+```js
+DEFAULT_RULES_CONFIG  // frozen { dynamic: {} }
+RULES_SCHEMA          // config-editor schema for public/config/rules.yml
+normalizeRulesConfig(doc: object): { dynamic: { [address: string]: { expression: string|null, error: string|null } } }
+```
+
+The rules registry (`public/config/rules.yml`) — the configurable ruleset.
+`dynamic:` maps tag addresses to the expressions governing `dyn,` tag values;
+future rule kinds become sibling sections. Entries are `"[…]"`-enveloped
+expression strings (quoted in raw YAML — unquoted brackets/braces are YAML
+flow syntax); `normalizeRulesConfig` strips the envelope and validates via
+`parseExpression`, flagging missing envelopes and grammar errors as `error`
+(lenient, never throws). Consumed live via `hooks/useRulesConfig.js`; the
+Config Modal edits it through the CONFIG_FILES manifest with the `expression`
+value kind (soft envelope + grammar check).
+
 ### `src/logic/UI.js`
 
 Pure tier of the configurable card element system (config: `public/config/UI.yml`).

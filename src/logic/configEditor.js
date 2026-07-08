@@ -17,6 +17,7 @@
 import yaml from 'js-yaml';
 import { parseTag, tagSyntaxWarning } from './tags.js';
 import { pathExists } from './tagRegistry.js';
+import { parseExpression } from './expressions.js';
 import { downloadFile } from './download.js';
 import { AGENT_FIELD_SOURCE_KEYS } from './UI.js';
 
@@ -149,6 +150,19 @@ export const VALUE_KINDS = {
   tagSource: {
     suggest: (prefix, schemaNode, context) => prefixMatches(tagSourceCandidates(context), prefix),
     check: (value, schemaNode, context) => checkTagSource(value, context),
+  },
+  // Rules-registry expression entries (public/config/rules.yml): a
+  // "[…]"-enveloped arithmetic expression. Envelope and grammar are
+  // soft-checked; like every kind here, warnings never block edits.
+  expression: {
+    suggest: () => [],
+    check: (value) => {
+      const text = String(value ?? '').trim();
+      if (!text.startsWith('[') || !text.endsWith(']') || text.length < 2) {
+        return 'expression must be wrapped in [brackets]';
+      }
+      return parseExpression(text.slice(1, -1)).error;
+    },
   },
 };
 

@@ -162,6 +162,15 @@ describe('value kinds', () => {
     expect(suggest('dynamic:')).toEqual([]);
   });
 
+  it('soft-checks rules expressions: envelope plus grammar', () => {
+    const check = (value) => VALUE_KINDS.expression.check(value);
+    expect(check('[10+floor(({ability:dex}-10)/2)]')).toBeNull();
+    expect(check('[2+floor(({dyn,level}-1)/4)]')).toBeNull();
+    expect(check('10+{ability:dex}')).toMatch(/wrapped in \[brackets\]/);
+    expect(check('[1+]')).toMatch(/unexpected end/);
+    expect(check('[{unclosed]')).toMatch(/unclosed/);
+  });
+
   it('checks numbers against schema minimums', () => {
     const node = { kind: 'scalar', value: 'number', min: 0.1 };
     expect(VALUE_KINDS.number.check(0.5, node)).toBeNull();
