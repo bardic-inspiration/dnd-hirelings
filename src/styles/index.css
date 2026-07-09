@@ -595,6 +595,14 @@ body {
   color: var(--dim);
 }
 
+/* Header row for a collapsible tag section: label on the left, +/− toggle right. */
+.tag-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;

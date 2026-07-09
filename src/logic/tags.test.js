@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTag, buildTag, tagSyntaxWarning } from './tags.js';
+import { parseTag, buildTag, tagSyntaxWarning, compareTagsByPrefix } from './tags.js';
 
 describe('parseTag', () => {
   it('parses plain paths, values, and modifiers', () => {
@@ -61,5 +61,29 @@ describe('tagSyntaxWarning', () => {
     expect(tagSyntaxWarning('')).toBeNull();
     expect(tagSyntaxWarning('   ')).toBeNull();
     expect(tagSyntaxWarning(null)).toBeNull();
+  });
+});
+
+describe('compareTagsByPrefix', () => {
+  const sorted = (tags) => [...tags].sort(compareTagsByPrefix);
+
+  it('orders plain (un-prefixed) tags ahead of every modifier group', () => {
+    expect(sorted(['req,skill:arcana=2', 'hp=10', 'dyn,level=1']))
+      .toEqual(['hp=10', 'dyn,level=1', 'req,skill:arcana=2']);
+  });
+
+  it('orders modifier groups alphabetically by prefix', () => {
+    expect(sorted(['req,a', 'block,a', 'dyn,a', 'bonus,a']))
+      .toEqual(['block,a', 'bonus,a', 'dyn,a', 'req,a']);
+  });
+
+  it('orders alphabetically by content path within a group', () => {
+    expect(sorted(['skill:stealth=1', 'ac=12', 'ability:str=14', 'hp=10']))
+      .toEqual(['ability:str=14', 'ac=12', 'hp=10', 'skill:stealth=1']);
+  });
+
+  it('compares both keys case-insensitively', () => {
+    expect(sorted(['skill:Arcana', 'ability:STR', 'Skill:athletics']))
+      .toEqual(['ability:STR', 'skill:Arcana', 'Skill:athletics']);
   });
 });

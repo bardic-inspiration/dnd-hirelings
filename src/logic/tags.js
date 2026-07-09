@@ -120,6 +120,25 @@ export function buildTag(segments, value, modifier = null) {
 }
 
 /**
+ * Comparator that orders raw tag strings first by prefix (modifier) then
+ * alphabetically by content path. Plain (un-prefixed) tags carry an empty
+ * prefix key, so they sort ahead of every modifier group; within a group,
+ * tags order by their colon-joined segment path. Both keys compare
+ * case-insensitively via `localeCompare`. Reuses `parseTag`.
+ *
+ * @param {string} a - Raw tag string
+ * @param {string} b - Raw tag string
+ * @returns {number} Negative if `a` sorts first, positive if `b` does, 0 if equal
+ */
+export function compareTagsByPrefix(a, b) {
+  const pa = parseTag(a);
+  const pb = parseTag(b);
+  const prefix = (pa.modifier ?? '').localeCompare(pb.modifier ?? '', undefined, { sensitivity: 'base' });
+  if (prefix !== 0) return prefix;
+  return pa.segments.join(':').localeCompare(pb.segments.join(':'), undefined, { sensitivity: 'base' });
+}
+
+/**
  * Returns true if `tag`'s segments begin with all of `prefix`'s segments (case-insensitive).
  *
  * @param {{ segments: string[] }} tag

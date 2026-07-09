@@ -3,8 +3,7 @@ import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { isAttributeActive, tryAssignTask, validateAssignment, getPersonalItems, getBoundItems, firstFreeSlot, getEffectiveAttributes } from '../../logic/agents.js';
 import { evaluateDynamicTags } from '../../logic/dynamicTags.js';
-import { parseTag, buildTag } from '../../logic/tags.js';
-import { getConsumedTagPaths, isTagConsumed } from '../../logic/UI.js';
+import { parseTag, buildTag, compareTagsByPrefix } from '../../logic/tags.js';
 import { formatCount } from '../../logic/format.js';
 import { truncateEnd } from '../../logic/truncation.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
@@ -83,6 +82,14 @@ export default function AgentCard({ agent }) {
     toggleExpanded('agent', agent.id);
   };
 
+  // The ATTRIBUTES list is independently collapsible (default collapsed), keyed
+  // off the same expansion store under the 'agentTags' sub-section type.
+  const tagsCollapsed = !isExpanded('agentTags', agent.id);
+  const handleTagsToggle = (e) => {
+    e.stopPropagation();
+    toggleExpanded('agentTags', agent.id);
+  };
+
   const personalItems   = getPersonalItems(agent.activities);
   const boundItems      = getBoundItems(agent.activities);
   // Configurable elements (medallion/boxes/bars/fields/values) resolve their
@@ -105,8 +112,6 @@ export default function AgentCard({ agent }) {
     attributes: effectiveAttributes,
     registry: state.tagRegistry,
   };
-  // Tags assigned to a configured element render there, not as chips.
-  const consumedPaths = getConsumedTagPaths(cardConfig);
   // One measured budget serves every chip list on the card — they share the
   // card's width. The ref sits on the ATTRIBUTES list; collapse keeps the
   // last measurement.
@@ -309,31 +314,44 @@ export default function AgentCard({ agent }) {
             onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { description: v } })}
           />
 
-          {/* 8. Attributes — tags shown by a configured element are omitted here */}
+          {/* 8. Attributes — collapsible list of EVERY attribute tag (including
+              tags a configured element also displays), sorted by prefix then
+              alphabetically. The original array index is captured before the
+              sort so remove/value-edit still address the right `attributes`
+              position. Collapse state persists per card via the expansion store. */}
           <div className="tag-section">
-            <div className="tag-label">ATTRIBUTES</div>
-            <div className="tag-list" ref={tagListRef}>
-              {agent.attributes
-                .map((tag, index) => ({ tag, index, parsed: parseTag(tag) }))
-                .filter(({ tag }) => !isTagConsumed(tag, consumedPaths))
-                .map(({ tag, index, parsed }) => (
-                  <TagChip
-                    key={index}
-                    tagStr={tag}
-                    active={isAttributeActive(tag, agent, state.tasks)}
-                    maxChars={maxChars}
-                    dyn={parsed.modifier === 'dyn' ? dynamics.get(parsed.segments.join(':').toLowerCase()) : undefined}
-                    onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
-                    {...attrEditProps(tag, index)}
-                  />
-                ))}
-              <Tooltip content="Add attribute">
-                <button className="tag-add" onClick={e => {
-                  e.stopPropagation();
-                  openTagRegistry({ target: { type: 'agent', id: agent.id } });
-                }}>+</button>
+            <div className="tag-section-header">
+              <div className="tag-label">ATTRIBUTES</div>
+              <Tooltip content={tagsCollapsed ? 'Expand' : 'Collapse'}>
+                <button className="agent-toggle" onClick={handleTagsToggle}>
+                  {tagsCollapsed ? '+' : '−'}
+                </button>
               </Tooltip>
             </div>
+            {!tagsCollapsed && (
+              <div className="tag-list" ref={tagListRef}>
+                {agent.attributes
+                  .map((tag, index) => ({ tag, index, parsed: parseTag(tag) }))
+                  .sort((a, b) => compareTagsByPrefix(a.tag, b.tag))
+                  .map(({ tag, index, parsed }) => (
+                    <TagChip
+                      key={index}
+                      tagStr={tag}
+                      active={isAttributeActive(tag, agent, state.tasks)}
+                      maxChars={maxChars}
+                      dyn={parsed.modifier === 'dyn' ? dynamics.get(parsed.segments.join(':').toLowerCase()) : undefined}
+                      onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
+                      {...attrEditProps(tag, index)}
+                    />
+                  ))}
+                <Tooltip content="Add attribute">
+                  <button className="tag-add" onClick={e => {
+                    e.stopPropagation();
+                    openTagRegistry({ target: { type: 'agent', id: agent.id } });
+                  }}>+</button>
+                </Tooltip>
+              </div>
+            )}
           </div>
 
           {/* 9. Bag — select an inventory item, then left-click the card to give 1 or right-click to give a chosen quantity. */}
