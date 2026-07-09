@@ -124,26 +124,87 @@ registry (issue #84). Binding an item fills the first unoccupied configured slot
 configured (or all full) the item binds without a slot. `parseUIConfig`
 lowercases slot names so they compose cleanly into tag paths.
 
-A source is a tag-like path: `dynamic:<key>` reads a computed stat from
-`computeDynamicAttributes`; a bare field name (`rate`) reads an agent scalar;
-any other path reads the numeric `=value` of the matching effective attribute
-tag. Resolution, config normalization, and write-back mapping live in
-`src/logic/UI.js`; `useUIConfig(cardName)` reads the live document from
-`ConfigContext` (fetched base file merged with any Configuration Modal
-overlay — see "Runtime Configuration System" below), so in-app edits re-render
-cards immediately. Because the file lives in `public/`, it ships with the
-deployed bundle and can be edited without a rebuild (unlike
-`config/truncation.yml`, which is inlined at build time).
+A source is a tag-like path: a bare field name (`rate`) reads an agent scalar;
+any other path reads the agent's tag at that path — a `dyn,` tag resolves to
+its **computed expression value** (read-only; see "Dynamic Tags" below), a
+plain tag to its numeric `=value` (editable, writes back). Resolution, config
+normalization, and write-back mapping live in `src/logic/UI.js`;
+`useUIConfig(cardName)` reads the live document from `ConfigContext` (fetched
+base file merged with any Configuration Modal overlay — see "Runtime
+Configuration System" below), so in-app edits re-render cards immediately.
+Because the file lives in `public/`, it ships with the deployed bundle and can
+be edited without a rebuild (unlike `config/truncation.yml`, which is inlined
+at build time).
 
-Two contract points from the spec:
+Contract points from the spec:
 
-- **Invalid sources** (unknown dynamic key, missing tag, non-numeric value)
-  render their element with **no value** in an `--invalid` state that flashes
-  the warning color and keeps warn-colored chrome.
+- **Invalid sources** (missing tag, non-numeric value, unparseable dyn
+  expression) render their element with **no value** in an `--invalid` state
+  that flashes the warning color and keeps warn-colored chrome.
+- **Warned sources**: a dyn value that evaluated but had defaulted references
+  or a cycle renders its value in the element's `--warn` state (warn chrome,
+  no flash).
 - **Consumed tags**: an attribute tag whose path is assigned to any element is
   omitted from the ATTRIBUTES chip list — only tags *not* mentioned in the
-  config render as chips (`getConsumedTagPaths` / `isTagConsumed`). Modifier
-  tags (`req,` / `bonus,`) are never consumed.
+  config render as chips (`getConsumedTagPaths` / `isTagConsumed`). Plain and
+  `dyn,` tags are consumable; relational modifiers (`req,` / `block,` /
+  `bonus,`) never are.
+
+### Dynamic Tags (rules registry)
+
+A **dynamic tag** is a dependent variable: the object carries a
+`dyn,<address>` **marker**, the **rules registry** carries the governing
+expression, and the app **materializes** the computed total into the tag's
+payload (`dyn,ac=14` in state and saves). This splits the two concerns
+cleanly — the *tag registry* is session data (what tags exist, what each
+object carries), the *config registry* is configurable app behavior (how
+values are computed). This is the first fully config-driven slice of the game
+rules.
+
+- **Rules** live in `public/config/rules.yml` → `logic/rulesConfig.js`
+  (`normalizeRulesConfig`), fetched and overlay-edited through the same
+  ConfigContext/Config Modal path as every other config file (registered in
+  the `CONFIG_FILES` manifest, id `rules`). The `dynamic:` section maps flat
+  hyphenated addresses to `"[…]"`-enveloped expressions; future rule kinds
+  become sibling sections. The deployed file ships the reference D&D ruleset.
+- **Grammar** (`logic/expressions.js`): numbers, `+ - * / %`, parens,
+  `floor/ceil/round/sqrt/min/max`, and brace-wrapped references. `{addr}`
+  reads the object's **static** tag value at the address; `{dyn,addr}` reads
+  the **dynamic total** at the address; wildcards sum matches per scope
+  (`{class:*}`, `{dyn,class:*}`). Results keep decimals; round explicitly.
+- **Materialization** (`logic/dynamicTags.js`): `evaluateDynamicTags` computes
+  a total per marker = expression result + the object's **effective** static
+  value at the same address (bound-item `bonus,` tags fold into plain tags via
+  `getEffectiveAttributes`, so armor bonuses stack onto computed stats).
+  `reconcileDynamicTags` writes those totals back into the stored tag strings;
+  the `DYN_RECONCILE` reducer action (dispatched by `hooks/useDynReconcile.js`
+  after any state or rules change) keeps them current and is loop-safe (it
+  returns the same state reference when nothing changed).
+- **Failure modes**: a marker with no rule (or a broken one) is **invalid** —
+  the payload is stripped and the UI renders the invalid state. Missing /
+  non-numeric references default to 1 + warning; `{dyn,…}` cycles collapse to
+  1 + warning; non-finite results default to 1 + warning. Warnings are always
+  derived, never stored.
+- Because payloads are ordinary numeric tag values, dyn tags are **matchable**:
+  `req,ac=12` is satisfied by `dyn,ac=14`. Computed values are read-only in
+  the UI; edit the input tags (or the rule) instead.
+
+The reference D&D ruleset (`public/config/rules.yml`, addresses applied to
+agents as `dyn,` markers via presets or the registry modal):
+
+```yaml
+dynamic:
+  level: "[max(1, floor(0.5*(1+sqrt(1+{xp}/125))))]"
+  pb: "[2+floor(({dyn,level}-1)/4)]"
+  ac: "[10+floor(({ability:dex}-10)/2)]"
+  hp-max: "[max(1, 10+(5+{hitdie}+floor(({ability:con}-10)/2))*{dyn,level})]"
+  xp-lvl: "[{xp}-125*((2*{dyn,level}-1)*(2*{dyn,level}-1)-1)]"
+  xp-lvl-max: "[125*((2*{dyn,level}+1)*(2*{dyn,level}+1)-1)-125*((2*{dyn,level}-1)*(2*{dyn,level}-1)-1)]"
+```
+
+`xp`, `hp`, and `hitdie` are plain valued tags (`xp=3200`), not agent fields;
+the class hit-die bonus is authored per agent instead of switching on the
+class name.
 
 ### Runtime Configuration System (Config Modal)
 

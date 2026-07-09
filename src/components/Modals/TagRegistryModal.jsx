@@ -3,8 +3,10 @@ import Modal from './Modal.jsx';
 import Tooltip from '../Tooltip.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useGame } from '../../state/GameContext.jsx';
-import { parseTag, buildTag, MODIFIER_REGISTRY } from '../../logic/tags.js';
+import { parseTag, buildTag, tagSyntaxWarning, MODIFIER_REGISTRY } from '../../logic/tags.js';
 import { parsePattern, matchTagPath } from '../../logic/tagMatching.js';
+import { collectDynTagWarnings } from '../../logic/dynamicTags.js';
+import { useRulesConfig } from '../../hooks/useRulesConfig.js';
 import { conditionTemplateFromDraft, splitConditionDraft } from '../../logic/conditions.js';
 import {
   tagRegistrySave, tagRegistryLoad, flattenRegistry, tagsInUse, countTagsInUse,
@@ -25,13 +27,14 @@ function nodeAt(counts, segments) {
 // Splits a draft tag into lowercased path parts (modifier, value, and any
 // comparison term stripped). Keeps a trailing '' when the draft ends on a ':'
 // delimiter, so the last element is always the in-progress segment (what the
-// user is currently typing).
+// user is currently typing). The value strips FIRST so a comma inside a value
+// (`x=1,2`) is never mistaken for a modifier split.
 function draftParts(draft) {
   let text = draft;
-  const comma = text.indexOf(',');
-  if (comma >= 0) text = text.slice(comma + 1);   // drop modifier prefix
   const operator = text.search(/[<>=]/);
   if (operator >= 0) text = text.slice(0, operator); // drop value / comparison
+  const comma = text.indexOf(',');
+  if (comma >= 0) text = text.slice(comma + 1);   // drop modifier prefix
   return text.split(':').map(part => part.trim().toLowerCase());
 }
 
@@ -77,10 +80,35 @@ export default function TagRegistryModal() {
     [registry, state.agents, state.tasks, state.inventory]
   );
 
-  // True when the draft carries pattern syntax (wildcards or escapes). Pattern
-  // drafts never ADD ('*' is not a valid registry key — a pattern names a match,
-  // not a structure node) and APPLY only as condition links.
-  const isPattern = /[\\*]/.test(draft);
+  // Dyn tag warnings per address across every carrying object (defaulted
+  // refs, cycles, missing/broken rules — logic/dynamicTags.js). Rows on a
+  // flagged address show the warn state with the messages in their tooltip.
+  const rulesConfig = useRulesConfig();
+  const dynWarnings = useMemo(
+    () => collectDynTagWarnings(state, rulesConfig),
+    [registry, state.agents, state.tasks, state.inventory, rulesConfig]
+  );
+
+  // Live soft warning under the builder: raw tag syntax, plus a nudge when a
+  // dyn draft carries a payload — dyn payloads are computed by the reconciler
+  // from the rules registry (Config Modal → RULES), never typed. Never blocks
+  // ADD/APPLY — same philosophy as the Config Modal's soft checks.
+  const draftWarning = useMemo(() => {
+    if (isConditionMode || !draft.trim()) return null;
+    const syntax = tagSyntaxWarning(draft);
+    if (syntax) return syntax;
+    if (modifier === 'dyn' && parseTag(draft.trim()).value !== null) {
+      return 'dyn tags take no value — payloads are computed from the rules registry';
+    }
+    return null;
+  }, [draft, modifier, isConditionMode]);
+
+  // True when the draft's PATH carries pattern syntax (wildcards or escapes).
+  // Pattern drafts never ADD ('*' is not a valid registry key — a pattern names
+  // a match, not a structure node) and APPLY only as condition links. Only the
+  // pre-value text counts: values are opaque and may legitimately contain '*'.
+  const operatorIdx = draft.search(/[<>=]/);
+  const isPattern = /[\\*]/.test(operatorIdx >= 0 ? draft.slice(0, operatorIdx) : draft);
 
   // Ghost suggestion: an existing key from the CURRENT tier (the node at the path
   // before the last delimiter) that starts with the in-progress segment. Returns
@@ -283,6 +311,7 @@ export default function TagRegistryModal() {
               const n = matchLen(row);
               const cnode = nodeAt(counts, row.segments);
               const count = cnode ? (row.hasChildren && !row.isOpen ? cnode.total : cnode.count) : 0;
+              const warnings = dynWarnings.get(row.pathStr);
               return (
               <div className="tagreg-row" key={row.pathStr}>
                 <span className="tagreg-ln">{row.lineNo}</span>
@@ -300,8 +329,11 @@ export default function TagRegistryModal() {
                 ) : (
                   <span className={`tagreg-tick${row.isLast ? ' tagreg-tick--last' : ''}`} />
                 )}
-                <Tooltip content={row.pathStr}>
-                  <span className="tagreg-key" onClick={() => handleKeyClick(row)}>
+                <Tooltip content={warnings ? `${row.pathStr} — ${warnings.join(' · ')}` : row.pathStr}>
+                  <span
+                    className={`tagreg-key${warnings ? ' tagreg-key--warn' : ''}`}
+                    onClick={() => handleKeyClick(row)}
+                  >
                     {n > 0 && <span className="tagreg-match">{row.key.slice(0, n)}</span>}
                     {row.key.slice(n)}
                     <span className="tagreg-colon">:</span>
@@ -356,6 +388,7 @@ export default function TagRegistryModal() {
             <button className="ctrl" onClick={handleApply} disabled={!canApply}>APPLY</button>
           </Tooltip>
         </div>
+        {draftWarning && <div className="tagreg-warning">{draftWarning}</div>}
       </div>
     </Modal>
   );

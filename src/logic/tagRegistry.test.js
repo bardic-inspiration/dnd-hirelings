@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { collectPresetTags, unregisteredEntityTags } from './tagRegistry.js';
+import { collectPresetTags, unregisteredEntityTags, seedTagRegistry } from './tagRegistry.js';
+
+describe('seedTagRegistry', () => {
+  it('seeds the reference stat addresses as flat leaves', () => {
+    const seeded = seedTagRegistry();
+    for (const address of ['level', 'ac', 'pb', 'hitdie', 'hp', 'hp-max', 'xp', 'xp-lvl', 'xp-lvl-max']) {
+      expect(seeded[address]).toEqual({});
+    }
+  });
+});
 
 const registry = {
   skill: { arcana: {}, sword: {} },

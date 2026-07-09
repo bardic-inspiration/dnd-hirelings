@@ -14,12 +14,28 @@ The grammar:
 [modifier,]segment[:segment...][=value]
 ```
 
-- The **modifier** (`req`, `block`, `bonus`) is separated from the content path by a comma, not a colon. This tripped up older code that used a colon and is what the migration in `normalizeState` → `migrateTag()` fixes. `migrateTag()` also strips the legacy `#` sigil (`#skill:x` → `skill:x`); it is applied both to loaded state and to preset tags on import (`constants/libraries.jsx`), so a legacy sigil never reaches the display.
+- The **modifier** (`req`, `block`, `bonus`, `dyn`) is separated from the content path by a comma, not a colon. This tripped up older code that used a colon and is what the migration in `normalizeState` → `migrateTag()` fixes. `migrateTag()` also strips the legacy `#` sigil (`#skill:x` → `skill:x`); it is applied both to loaded state and to preset tags on import (`constants/libraries.jsx`), so a legacy sigil never reaches the display. A comma only splits a modifier when it precedes the first `=` — commas after `=` belong to the value.
 - **Segments** form a path. The full path is the identity key for deduplication (`mergeAttribute` replaces any tag with the same modifier + path).
+- The **value** is everything after the first `=` and is opaque — it may contain `:`, `,`, spaces, and operators. The path can never contain `=`.
 - `bind:[<slot>:]item:<name>` and `task:<id>` tags live in `activities`, not `attributes`. Don't look for them in `attributes`.
-- **A tag without `=value` is not valueless.** Under registry-bounded values (`docs/tag-values.md`, `src/logic/tagValues.js`), a tag ending on a registered leaf carries an implied value that varies by use case: `true` for matching, the terminal segment string for display (`class:fighter` → `fighter`), nothing for numeric card elements. Read values through `resolveTagValue(useCase, parsedTag, registry)` — never re-derive them ad hoc. The display read is **strict**: no registry in reach, an unregistered terminal, or a registered non-leaf all resolve `null` — so class HP bonuses vanish for `class:<name>` tags whose leaf was never registered (legacy saves are abandoned by design; re-register the path or use an explicit `class=<name>`). Note the resolver reads the **last** segment; the retired `getTagSub` read segment 2 — identical for two-segment tags, divergent for deeper paths.
+- **A tag without `=value` is not valueless.** Under registry-bounded values (`docs/tag-values.md`, `src/logic/tagValues.js`), a tag ending on a registered leaf carries an implied value that varies by use case: `true` for matching, the terminal segment string for display (`class:fighter` → `fighter`), nothing for numeric card elements. Read values through `resolveTagValue(useCase, parsedTag, registry)` — never re-derive them ad hoc. The display read is **strict**: no registry in reach, an unregistered terminal, or a registered non-leaf all resolve `null`. Note the resolver reads the **last** segment; the retired `getTagSub` read segment 2 — identical for two-segment tags, divergent for deeper paths.
 
 > ⚠️ **Needs clarification:** rule 3 keys off *leaf* status, so registering children under a preset in use (e.g. `class:druid` gaining `class:druid:circle`) silently flips existing `class:druid` tags from value to structure (display resolves `null`). Options when it bites: warn in the registry editor, or relax the read for a tag's terminal segment. See the same flag in `docs/tag-values.md`.
+
+---
+
+## Dynamic Tags (`dyn,`) — Rules and Materialization
+
+Full design in `docs/architecture.md` → Dynamic Tags; the traps:
+
+- **The expression is not in the tag.** An object carries a bare `dyn,<address>` marker; the governing expression lives in the rules registry (`public/config/rules.yml` → Config Modal RULES). The tag's payload is the *materialized computed total* (`dyn,ac=14`), rewritten by the reconciler — never hand-authored. Typing a payload on a `dyn,` draft is meaningless (the registry modal soft-warns); the reconciler overwrites it on the next pass.
+- **Rule expressions must be brace-wrapped AND bracket-enveloped, quoted in raw YAML.** In `rules.yml` an entry is `ac: "[10+floor(({ability:dex}-10)/2)]"`. Unquoted `[…{…}…]` is a YAML flow-collection parse error (`[` opens a sequence, `{` a mapping); `normalizeRulesConfig` also rejects a missing `[…]` envelope. Inside the expression, references are brace-wrapped (`{ability:dex}`); a bare identifier is a parse error unless it is a function call (`floor(…)`).
+- **Reference scope is strict.** `{addr}` reads STATIC tags only — a marker-only address (`dyn,level` with no plain `level`) makes `{level}` default to 1 + warning, it does NOT fall back to the dynamic total. Use `{dyn,addr}` to read the computed total. This is why the canonical rules reference `{dyn,level}`, not `{level}`.
+- **Missing/broken rule ⇒ invalid, not defaulted.** A marker whose address has no rule (renamed, deleted, never authored) or an unparseable rule has *no value*: the payload is stripped to a bare marker, the card element renders `--invalid`, and the registry row flags. Distinct from a defaulted *reference*, which is worth 1.
+- **Wildcard refs sum only numeric matches.** `{class:*}` over a valueless leaf tag (`class:fighter`) contributes nothing; zero numeric matches default the whole ref to 1 + warning. This is why the canonical HP rule reads a plain `hitdie=<n>` tag instead of switching on the class name.
+- **Same-address static values add** to the rule's result (`dyn,ac` rule `[8+{ability:dex}]` + a plain `ac=2` + an equipped `bonus,ac=1` → total 14) — this is how bound-item `bonus,` tags reach computed stats. Consequence: when the address is consumed by a configured card element, the plain part is uneditable from the card (dyn elements are read-only); edit it via the registry modal or unconsume the address.
+- **Materialized payloads ARE matchable.** `req,ac=12` is satisfied by `dyn,ac=14` (payloads are ordinary numeric values now). The earlier "computed values are invisible to matching" gap is closed.
+- Old saves were abandoned at the `dnd-hirelings-state-v6` key bump (agent `xp`/`hp` fields became valued tags); there is no further bump for the rules revision — stale dev-save payloads (from the earlier expression-in-payload format) are simply overwritten by the reconciler on load.
 
 ---
 
@@ -243,14 +259,6 @@ After blur, a 100ms timeout restarts the interval. If you add new editable field
 
 ---
 
-## HP `null` Means "Full Health"
-
-`agent.hp` is stored as `null` (not `hpMax`) when the agent is at full health. `computeDynamicAttributes` returns `hpMax` when `agent.hp` is null. This means saving and reloading a fully-healed agent correctly reflects the current max HP even if the agent leveled up since creation.
-
-Setting `hp` to `0` explicitly means the agent is at zero HP, not "use max". Don't conflate null and zero.
-
----
-
 ## Vite Virtual Modules Require Restart After First Install
 
 If `public/assets/portraits/` or `public/assets/items/` do not exist when `vite dev` starts, the `imageManifestPlugin` will return an empty file list and the pickers will show no images. Adding the directories and restarting the dev server (not just HMR) is required to pick up the change. Subsequent file additions within a running session do trigger hot-reload via the `fs.watch` in `configureServer`.
@@ -291,7 +299,7 @@ with the deployed bundle as-is, and is fetched + parsed once per page load by
 
 - Editing it in a deployed build **does** take effect — on the next reload, no rebuild needed. This is the point: which values a card displays is user-facing configuration, not build input.
 - Validation is therefore lenient, the reverse of `truncation.yml`: a missing/unparseable file degrades to bare cards with a `console.warn`; a malformed section degrades to no elements of that kind; an unresolvable *source* renders its element empty in the warning state. Nothing throws.
-- Editing invalid values is silently ignored at commit time: a non-numeric entry in an editable bar label or field snaps back to the resolved value. Notably, clearing the HP bar label **no longer resets HP to full** (the old hardcoded bar's `NaN → null` behavior); set the value explicitly instead.
+- Editing invalid values is silently ignored at commit time: a non-numeric entry in an editable bar label or field snaps back to the resolved value. The HP bar's current value writes the agent's plain `hp` tag (`hp=12`); a path carrying a `dyn,` tag is computed and **read-only** — edit its input tags instead.
 - **A Configuration Modal overlay shadows the file completely.** Once the file is edited in-app, the whole edited document (not a diff) is stored under `CONFIG_OVERLAYS` and wins over the deployed file — including any *later* edits to the deployed file — until RESET drops the overlay. If a deployed config change doesn't seem to apply, check for an overlay first.
 
 > ⚠️ **Needs clarification:** The spec sizes medallion and boxes as "1/4 of agent card width, square, fixed dimensions" — but card width is fluid (`minmax(160px, 1fr)` grid). Implemented as a fixed `--stat-square: 34px` side (≈¼ of the *minimum* card content width), so the squares don't grow with the card. Digit spillover past that fixed square now has a safety net (issue #98): `formatCountFit` reduces significant figures to fit the box's measured `stat-box` char budget, and `overflow: hidden` backstops the residual case where even 1 significant figure doesn't fit — but the underlying question of whether the square should ever scale with card width is still open.

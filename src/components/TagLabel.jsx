@@ -89,7 +89,8 @@ export default function TagLabel({ tag, maxChars, variant = 'chip', truncate = t
 
   // Accept the edit only if it round-trips through the tag grammar unchanged
   // apart from the value — this rejects empty input and values that would
-  // corrupt the tag (e.g. a comma, which parseTag reads as a modifier).
+  // corrupt the tag (values may contain any character after the first `=`,
+  // so in practice only emptiness rejects).
   const commitValue = (raw) => {
     setEditing(false);
     const next = raw.trim();

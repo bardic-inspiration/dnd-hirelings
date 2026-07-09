@@ -40,7 +40,9 @@ export function activeTaskCount(agent, tasks) {
  *
  * Forward check: every `req,*` tag on the task must be satisfied by the agent's
  * attributes + activities (value comparisons are ≥). Block tags must not match.
- * Item requirements are inventory concerns and are skipped here.
+ * Item requirements are inventory concerns and are skipped here. `dyn,` tags
+ * participate like any other: their payload is a materialized numeric total
+ * (see logic/dynamicTags.js), so `req,ac=12` is satisfied by `dyn,ac=14`.
  *
  * Reverse check: every `req,*` tag on the agent must be matched by a corresponding
  * requirement on the task (the agent "requires" that context).

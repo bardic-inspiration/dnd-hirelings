@@ -9,11 +9,11 @@
 # → "Configurable Card Elements".
 #
 # Source grammar (each entry is a tag-like path):
-#   dynamic:<key>      computed stat from computeDynamicAttributes
-#                      (level, hp, hp-max, xp, xp-lvl, xp-lvl-max, ac, pb)
 #   <field>            bare agent scalar field (rate)
-#   <seg>:<seg>...     any attribute tag path; resolves to that tag's numeric
-#                      value on the agent (e.g. skill:arcana)
+#   <seg>:<seg>...     any attribute tag path. A path carrying a `dyn,` tag on
+#                      the agent resolves to its computed expression value and
+#                      is READ-ONLY (edit the input tags instead); a plain tag
+#                      resolves to its numeric =value and stays editable.
 #
 # Elements:
 #   medallion  single value beside the agent name; visible when collapsed
@@ -27,19 +27,20 @@
 #              hardcoded in the tag registry; this list is their sole source.
 #
 # A source that cannot be resolved to a number on an agent renders as an
-# empty element flashing the warning color.
+# empty element flashing the warning color. A dyn value that evaluated with
+# defaulted references or a cycle renders in the warn state instead.
 cards:
   agentCard:
-    medallion: "dynamic:level"
+    medallion: "level"
     boxes: []
     bars:
-      - ["dynamic:hp", "dynamic:hp-max"]
-      - ["dynamic:xp-lvl", "dynamic:xp-lvl-max"]
+      - ["hp", "hp-max"]
+      - ["xp-lvl", "xp-lvl-max"]
     fields:
       - "rate"
     values:
-      - "dynamic:ac"
-      - "dynamic:pb"
+      - "ac"
+      - "pb"
     slots:
       - weapon
       - armor

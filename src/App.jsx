@@ -3,6 +3,7 @@ import { useUI } from './state/UIContext.jsx';
 import { useGame } from './state/GameContext.jsx';
 import { usePalette } from './hooks/usePalette.js';
 import { usePlayClock } from './hooks/usePlayClock.js';
+import { useDynReconcile } from './hooks/useDynReconcile.js';
 import TopBar from './components/TopBar/TopBar.jsx';
 import PageTitle from './components/TopBar/PageTitle.jsx';
 import Dashboard from './components/Dashboard/Dashboard.jsx';
@@ -19,6 +20,7 @@ export default function App() {
   const { start, stop, advance, retreat, resync } = usePlayClock();
 
   usePalette();
+  useDynReconcile();
 
   // Deselect the focused task / item when the user clicks outside the relevant cards.
   useEffect(() => {

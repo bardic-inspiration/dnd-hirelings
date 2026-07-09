@@ -545,8 +545,19 @@ body {
   color: var(--warn);
   animation: flash-warn 0.65s ease-out;
 }
+/* Warn state: the value still renders (a dyn expression evaluated but had
+   defaulted references or a cycle) — warn chrome, no empty flash. */
+.medallion--warn,
+.stat-box--warn,
+.stat-field--warn,
+.stat-value--warn,
+.vital-bar--warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
 /* Bars have no border; keep the resting warn hint without a layout shift. */
-.vital-bar--invalid { box-shadow: inset 0 0 0 var(--line) var(--warn); }
+.vital-bar--invalid,
+.vital-bar--warn { box-shadow: inset 0 0 0 var(--line) var(--warn); }
 
 .agent-rate {
   display: flex;
@@ -607,6 +618,11 @@ body {
 .tag--active {
   border-color: var(--highlight);
   color: var(--highlight);
+}
+/* Dyn chip whose expression was flagged (defaulted refs, cycle, parse error). */
+.tag--warn {
+  border-color: var(--warn);
+  color: var(--warn);
 }
 /* Interactive chip: left/right-click drives an action (allocate, bind, unbind). */
 .tag--action { cursor: pointer; }
@@ -1656,6 +1672,8 @@ body {
   cursor: pointer;
 }
 .tagreg-key:hover { color: var(--accent); }
+/* Path with in-use dyn tags carrying warnings (messages in the tooltip). */
+.tagreg-key--warn { color: var(--warn); }
 .tagreg-colon { color: var(--dim); }
 .tagreg-match { color: var(--highlight); }
 
@@ -1689,6 +1707,15 @@ body {
   display: flex;
   gap: 8px;
   align-items: stretch;
+}
+
+/* Soft warning under the builder (tag syntax / dyn expression parse errors):
+   warn-colored, never blocking — mirrors the Config Modal's cfg-*--warn. */
+.tagreg-warning {
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  color: var(--warn);
+  padding: 2px 2px 0;
 }
 
 .tagreg-prefix {

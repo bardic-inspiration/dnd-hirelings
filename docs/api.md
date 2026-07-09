@@ -147,6 +147,7 @@ Dispatch these via `useGame().dispatch`. All actions have a `type` field.
 
 | Action | Fields | Description |
 |--------|--------|-------------|
+| `DYN_RECONCILE` | `{ rules: RulesConfig }` | Materialize every dyn tag payload from the rules registry (`reconcileDynamicTags`); returns the same state reference when nothing changed — never logs |
 | `APPLY_TICK` | `{ newState: GameState }` | Replace state with a pre-computed tick result (includes the appended `eventLog`) |
 | `APPLY_ROLLBACK` | `{ newState: GameState }` | Replace state with a pre-computed `rollbackTick` result (reverted tick group truncated off `eventLog`) |
 | `REPLACE_STATE` | `{ newState: object }` | Load external state; runs through `normalizeState()` |
@@ -228,6 +229,50 @@ The `display` resolver is strict: no registry supplied, an unregistered
 terminal, or a registered non-leaf (structural reference) all resolve `null`.
 `getRegistryNode` / `isRegisteredLeaf` are the shared registry-reading supports
 the resolvers compose from.
+
+### `src/logic/expressions.js`
+
+```js
+EXPRESSION_FUNCTIONS: { [name: string]: { arity?: number, variadic?: boolean, apply: (...args) => number } }
+parseExpression(source: string): { ast: AstNode|null, error: string|null }   // never throws
+evaluateExpression(ast: AstNode, resolveReference: (path: string) => number): number
+collectReferences(ast: AstNode): string[]   // unique lowercase ref paths, first-appearance order
+```
+
+Arithmetic engine for `dyn,` tag payloads. Operators `+ - * / %` and parens;
+functions `floor ceil round sqrt min max` (`EXPRESSION_FUNCTIONS` is the
+extension point); tag references are brace-wrapped paths (`{ability:dex}`,
+wildcards allowed: `{class:*}`). Bare identifiers are parse errors unless they
+are function calls. Parsing is context-free — reference resolution and
+defaulting policy live in the caller (`logic/dynamicTags.js`), which injects
+`resolveReference`. Non-finite results (division by zero) propagate to the
+caller.
+
+### `src/logic/dynamicTags.js`
+
+```js
+evaluateDynamicTags(effectiveAttributes: string[], rulesConfig: RulesConfig, registry: TagRegistry): Map<string, DynResult>
+reconcileDynamicTags(state: GameState, rulesConfig: RulesConfig): { state: GameState, changed: boolean }
+collectDynTagWarnings(state: GameState, rulesConfig: RulesConfig): Map<string, string[]>
+// DynResult: { value: number|null, valid: boolean, warnings: string[], expression: string|null }
+```
+
+Evaluates every `dyn,<address>` marker in an attribute list against the rules
+registry (`rulesConfig` = `normalizeRulesConfig` output; entity-generic:
+agents pass effective attributes, items their attributes, tasks
+attributes+requirements). Total = expression result + effective static value
+at the address (bound-item `bonus,` tags arrive pre-folded into plain tags).
+Reference scoping is strict: `{addr}` reads static tags only, `{dyn,addr}`
+the referenced marker's total (dependency order, cycles collapse to 1 +
+warning); wildcards sum per scope; undefined/non-numeric refs default to 1 +
+warning. `valid: false` when the address has no rule or a broken one (element
+renders `--invalid`, payload stripped); warnings with `valid: true` render
+the warn state and stay derived — never stored. `reconcileDynamicTags`
+materializes totals into the stored tag strings (`dyn,ac=14`) across the
+whole state, preserving object identity when unchanged (the `DYN_RECONCILE`
+reducer action's loop-safety contract; dispatched by
+`hooks/useDynReconcile.js`). `collectDynTagWarnings` feeds the registry
+modal's row flags.
 
 ### `src/logic/agents.js`
 
@@ -349,21 +394,23 @@ Locked Tags Gate Creation Only): locked mode validates every new entity's tags
 against the live tag registry and blocks creation on unregistered tags;
 unlocked mode (the default) registers them on creation.
 
-### `src/logic/dynamicAttributes.js`
+### `src/logic/rulesConfig.js`
 
 ```js
-computeDynamicAttributes(agent: Agent, inventory?: InventoryItem[], registry?: TagRegistry): {
-  xp: number, level: number, xpProgress: number, xpLvl: number, xpLvlMax: number,
-  proficiency: number, ac: number, hp: number, hpMax: number
-}
-xpForLevel(level: number): number   // total XP threshold for a level
+DEFAULT_RULES_CONFIG  // frozen { dynamic: {} }
+RULES_SCHEMA          // config-editor schema for public/config/rules.yml
+normalizeRulesConfig(doc: object): { dynamic: { [address: string]: { expression: string|null, error: string|null } } }
 ```
 
-`xpLvl` / `xpLvlMax` express XP relative to the current level (earned past the
-threshold / span to the next level); `xpProgress === xpLvl / xpLvlMax`. The
-class name behind the HP bonus is a registry-bounded display value
-(`tagValues.js`) — without the registry, `class:<name>` tags resolve no value
-and the bonus is 0 (an explicit `class=<name>` still resolves).
+The rules registry (`public/config/rules.yml`) — the configurable ruleset.
+`dynamic:` maps tag addresses to the expressions governing `dyn,` tag values;
+future rule kinds become sibling sections. Entries are `"[…]"`-enveloped
+expression strings (quoted in raw YAML — unquoted brackets/braces are YAML
+flow syntax); `normalizeRulesConfig` strips the envelope and validates via
+`parseExpression`, flagging missing envelopes and grammar errors as `error`
+(lenient, never throws). Consumed live via `hooks/useRulesConfig.js`; the
+Config Modal edits it through the CONFIG_FILES manifest with the `expression`
+value kind (soft envelope + grammar check).
 
 ### `src/logic/UI.js`
 
@@ -371,28 +418,28 @@ Pure tier of the configurable card element system (config: `public/config/UI.yml
 
 ```js
 EMPTY_CARD_CONFIG   // frozen { medallion: null, boxes: [], bars: [], fields: [], values: [], slots: [] }
-DYNAMIC_SOURCE_KEYS       // frozen list of known dynamic:<key> source keys
 AGENT_FIELD_SOURCE_KEYS   // frozen list of known bare agent-field sources
 UI_SCHEMA            // config-editor schema descriptor for UI.yml
 normalizeUIDoc(doc: object): { cards: { [cardName]: CardConfig } }
 parseUIConfig(ymlText: string): { cards: { [cardName]: CardConfig } }  // yaml.load + normalize
-resolveTagSource(source: string, context: { agent, dyn, attributes, registry }): {
+resolveTagSource(source: string, context: { agent, dynamics, attributes, registry }): {
   label: string,            // last path segment, uppercased
   value: number|null,
   valid: boolean,           // false → element renders empty in warning state
   set: ((value) => changes)|null,   // AGENT_UPDATE changes when writable
-  unitField: string|null    // editable unit sibling field (e.g. 'rateUnit')
+  unitField: string|null,   // editable unit sibling field (e.g. 'rateUnit')
+  warn: boolean             // dyn value evaluated with defaulted refs/cycles → warn state
 }
 getConsumedTagPaths(cardConfig: CardConfig): Set<string>  // lowercase seg:seg paths
-isTagConsumed(tag: string, consumedPaths: Set<string>): boolean  // plain tags only
+isTagConsumed(tag: string, consumedPaths: Set<string>): boolean  // plain + dyn tags
 ```
 
-Source grammar (resolution order): `dynamic:<key>` (computed stat: `level`,
-`hp`, `hp-max`, `xp`, `xp-lvl`, `xp-lvl-max`, `ac`, `pb`), bare agent field
-(`rate`), else an attribute tag path matched case-insensitively against the
-agent's effective attributes, resolved through the `numeric` value resolver
-(`tagValues.js` — only an explicit numeric `=value` displays; leaf strings
-stay invalid).
+Source grammar (resolution order): bare agent field (`rate`); a path carrying
+a `dyn,` tag on the agent (computed value from `evaluateDynamicTags` —
+read-only, `set: null`; `context.dynamics` is that evaluation's Map); else an
+attribute tag path matched case-insensitively against the agent's effective
+attributes, resolved through the `numeric` value resolver (`tagValues.js` —
+only an explicit numeric `=value` displays; leaf strings stay invalid).
 `normalizeUIDoc` is lenient: malformed sections degrade to empty element
 lists, and bar entries accept `[current, max]` lists or `"(current, max)"`
 strings; `parseUIConfig` throws only on unparseable YAML.
@@ -800,8 +847,10 @@ per prop.
 **Editing (issue #75):** the tag *string* is never directly editable, only its
 value. When `onValueCommit` is set, single-clicking the value swaps it for an
 inline input (`.tag-value-input`); Enter/blur commits, Escape cancels, and an
-edit that would corrupt the grammar (empty, or a value containing `,`) is
-discarded — "invalid value → no change." When `onReplace` is set,
+edit that would corrupt the grammar (in practice: empty input) is
+discarded — "invalid value → no change." Dyn chips never receive
+`onValueCommit` — their payload is the reconciler-materialized total, not
+user data. When `onReplace` is set,
 double-clicking the tag string fires it; double-clicking the value edits
 instead (the value swallows its own `dblclick`). Hosts wire value commits as an
 **in-place** array rewrite (order preserved) and replacement as remove-then-
@@ -844,9 +893,11 @@ measuring ref so the span's own width sets its budget).
 
 The standard configurable card elements, each rendering one source string from
 the UI config against a shared resolution `context`
-(`{ agent, dyn, attributes }`); see `src/logic/UI.js` for resolution.
+(`{ agent, dynamics, attributes }`); see `src/logic/UI.js` for resolution.
 An invalid source renders the element with no value in its `--invalid` state
-(warning flash); the native `title` always exposes the assigned source.
+(warning flash); a dyn value that evaluated with defaulted references or a
+cycle renders in its `--warn` state (value shown, warn chrome); the native
+`title` always exposes the assigned source.
 
 ```jsx
 <CardMedallion source context />          // square badge beside the name; visible collapsed
@@ -898,10 +949,8 @@ interface Agent {
   rate: number;           // cost per day
   rateUnit: string;       // display label, e.g. 'GP/DAY'
   description: string;
-  attributes: string[];   // tag strings (skills, abilities, traits…)
+  attributes: string[];   // tag strings (skills, abilities, traits, xp=…/hp=… values, dyn,… expressions)
   activities: string[];   // task:<id>, item:<name>=<qty>, bind:[<slot>:]item:<name>
-  xp: number;
-  hp: number | null;      // null = use computed hpMax
 }
 
 interface Task {
@@ -967,6 +1016,6 @@ interface EventLogEntry {
 }
 ```
 
-> **Migration note:** `normalizeState` handles several schema changes from older saves: (1) `qty` → `quantity` on `InventoryItem` and `Task.results.items`/`agents`; (2) `session.timeStep` / `session.stepBack` coerced to positive numbers and `session.clock` to a non-negative integer tick count; (3) legacy `task.work` tags + `task.workProgress` buckets → `task.conditions` via `migrateLegacyWork` — `work=5` → tagPath `null`, `work:skill=8` → `'skill'`, `work:skill:arcana=10` → `'skill:arcana'`, with progress carried over from the matching bucket key; the deprecated `work` namespace is also pruned from stored tag registries. The storage key was bumped to `dnd-hirelings-state-v5` (the clock is now an integer tick count, not minutes, so pre-tick saves are not auto-loaded); `loadState` falls back to the v3 key. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected. (4) `eventLog` is defaulted to `[]` for saves that predate the event-log feature; rows are guarded via `normalizeEvent` and any lacking a `taskId` are dropped.
+> **Migration note:** `normalizeState` handles several schema changes from older saves: (1) `qty` → `quantity` on `InventoryItem` and `Task.results.items`/`agents`; (2) `session.timeStep` / `session.stepBack` coerced to positive numbers and `session.clock` to a non-negative integer tick count; (3) legacy `task.work` tags + `task.workProgress` buckets → `task.conditions` via `migrateLegacyWork` — `work=5` → tagPath `null`, `work:skill=8` → `'skill'`, `work:skill:arcana=10` → `'skill:arcana'`, with progress carried over from the matching bucket key; the deprecated `work` namespace is also pruned from stored tag registries. The storage key was bumped to `dnd-hirelings-state-v6` (agent `xp`/`hp` fields became plain valued tags and dynamic stats became `dyn,` tags; pre-v6 saves are abandoned without migration — no legacy-key fallback remains). Stale agent `xp`/`hp` fields in imported session JSON are stripped on load. The quantity in `item:<name>=<qty>` activity tags is a tag-grammar value, not a field, and is unaffected. (4) `eventLog` is defaulted to `[]` for saves that predate the event-log feature; rows are guarded via `normalizeEvent` and any lacking a `taskId` are dropped.
 
 > ⚠️ **Naming:** `session.workRate` and `session.skillBonus` predate the conditions system; the field names are kept for save compatibility. `workRate` is the base per-tick rate of every `'work'` tracker, and `skillBonus` multiplies the value of *any* matched tag link (not just skills).

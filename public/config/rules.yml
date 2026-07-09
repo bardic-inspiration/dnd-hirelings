@@ -1,0 +1,33 @@
+# Rules registry — the configurable ruleset. The `dynamic:` section maps tag
+# addresses to the expressions governing dynamic (`dyn,`) tag values; future
+# rule kinds can live alongside it as sibling top-level sections.
+#
+# Fetched at runtime (ships in the deployed bundle as-is, so edits here take
+# effect without a rebuild). Parsed and validated by src/logic/rulesConfig.js;
+# consumed via src/hooks/useRulesConfig.js. See docs/architecture.md
+# → "Dynamic Tags".
+#
+# How dynamic tags work:
+#   - An object opts in by carrying a `dyn,<address>` tag (Tag Registry modal).
+#   - The app computes and writes the tag's payload: expression result plus
+#     the object's static value at the same address (a plain `ac=2` tag and
+#     `bonus,ac=1` from a bound item both add).
+#   - A marker with no rule here renders INVALID until the rule exists.
+#
+# Expression grammar (see src/logic/expressions.js):
+#   - numbers, + - * / % and parentheses; results keep decimals
+#   - functions: floor(x) ceil(x) round(x) sqrt(x) min(a,b,…) max(a,b,…)
+#   - {address}       the object's STATIC tag value at that address
+#   - {dyn,address}   the object's DYNAMIC tag total at that address
+#   - wildcards sum matches per scope: {class:*}, {dyn,class:*}
+#   - an undefined/invalid reference defaults to 1 and flags a warning
+#
+# Format: every expression is wrapped in a "[…]" envelope and MUST be quoted
+# (unquoted brackets/braces are YAML flow syntax and fail to parse).
+dynamic:
+  level: "[max(1, floor(0.5*(1+sqrt(1+{xp}/125))))]"
+  pb: "[2+floor(({dyn,level}-1)/4)]"
+  ac: "[10+floor(({ability:dex}-10)/2)]"
+  hp-max: "[max(1, 10+(5+{hitdie}+floor(({ability:con}-10)/2))*{dyn,level})]"
+  xp-lvl: "[{xp}-125*((2*{dyn,level}-1)*(2*{dyn,level}-1)-1)]"
+  xp-lvl-max: "[125*((2*{dyn,level}+1)*(2*{dyn,level}+1)-1)-125*((2*{dyn,level}-1)*(2*{dyn,level}-1)-1)]"

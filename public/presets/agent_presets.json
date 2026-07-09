@@ -15,9 +15,17 @@
       "ability:wis=11",
       "ability:cha=8",
       "skill:sword=2",
-      "skill:shield=1"
-    ],
-    "xp": 6000
+      "skill:shield=1",
+      "xp=6000",
+      "hitdie=1",
+      "hp=42",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "HEDGE WIZARD",
@@ -35,9 +43,17 @@
       "ability:wis=12",
       "ability:cha=10",
       "skill:arcana=2",
-      "tool:spellbook"
-    ],
-    "xp": 3000
+      "tool:spellbook",
+      "xp=3000",
+      "hitdie=-1",
+      "hp=22",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "ELVEN SCOUT",
@@ -56,9 +72,17 @@
       "ability:cha=8",
       "skill:stealth=2",
       "skill:survival=2",
-      "skill:bow=2"
-    ],
-    "xp": 3000
+      "skill:bow=2",
+      "xp=3000",
+      "hitdie=1",
+      "hp=31",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "FIELD MEDIC",
@@ -77,9 +101,17 @@
       "ability:cha=11",
       "skill:medicine=2",
       "tool:healers-kit",
-      "tool:holy-symbol"
-    ],
-    "xp": 6000
+      "tool:holy-symbol",
+      "xp=6000",
+      "hitdie=0",
+      "hp=38",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "DAY LABORER",
@@ -95,9 +127,17 @@
       "ability:int=8",
       "ability:wis=10",
       "ability:cha=8",
-      "skill:athletics=1"
-    ],
-    "xp": 0
+      "skill:athletics=1",
+      "xp=0",
+      "hitdie=0",
+      "hp=16",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "DWARVEN SMITH",
@@ -116,9 +156,17 @@
       "ability:cha=10",
       "skill:smithing=3",
       "tool:smiths-tools",
-      "trait:craft"
-    ],
-    "xp": 10000
+      "trait:craft",
+      "xp=10000",
+      "hitdie=0",
+      "hp=50",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "HALFLING BURGLAR",
@@ -138,9 +186,17 @@
       "skill:stealth=3",
       "skill:lockpicking=2",
       "skill:sleightofhand=2",
-      "tool:thieves-tools"
-    ],
-    "xp": 3000
+      "tool:thieves-tools",
+      "xp=3000",
+      "hitdie=0",
+      "hp=28",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "WANDERING BARD",
@@ -159,9 +215,17 @@
       "ability:cha=16",
       "skill:performance=2",
       "skill:persuasion=2",
-      "tool:musical-instrument"
-    ],
-    "xp": 3000
+      "tool:musical-instrument",
+      "xp=3000",
+      "hitdie=0",
+      "hp=25",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "TEMPLE PALADIN",
@@ -181,9 +245,17 @@
       "skill:sword=2",
       "skill:religion=1",
       "tool:holy-symbol",
-      "trait:combat"
-    ],
-    "xp": 10000
+      "trait:combat",
+      "xp=10000",
+      "hitdie=1",
+      "hp=50",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "GROVE DRUID",
@@ -202,9 +274,17 @@
       "ability:cha=8",
       "skill:nature=3",
       "skill:animalhandling=2",
-      "trait:wilderness"
-    ],
-    "xp": 6000
+      "trait:wilderness",
+      "xp=6000",
+      "hitdie=0",
+      "hp=34",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "STREET TOUGH",
@@ -223,9 +303,17 @@
       "ability:cha=10",
       "skill:athletics=2",
       "skill:intimidation=2",
-      "trait:urban"
-    ],
-    "xp": 1000
+      "trait:urban",
+      "xp=1000",
+      "hitdie=2",
+      "hp=28",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "ARCANE APPRENTICE",
@@ -244,9 +332,17 @@
       "ability:cha=10",
       "skill:arcana=1",
       "tool:spellbook",
-      "trait:study"
-    ],
-    "xp": 0
+      "trait:study",
+      "xp=0",
+      "hitdie=-1",
+      "hp=14",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "CARAVAN GUIDE",
@@ -265,9 +361,17 @@
       "ability:cha=10",
       "skill:navigation=2",
       "skill:survival=2",
-      "trait:travel"
-    ],
-    "xp": 3000
+      "trait:travel",
+      "xp=3000",
+      "hitdie=1",
+      "hp=31",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "GUILD ALCHEMIST",
@@ -286,9 +390,17 @@
       "ability:cha=10",
       "skill:alchemy=3",
       "tool:alchemists-supplies",
-      "trait:craft"
-    ],
-    "xp": 6000
+      "trait:craft",
+      "xp=6000",
+      "hitdie=0",
+      "hp=34",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "SHADOW ASSASSIN",
@@ -308,9 +420,17 @@
       "skill:stealth=3",
       "skill:deception=2",
       "skill:sword=2",
-      "trait:stealth"
-    ],
-    "xp": 15000
+      "trait:stealth",
+      "xp=15000",
+      "hitdie=0",
+      "hp=46",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "DRAGONBORN MERCENARY",
@@ -329,9 +449,17 @@
       "ability:cha=12",
       "skill:sword=3",
       "skill:athletics=2",
-      "trait:combat"
-    ],
-    "xp": 10000
+      "trait:combat",
+      "xp=10000",
+      "hitdie=1",
+      "hp=50",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "CLOISTERED SCHOLAR",
@@ -350,9 +478,17 @@
       "skill:history=3",
       "skill:investigation=2",
       "skill:arcana=1",
-      "trait:study"
-    ],
-    "xp": 0
+      "trait:study",
+      "xp=0",
+      "hitdie=0",
+      "hp=15",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "MARSH HUNTER",
@@ -371,9 +507,17 @@
       "ability:cha=8",
       "skill:survival=3",
       "skill:bow=1",
-      "trait:foraging"
-    ],
-    "xp": 1000
+      "trait:foraging",
+      "xp=1000",
+      "hitdie=1",
+      "hp=24",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "WARLOCK BROKER",
@@ -392,9 +536,17 @@
       "ability:cha=16",
       "skill:deception=3",
       "skill:arcana=2",
-      "trait:diplomacy"
-    ],
-    "xp": 6000
+      "trait:diplomacy",
+      "xp=6000",
+      "hitdie=0",
+      "hp=34",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "MOUNTAIN GUARD",
@@ -413,9 +565,17 @@
       "ability:cha=10",
       "skill:shield=2",
       "skill:athletics=1",
-      "trait:combat"
-    ],
-    "xp": 6000
+      "trait:combat",
+      "xp=6000",
+      "hitdie=1",
+      "hp=46",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "TRAVELING PRIEST",
@@ -434,9 +594,17 @@
       "ability:cha=12",
       "skill:medicine=2",
       "skill:religion=2",
-      "tool:holy-symbol"
-    ],
-    "xp": 3000
+      "tool:holy-symbol",
+      "xp=3000",
+      "hitdie=0",
+      "hp=28",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "SORCERER PRODIGY",
@@ -454,9 +622,17 @@
       "ability:wis=10",
       "ability:cha=16",
       "skill:arcana=3",
-      "trait:ritual"
-    ],
-    "xp": 10000
+      "trait:ritual",
+      "xp=10000",
+      "hitdie=-1",
+      "hp=35",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "MONASTERY ADEPT",
@@ -475,9 +651,17 @@
       "ability:cha=8",
       "skill:acrobatics=3",
       "skill:insight=2",
-      "trait:combat"
-    ],
-    "xp": 6000
+      "trait:combat",
+      "xp=6000",
+      "hitdie=0",
+      "hp=34",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   },
   {
     "name": "DOCKSIDE COOK",
@@ -495,8 +679,16 @@
       "ability:cha=11",
       "skill:cooking=2",
       "skill:appraisal=1",
-      "trait:urban"
-    ],
-    "xp": 0
+      "trait:urban",
+      "xp=0",
+      "hitdie=0",
+      "hp=16",
+      "dyn,level",
+      "dyn,pb",
+      "dyn,ac",
+      "dyn,hp-max",
+      "dyn,xp-lvl",
+      "dyn,xp-lvl-max"
+    ]
   }
 ]

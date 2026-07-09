@@ -43,17 +43,6 @@ export default function AgentPreview({ draft, onChange }) {
         />
       </div>
 
-      {/* XP seeds the dynamic level/AC/HP computed once the agent is created
-          (see logic/dynamicAttributes.js) — level itself is never an authored tag. */}
-      <div className="agent-rate">
-        <span className="unit">XP</span>
-        <EditableSpan
-          className="value"
-          value={String(draft.xp ?? 0)}
-          onCommit={v => { const n = parseFloat(v); onChange({ xp: isNaN(n) ? 0 : Math.max(0, n) }); }}
-        />
-      </div>
-
       <EditableSpan
         className="agent-desc"
         value={draft.description}

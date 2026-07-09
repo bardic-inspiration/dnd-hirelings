@@ -6,6 +6,7 @@ export const MODIFIER_REGISTRY = {
   req:   { prefix: 'Req',   description: 'Counterpart must carry this',     taskField: 'requirements' },
   block: { prefix: 'Block', description: 'Counterpart must not carry this', taskField: 'requirements' },
   bonus: { prefix: 'Bonus', description: 'Adds value to matching agent tag when bound' },
+  dyn:   { prefix: 'Dyn',   description: 'Value computed from an expression over sibling tags' },
 };
 
 // Content path namespace — the keys-only skeleton seeded into a fresh tag library
@@ -23,6 +24,15 @@ export const TAG_REGISTRY = {
     stealth: {}, survival: {},
   },
   tool: {}, trait: {}, class: {}, race: {}, level: {}, item: {},
+  // Stat addresses for the reference D&D ruleset — flat hyphenated leaves so
+  // they double as unquoted rule keys in config/rules.yml. `xp`, `hp`, and
+  // `hitdie` carry plain values; `level`, `ac`, `pb`, `hp-max`, and
+  // `xp-lvl(-max)` are governed by the rules registry and applied as `dyn,`
+  // markers (see docs/architecture.md → Dynamic Tags). Structure only — no
+  // expressions live in the tag registry.
+  ac: {}, pb: {}, hitdie: {},
+  hp: {}, 'hp-max': {},
+  xp: {}, 'xp-lvl': {}, 'xp-lvl-max': {},
   // `bind` slots an item into the agent. Slot is optional (`bind:item:<name>`).
   // Slot NAMES are not hardcoded here — they are configured per card under
   // `cards.<card>.slots` in config/UI.yml (see logic/UI.js), so the registry
@@ -35,37 +45,40 @@ export const TAG_REGISTRY = {
 //   modifier,path:path:...:path=value  — modifier tag (',' separates modifier from content)
 //   path:path:...:path=value           — plain tag with value
 //   path:path:...:path                 — plain tag without value
-// modifier  — whatever precedes the first ',' (null if absent)
+// modifier  — whatever precedes the first ',' when that comma precedes the first '='
+//             (null if absent; commas after '=' belong to the value)
 // segments  — content path only, never includes modifier
-// value     — scalar after '=' in the content, or null
+// value     — everything after the first '=', or null
 /**
  * Parses a tag string into its constituent parts.
  *
  * Grammar: `[modifier,]segment[:segment...][=value]`
- * - `modifier` — token before the first comma, or null if absent
+ * - `modifier` — token before the first comma, or null if absent. A comma
+ *   counts as the modifier separator only when it precedes the first `=`;
+ *   commas inside a value (e.g. `mod,x=1,2`) never split a modifier.
  * - `segments` — the content path only (modifier excluded)
- * - `value` — scalar after `=` in the last segment, or null
+ * - `value` — everything after the first `=`, or null. Values are opaque and
+ *   may contain any character, including `:`, `,`, spaces, and operators.
  *
  * @param {string} tagString - Raw tag string
  * @returns {{ modifier: string|null, segments: string[], value: string|null }}
  */
 export function parseTag(tagString) {
+  const eqIdx = tagString.indexOf('=');
   const commaIdx = tagString.indexOf(',');
   let modifier = null;
   let raw = tagString;
-  if (commaIdx >= 0) {
+  if (commaIdx >= 0 && (eqIdx < 0 || commaIdx < eqIdx)) {
     modifier = tagString.slice(0, commaIdx);
     raw = tagString.slice(commaIdx + 1);
   }
-  const parts = raw.split(':');
-  const last = parts[parts.length - 1];
-  const eqIdx = last.indexOf('=');
-  if (eqIdx >= 0) {
-    parts[parts.length - 1] = last.slice(0, eqIdx);
-    const value = last.slice(eqIdx + 1);
+  const rawEqIdx = raw.indexOf('=');
+  if (rawEqIdx >= 0) {
+    const value = raw.slice(rawEqIdx + 1);
+    const parts = raw.slice(0, rawEqIdx).split(':');
     return { modifier, segments: parts.filter(Boolean), value: value !== '' ? value : null };
   }
-  return { modifier, segments: parts.filter(Boolean), value: null };
+  return { modifier, segments: raw.split(':').filter(Boolean), value: null };
 }
 
 /**
@@ -82,11 +95,11 @@ export function parseTag(tagString) {
  */
 export function tagSyntaxWarning(tagString) {
   const text = String(tagString ?? '');
+  const eqIdx = text.indexOf('=');
   const commaIdx = text.indexOf(',');
-  const parts = (commaIdx >= 0 ? text.slice(commaIdx + 1) : text).split(':');
-  const last = parts[parts.length - 1];
-  const eqIdx = last.indexOf('=');
-  if (eqIdx >= 0) parts[parts.length - 1] = last.slice(0, eqIdx);
+  const raw = commaIdx >= 0 && (eqIdx < 0 || commaIdx < eqIdx) ? text.slice(commaIdx + 1) : text;
+  const rawEqIdx = raw.indexOf('=');
+  const parts = (rawEqIdx >= 0 ? raw.slice(0, rawEqIdx) : raw).split(':');
   if (parts.every(part => part.trim() === '')) return null;
   return parts.some(part => part.trim() === '') ? 'malformed tag — empty path segment' : null;
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { reducer } from './reducer.js';
+import { normalizeRulesConfig } from '../logic/rulesConfig.js';
 
 // Minimal board state exercising the TAG_APPLY dedup path (issue #82).
 const baseState = () => ({
@@ -246,5 +247,27 @@ describe('locked-mode creation gate', () => {
     const state = lockedState();
     const next = reducer(state, { type: 'AGENT_CREATE', preset: { attributes: ['rarity:common'] }, count: 3, locked: true });
     expect(next).toBe(state);
+  });
+});
+
+describe('DYN_RECONCILE', () => {
+  const rules = normalizeRulesConfig({ dynamic: { ac: '[10+floor(({ability:dex}-10)/2)]' } });
+
+  it('materializes dyn payloads from the rules riding on the action', () => {
+    const state = {
+      ...baseState(),
+      agents: [{ id: 'a1', attributes: ['ability:dex=14', 'dyn,ac'], activities: [] }],
+    };
+    const next = reducer(state, { type: 'DYN_RECONCILE', rules });
+    expect(next.agents[0].attributes).toContain('dyn,ac=12');
+    expect(next.eventLog).toBe(state.eventLog); // never logs
+  });
+
+  it('returns the same state reference when nothing changes (loop safety)', () => {
+    const state = {
+      ...baseState(),
+      agents: [{ id: 'a1', attributes: ['ability:dex=14', 'dyn,ac=12'], activities: [] }],
+    };
+    expect(reducer(state, { type: 'DYN_RECONCILE', rules })).toBe(state);
   });
 });

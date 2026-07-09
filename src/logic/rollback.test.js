@@ -13,7 +13,7 @@ function makeState({ session, agent, task } = {}) {
     },
     agents: [{
       id: 'a1', name: 'A', rate: 2, attributes: ['skill:arcana=3'], activities: ['task:t1'],
-      hp: null, xp: 0, ...agent,
+      ...agent,
     }],
     tasks: [{
       id: 't1', name: 'T', requirements: [], attributes: [],

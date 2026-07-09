@@ -1,5 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { firstFreeSlot, getBoundItems, getEffectiveAttributes } from './agents.js';
+import { firstFreeSlot, getBoundItems, getEffectiveAttributes, validateAssignment } from './agents.js';
+
+describe('validateAssignment', () => {
+  const task = (requirements) => ({ requirements });
+  const agent = (attributes) => ({ attributes, activities: [] });
+
+  it('matches plain attribute tags against req values', () => {
+    expect(validateAssignment(agent(['ability:str=14']), task(['req,ability:str=10']))).toBe(true);
+    expect(validateAssignment(agent(['ability:str=8']), task(['req,ability:str=10']))).toBe(false);
+  });
+
+  it('matches dyn tags like any other — payloads are materialized totals', () => {
+    const computed = agent(['dyn,ac=14']);
+    expect(validateAssignment(computed, task(['req,ac=12']))).toBe(true);
+    expect(validateAssignment(computed, task(['req,ac=15']))).toBe(false);
+    expect(validateAssignment(computed, task(['block,ac']))).toBe(false);
+  });
+});
 
 describe('firstFreeSlot (issue #84)', () => {
   const slots = ['weapon', 'armor', 'offhand'];
