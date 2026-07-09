@@ -165,6 +165,7 @@ parseTag(tagString: string): { modifier: string|null, segments: string[], value:
 buildTag(segments: string[], value?: string|null, modifier?: string|null): string
 tagMatches(tag: ParsedTag, prefix: { segments: string[] }): boolean
 mergeAttribute(attrs: string[], tag: string): string[]
+compareTagsByPrefix(a: string, b: string): number  // sort: prefix (plain first) then path, case-insensitive
 ```
 
 Tag display formatting lives in `src/logic/truncation.js` (the `row` variant
@@ -430,8 +431,6 @@ resolveTagSource(source: string, context: { agent, dynamics, attributes, registr
   unitField: string|null,   // editable unit sibling field (e.g. 'rateUnit')
   warn: boolean             // dyn value evaluated with defaulted refs/cycles → warn state
 }
-getConsumedTagPaths(cardConfig: CardConfig): Set<string>  // lowercase seg:seg paths
-isTagConsumed(tag: string, consumedPaths: Set<string>): boolean  // plain + dyn tags
 ```
 
 Source grammar (resolution order): bare agent field (`rate`); a path carrying

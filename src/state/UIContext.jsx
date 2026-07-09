@@ -7,9 +7,11 @@ const UIContext = createContext(null);
  * Whether each card type is expanded by default. The persisted expansion store
  * records only IDs whose state deviates from these defaults, so both
  * default-expanded (agents) and default-collapsed (tasks, items) types share one
- * mechanism. Add a card type here to extend the store.
+ * mechanism. Add a card type here to extend the store. `agentTags` is not a card
+ * type but a per-agent sub-section (the agent card's ATTRIBUTES list), keyed by
+ * agent id and reusing the same store — default collapsed.
  */
-const CARD_DEFAULT_EXPANDED = { agent: true, task: false, item: false };
+const CARD_DEFAULT_EXPANDED = { agent: true, task: false, item: false, agentTags: false };
 
 /**
  * Per-modal persistence toggle (issue #81). `true` = the modal's open state is
@@ -75,8 +77,9 @@ function useModal(name) {
  * mode, hosted by App.jsx): `null | { kind: 'tag', tag } | { kind: 'condition', template }`.
  *
  * Card expansion: `isExpanded(type, id)` / `toggleExpanded(type, id)` drive every
- * card type (`'agent' | 'task' | 'item'`). State is a per-type Set of IDs toggled
- * away from `CARD_DEFAULT_EXPANDED`, persisted via `saveCardExpansion`.
+ * card type (`'agent' | 'task' | 'item'`) plus the `'agentTags'` sub-section.
+ * State is a per-type Set of IDs toggled away from `CARD_DEFAULT_EXPANDED`,
+ * persisted via `saveCardExpansion`.
  *
  * @param {{ children: React.ReactNode }} props
  */
@@ -105,7 +108,7 @@ export function UIProvider({ children }) {
    * Whether a card is currently expanded, resolving its type's default against
    * the persisted deviation Set.
    *
-   * @param {'agent'|'task'|'item'} type
+   * @param {'agent'|'task'|'item'|'agentTags'} type
    * @param {string} id - Entity ID
    * @returns {boolean}
    */
@@ -118,7 +121,7 @@ export function UIProvider({ children }) {
    * Toggles a card's expand/collapse state by flipping its ID's membership in the
    * type's deviation Set. Side effect: triggers persistence via the effect above.
    *
-   * @param {'agent'|'task'|'item'} type
+   * @param {'agent'|'task'|'item'|'agentTags'} type
    * @param {string} id - Entity ID
    */
   const toggleExpanded = useCallback((type, id) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseUIConfig, resolveTagSource, getConsumedTagPaths, isTagConsumed, EMPTY_CARD_CONFIG } from './UI.js';
+import { parseUIConfig, resolveTagSource } from './UI.js';
 import { evaluateDynamicTags } from './dynamicTags.js';
 import { normalizeRulesConfig } from './rulesConfig.js';
 
@@ -168,31 +168,5 @@ describe('resolveTagSource', () => {
     // class:fighter resolves 'fighter' for display use cases, but a card
     // element needs a number; the leaf string stays invalid here.
     expect(resolveTagSource('class:fighter', context)).toMatchObject({ value: null, valid: false });
-  });
-});
-
-describe('consumed tag paths', () => {
-  const cardConfig = {
-    ...EMPTY_CARD_CONFIG,
-    medallion: 'level',
-    boxes: ['skill:arcana'],
-    bars: [['hp', 'hp-max']],
-    values: ['AC'],
-  };
-
-  it('collects every configured source path, lowercased', () => {
-    expect(getConsumedTagPaths(cardConfig)).toEqual(new Set([
-      'level', 'skill:arcana', 'hp', 'hp-max', 'ac',
-    ]));
-  });
-
-  it('consumes plain and dyn tags on configured paths but never relational modifiers', () => {
-    const consumed = getConsumedTagPaths(cardConfig);
-    expect(isTagConsumed('skill:Arcana=3', consumed)).toBe(true);
-    expect(isTagConsumed('dyn,level=max(1, {xp}/125)', consumed)).toBe(true);
-    expect(isTagConsumed('dyn,ac=10', consumed)).toBe(true);
-    expect(isTagConsumed('req,skill:arcana=2', consumed)).toBe(false);
-    expect(isTagConsumed('bonus,hp=2', consumed)).toBe(false);
-    expect(isTagConsumed('skill:stealth=1', consumed)).toBe(false);
   });
 });

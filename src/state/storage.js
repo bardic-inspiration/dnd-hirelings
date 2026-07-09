@@ -102,8 +102,12 @@ export function saveConfigOverlays(overlays) {
   }
 }
 
-/** Card types tracked by the expansion store; keys of a persisted deviation map. */
-const CARD_TYPES = ['agent', 'task', 'item'];
+/**
+ * Expansion-store keys persisted as deviation maps. `agent`/`task`/`item` are
+ * card types; `agentTags` is the agent card's collapsible ATTRIBUTES sub-section
+ * (keyed by agent id). Must stay in sync with `CARD_DEFAULT_EXPANDED` (UIContext).
+ */
+const CARD_TYPES = ['agent', 'task', 'item', 'agentTags'];
 
 /**
  * Loads the persisted card-expansion deviation map from localStorage.
@@ -112,7 +116,7 @@ const CARD_TYPES = ['agent', 'task', 'item'];
  * Missing, malformed, or corrupt data yields empty Sets so the UI falls back to
  * per-type defaults.
  *
- * @returns {{ agent: Set<string>, task: Set<string>, item: Set<string> }}
+ * @returns {{ agent: Set<string>, task: Set<string>, item: Set<string>, agentTags: Set<string> }}
  */
 export function loadCardExpansion() {
   const empty = () => Object.fromEntries(CARD_TYPES.map(type => [type, new Set()]));
@@ -133,7 +137,7 @@ export function loadCardExpansion() {
  * Persists the card-expansion deviation map to localStorage, serializing each
  * Set as an array.
  *
- * @param {{ agent: Set<string>, task: Set<string>, item: Set<string> }} deviations
+ * @param {{ agent: Set<string>, task: Set<string>, item: Set<string>, agentTags: Set<string> }} deviations
  */
 export function saveCardExpansion(deviations) {
   const serialized = Object.fromEntries(

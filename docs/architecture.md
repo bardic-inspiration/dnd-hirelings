@@ -144,11 +144,13 @@ Contract points from the spec:
 - **Warned sources**: a dyn value that evaluated but had defaulted references
   or a cycle renders its value in the element's `--warn` state (warn chrome,
   no flash).
-- **Consumed tags**: an attribute tag whose path is assigned to any element is
-  omitted from the ATTRIBUTES chip list — only tags *not* mentioned in the
-  config render as chips (`getConsumedTagPaths` / `isTagConsumed`). Plain and
-  `dyn,` tags are consumable; relational modifiers (`req,` / `block,` /
-  `bonus,`) never are.
+- **ATTRIBUTES list**: the agent card's ATTRIBUTES section is a per-card
+  collapsible (default collapsed, persisted via the card-expansion store under
+  the `agentTags` key) list of **every** one of the agent's attribute tags —
+  including tags whose path also drives a configured element (bar / medallion /
+  value / etc.). Such a tag renders in both places and edits stay in sync
+  (both write back to `agent.attributes`). Tags are sorted by prefix then
+  alphabetically (`compareTagsByPrefix`), and each is add/remove/value-editable.
 
 ### Dynamic Tags (rules registry)
 
