@@ -959,6 +959,60 @@ body {
 /* Opened from a library preview (onApply): stack above the library panel. */
 .tag-registry-overlay--elevated { z-index: 200; }
 
+/* Stands in for native confirm/alert/prompt dialogs (ConfirmModal.jsx); can
+   be opened from within another modal, so it sits above the regular/elevated
+   overlay band but below the tooltip (300). */
+.confirm-overlay { z-index: 250; }
+
+.confirm-panel {
+  background: color-mix(in srgb, var(--bg) calc(var(--fill-opacity) * 100%), transparent);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  width: min(90vw, 360px);
+}
+
+.confirm-message {
+  white-space: pre-wrap;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+}
+
+.confirm-input {
+  background: var(--dimmer);
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  outline: none;
+  transition: border-color 0.1s;
+}
+.confirm-input:focus { border-color: var(--highlight); }
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--gap);
+}
+
+.confirm-btn--danger {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.confirm-btn--danger:hover {
+  background: var(--warn);
+  border-color: var(--warn);
+  color: var(--bg);
+}
+
 /* ============================================================
    TASK SECTIONS (conditions / require / reward / tag catch-all)
    ============================================================ */

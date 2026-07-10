@@ -56,7 +56,7 @@ function draftParts(draft) {
  * closes itself via `closeTagRegistry`.
  */
 export default function TagRegistryModal() {
-  const { tagRegistryProps, closeTagRegistry, setPendingApply } = useUI();
+  const { tagRegistryProps, closeTagRegistry, setPendingApply, openConfirm } = useUI();
   const { state, dispatch } = useGame();
   const registry = state.tagRegistry;
 
@@ -268,7 +268,7 @@ export default function TagRegistryModal() {
     if (!file) return;
     tagRegistryLoad(file)
       .then(reg => dispatch({ type: 'TAGREG_REPLACE', registry: reg }))
-      .catch(err => alert(err.message)); // invalid file: check failed — leave registry untouched
+      .catch(err => openConfirm({ message: err.message, type: 'alert' })); // invalid file: check failed — leave registry untouched
     e.target.value = '';
   };
 

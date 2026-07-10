@@ -24,7 +24,7 @@ export default function LibraryModal() {
 }
 
 function LibraryModalBody({ config }) {
-  const { closeLibrary } = useUI();
+  const { closeLibrary, openConfirm } = useUI();
   const { state, dispatch } = useGame();
   const { locked } = useTagsConfig();
 
@@ -136,7 +136,10 @@ function LibraryModalBody({ config }) {
       const offending = [...new Set(order.lines.flatMap(line =>
         unregisteredEntityTags(state.tagRegistry, config.type, line.preset)))];
       if (offending.length) {
-        alert(`TAGS LOCKED — order not submitted.\nUnregistered tags:\n  ${offending.join('\n  ')}\nRegister them in the TAG REGISTRY, or set locked: false in CONFIG → TAGS.`);
+        openConfirm({
+          message: `TAGS LOCKED — order not submitted.\nUnregistered tags:\n  ${offending.join('\n  ')}\nRegister them in the TAG REGISTRY, or set locked: false in CONFIG → TAGS.`,
+          type: 'alert',
+        });
         return; // keep the modal open so the cart can be fixed
       }
     }

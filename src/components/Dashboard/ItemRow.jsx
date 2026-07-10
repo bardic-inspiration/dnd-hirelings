@@ -11,7 +11,7 @@ import DragNumber from './DragNumber.jsx';
 export default function ItemRow({ item }) {
   const { dispatch } = useGame();
   const { selectedItemId, setSelectedItemId, openItemIcons, openTagRegistry,
-          isExpanded, toggleExpanded } = useUI();
+          isExpanded, toggleExpanded, openConfirm } = useUI();
   const expanded = isExpanded('item', item.id);
   const { ref: tagListRef, maxChars } = useCharBudget('tag-chip');
 
@@ -103,7 +103,7 @@ export default function ItemRow({ item }) {
             className="x"
             onClick={e => {
               e.stopPropagation();
-              if (confirm(`Delete item "${item.name}"?`)) dispatch({ type: 'INVENTORY_REMOVE_ITEM', id: item.id });
+              openConfirm({ message: `Delete item "${item.name}"?`, danger: true, onConfirm: () => dispatch({ type: 'INVENTORY_REMOVE_ITEM', id: item.id }) });
             }}
           >×</span>
         </Tooltip>

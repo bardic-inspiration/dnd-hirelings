@@ -15,7 +15,7 @@ import Tooltip from '../Tooltip.jsx';
 
 export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
   const { state, dispatch } = useGame();
-  const { playing, openConfig, openTagRegistry } = useUI();
+  const { playing, openConfig, openTagRegistry, openConfirm } = useUI();
   const { session } = state;
   const [palette, setPalette] = useState(getStoredPalette);
   const clockConfig = useClockConfig();
@@ -67,16 +67,21 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
     if (!file) return;
     loadStateFromFile(file)
       .then(data => dispatch({ type: 'REPLACE_STATE', newState: data }))
-      .catch(err => alert(err.message));
+      .catch(err => openConfirm({ message: err.message, type: 'alert' }));
     e.target.value = '';
   };
 
   const handleNew = () => {
-    const newId = prompt('Enter new session ID:', '');
-    if (newId === null) return;
-    onStop();
-    dispatch({ type: 'RESET' });
-    if (newId.trim()) dispatch({ type: 'SESSION_UPDATE', payload: { id: newId.trim() } });
+    openConfirm({
+      message: 'Enter new session ID:',
+      type: 'prompt',
+      defaultValue: '',
+      onConfirm: (newId) => {
+        onStop();
+        dispatch({ type: 'RESET' });
+        if (newId.trim()) dispatch({ type: 'SESSION_UPDATE', payload: { id: newId.trim() } });
+      },
+    });
   };
 
   return (
