@@ -12,10 +12,11 @@ import PortraitsModal from './components/Modals/PortraitsModal.jsx';
 import ItemIconsModal from './components/Modals/ItemIconsModal.jsx';
 import LibraryModal from './components/Modals/LibraryModal.jsx';
 import TagRegistryModal from './components/Modals/TagRegistryModal.jsx';
+import ConfirmModal from './components/Modals/ConfirmModal.jsx';
 
 
 export default function App() {
-  const { configProps, portraitsProps, itemIconsProps, libraryProps, tagRegistryProps, setSelectedTaskId, setSelectedItemId, pendingApply, setPendingApply } = useUI();
+  const { configProps, portraitsProps, itemIconsProps, libraryProps, tagRegistryProps, confirmProps, setSelectedTaskId, setSelectedItemId, pendingApply, setPendingApply } = useUI();
   const { dispatch } = useGame();
   const { start, stop, advance, retreat, resync } = usePlayClock();
 
@@ -89,6 +90,7 @@ export default function App() {
       {itemIconsProps   && <ItemIconsModal />}
       {libraryProps     && <LibraryModal />}
       {tagRegistryProps && <TagRegistryModal />}
+      {confirmProps     && <ConfirmModal />}
     </>
   );
 }

@@ -40,7 +40,7 @@ const isMapping = (value) => value !== null && typeof value === 'object' && !Arr
  */
 export default function ConfigModal({ onRestartPlay }) {
   const { state, dispatch } = useGame();
-  const { closeConfig } = useUI();
+  const { closeConfig, openConfirm } = useUI();
   const { getDoc, updateDoc, resetAllDocs, isOverridden } = useConfig();
 
   const [expanded, setExpanded] = useState(() => new Set(CONFIG_FILES.map(entry => entry.id)));
@@ -211,7 +211,7 @@ export default function ConfigModal({ onRestartPlay }) {
     if (!file) return;
     configLoad(file)
       .then(doc => updateDoc(activeFileId, doc))
-      .catch(err => alert(err.message)); // invalid file — leave the config untouched
+      .catch(err => openConfirm({ message: err.message, type: 'alert' })); // invalid file — leave the config untouched
     e.target.value = '';
   };
 

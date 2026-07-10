@@ -57,7 +57,7 @@ const INLINE_INPUT_STYLE = {
 export default function AgentCard({ agent }) {
   const { state, dispatch } = useGame();
   const { selectedTaskId, selectedItemId, setSelectedItemId, openTagRegistry, openPortraits,
-          isExpanded, toggleExpanded } = useUI();
+          isExpanded, toggleExpanded, openConfirm } = useUI();
 
   const [giveQtyOpen, setGiveQtyOpen] = useState(false);
   const [giveQty, setGiveQty]       = useState(1);
@@ -439,7 +439,7 @@ export default function AgentCard({ agent }) {
             </Tooltip>
             <button className="delete-btn" onClick={e => {
               e.stopPropagation();
-              if (confirm(`Delete hireling "${agent.name}"?`)) dispatch({ type: 'AGENT_DELETE', id: agent.id });
+              openConfirm({ message: `Delete hireling "${agent.name}"?`, danger: true, onConfirm: () => dispatch({ type: 'AGENT_DELETE', id: agent.id }) });
             }}>× DELETE</button>
           </div>
         </>

@@ -76,6 +76,17 @@ function useModal(name) {
  * `pendingApply` holds a tag/condition awaiting a board-entity click (selection
  * mode, hosted by App.jsx): `null | { kind: 'tag', tag } | { kind: 'condition', template }`.
  *
+ * Confirm modal props (`openConfirm(props)` — stands in for native
+ * confirm/alert/prompt dialogs):
+ * - `message`: string shown in the dialog body
+ * - `type`: `'confirm'` (default, OK/Cancel), `'alert'` (OK only), or
+ *   `'prompt'` (text input + OK/Cancel)
+ * - `defaultValue`: initial text for `'prompt'` dialogs
+ * - `danger`: styles OK as a destructive action
+ * - `onConfirm`: `(value?: string) => void` — called on OK only, `value` is
+ *   the entered text for `'prompt'` dialogs. Cancel/Escape/overlay-click is a
+ *   silent no-op, matching native dialog cancel semantics.
+ *
  * Card expansion: `isExpanded(type, id)` / `toggleExpanded(type, id)` drive every
  * card type (`'agent' | 'task' | 'item'`) plus the `'agentTags'` sub-section.
  * State is a per-type Set of IDs toggled away from `CARD_DEFAULT_EXPANDED`,
@@ -98,6 +109,7 @@ export function UIProvider({ children }) {
   const [itemIconsProps, openItemIconsModal, closeItemIcons] = useModal('itemIcons');
   const [libraryProps, openLibraryModal, closeLibrary]     = useModal('library');
   const [tagRegistryProps, openTagRegistry, closeTagRegistry] = useModal('tagRegistry');
+  const [confirmProps, openConfirmModal, closeConfirm]     = useModal('confirm');
 
   // Persist card expansion on every change (mirrors GameProvider's saveState effect).
   useEffect(() => {
@@ -137,6 +149,7 @@ export function UIProvider({ children }) {
   const openPortraits = useCallback((onSelect) => openPortraitsModal({ onSelect }), [openPortraitsModal]);
   const openItemIcons = useCallback((onSelect) => openItemIconsModal({ onSelect }), [openItemIconsModal]);
   const openLibrary   = useCallback((type) => openLibraryModal({ type }), [openLibraryModal]);
+  const openConfirm   = useCallback((opts) => openConfirmModal(opts), [openConfirmModal]);
 
   return (
     <UIContext.Provider value={{
@@ -149,6 +162,7 @@ export function UIProvider({ children }) {
       itemIconsProps, openItemIcons, closeItemIcons,
       libraryProps, openLibrary, closeLibrary,
       tagRegistryProps, openTagRegistry, closeTagRegistry,
+      confirmProps, openConfirm, closeConfirm,
       pendingApply, setPendingApply,
     }}>
       {children}

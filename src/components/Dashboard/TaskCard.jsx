@@ -56,7 +56,7 @@ function AttributesSection({ task }) {
 
 export default function TaskCard({ task }) {
   const { state, dispatch } = useGame();
-  const { selectedTaskId, setSelectedTaskId, isExpanded, toggleExpanded } = useUI();
+  const { selectedTaskId, setSelectedTaskId, isExpanded, toggleExpanded, openConfirm } = useUI();
 
   const selected = selectedTaskId === task.id;
   const expanded = isExpanded('task', task.id);
@@ -133,7 +133,7 @@ export default function TaskCard({ task }) {
           <button className="delete-btn" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_DUPLICATE', id: task.id }); }}>⎘ COPY</button>
           <button className="delete-btn" onClick={e => {
             e.stopPropagation();
-            if (confirm(`Delete task "${task.name}"?`)) dispatch({ type: 'TASK_DELETE', id: task.id });
+            openConfirm({ message: `Delete task "${task.name}"?`, danger: true, onConfirm: () => dispatch({ type: 'TASK_DELETE', id: task.id }) });
           }}>× DELETE</button>
         </div>
       </div>
