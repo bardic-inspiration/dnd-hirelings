@@ -947,7 +947,8 @@ body {
    MODAL OVERLAYS
    ============================================================ */
 .config-overlay,
-.tag-registry-overlay {
+.tag-registry-overlay,
+.confirm-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
@@ -978,6 +979,8 @@ body {
 
 .confirm-message {
   white-space: pre-wrap;
+  text-align: center;
+  font-family: var(--font);
   font-size: var(--fs-sm);
   line-height: 1.4;
 }
