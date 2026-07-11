@@ -1,6 +1,7 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { useTagsConfig } from '../../hooks/useTagsConfig.js';
+import { usePermission } from '../../hooks/usePermission.js';
 import Tooltip from '../Tooltip.jsx';
 import TaskCard from './TaskCard.jsx';
 
@@ -8,6 +9,7 @@ export default function TaskList() {
   const { state, dispatch } = useGame();
   const { locked } = useTagsConfig();
   const { openLibrary } = useUI();
+  const can = usePermission();
   const sorted = [...state.tasks].sort((a, b) => (a.isComplete - b.isComplete) || (b.createdAt - a.createdAt));
 
   return (
@@ -16,13 +18,15 @@ export default function TaskList() {
       <div id="task-list">
         {!state.tasks.length && <div className="empty">—</div>}
         {sorted.map(task => <TaskCard key={task.id} task={task} />)}
-        <Tooltip content="Click for the library. Right click to add.">
-          <button
-            className="add-card add-task"
-            onClick={e => { e.stopPropagation(); openLibrary('task'); }}
-            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'TASK_CREATE', locked }); }}
-          >+ TASK</button>
-        </Tooltip>
+        {can({ type: 'TASK_CREATE' }) && (
+          <Tooltip content="Click for the library. Right click to add.">
+            <button
+              className="add-card add-task"
+              onClick={e => { e.stopPropagation(); openLibrary('task'); }}
+              onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'TASK_CREATE', locked }); }}
+            >+ TASK</button>
+          </Tooltip>
+        )}
       </div>
     </div>
   );

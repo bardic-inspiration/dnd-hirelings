@@ -11,6 +11,7 @@ import { useClockConfig } from '../../hooks/useClockConfig.js';
 import { useRollbackConfig } from '../../hooks/useRollbackConfig.js';
 import EditableSpan from '../EditableSpan.jsx';
 import HoldButton from './HoldButton.jsx';
+import ModePanel from './ModePanel.jsx';
 import Tooltip from '../Tooltip.jsx';
 
 export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds = { canStepBack: true, canStepForward: true } }) {
@@ -163,6 +164,9 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds =
           <span className={`palette-switch-cell${palette === 'dark' ? ' palette-switch-cell--filled' : ''}`}>☽</span>
         </button>
       </Tooltip>
+
+      {/* Mode sub-panel — self-hides when offline (non-networked). */}
+      <ModePanel />
 
       {/* Session controls */}
       <div className="inset-panel session-controls right">

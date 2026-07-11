@@ -282,6 +282,49 @@ body {
 }
 
 /* ============================================================
+   MODE PANEL  (networked GM/Player sessions only)
+   ============================================================ */
+.mode-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Read-only three-cell mode indicator — a clone of the palette switch. */
+.mode-switch {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 2px;
+}
+.mode-switch-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 7px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  border-radius: var(--radius-xs);
+  transition: background 0.15s, color 0.15s;
+}
+.mode-switch-cell--filled {
+  background: var(--highlight);
+  color: var(--bg);
+}
+
+.mode-panel-status {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* ============================================================
    DASHBOARD LAYOUT  3 : 1
    ============================================================ */
 #dashboard {

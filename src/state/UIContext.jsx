@@ -31,6 +31,9 @@ const MODAL_PERSISTENCE = {
   tagRegistry: true,
   portraits: false,
   itemIcons: false,
+  // The review viewer carries live net callbacks and a large sandbox seed; never
+  // persist it (a restored review whose finalize does nothing would mislead).
+  review: false,
 };
 
 // Props round-trip through localStorage only when they're plain data; a modal
@@ -110,6 +113,7 @@ export function UIProvider({ children }) {
   const [libraryProps, openLibraryModal, closeLibrary]     = useModal('library');
   const [tagRegistryProps, openTagRegistry, closeTagRegistry] = useModal('tagRegistry');
   const [confirmProps, openConfirmModal, closeConfirm]     = useModal('confirm');
+  const [reviewProps, openReviewModal, closeReview]        = useModal('review');
 
   // Persist card expansion on every change (mirrors GameProvider's saveState effect).
   useEffect(() => {
@@ -150,6 +154,7 @@ export function UIProvider({ children }) {
   const openItemIcons = useCallback((onSelect) => openItemIconsModal({ onSelect }), [openItemIconsModal]);
   const openLibrary   = useCallback((type) => openLibraryModal({ type }), [openLibraryModal]);
   const openConfirm   = useCallback((opts) => openConfirmModal(opts), [openConfirmModal]);
+  const openReview    = useCallback(() => openReviewModal({}), [openReviewModal]);
 
   return (
     <UIContext.Provider value={{
@@ -163,6 +168,7 @@ export function UIProvider({ children }) {
       libraryProps, openLibrary, closeLibrary,
       tagRegistryProps, openTagRegistry, closeTagRegistry,
       confirmProps, openConfirm, closeConfirm,
+      reviewProps, openReview, closeReview,
       pendingApply, setPendingApply,
     }}>
       {children}
