@@ -13,7 +13,7 @@ import EditableSpan from '../EditableSpan.jsx';
 import HoldButton from './HoldButton.jsx';
 import Tooltip from '../Tooltip.jsx';
 
-export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
+export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds = { canStepBack: true, canStepForward: true } }) {
   const { state, dispatch } = useGame();
   const { playing, openConfig, openTagRegistry, openConfirm } = useUI();
   const { session } = state;
@@ -117,6 +117,7 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
           className={`ctrl ctrl--combo${playing ? ' ctrl--active' : ''}`}
           onClick={onPlay}
           onAdjust={adjustRate}
+          disabled={!bounds.canStepForward}
           title="Click to play. Hold and drag up/down to adjust rate."
         >
           <span className="combo-glyph">▶</span>
@@ -133,7 +134,7 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
             className="ctrl ctrl--combo"
             onClick={onStepBack}
             onAdjust={adjustStepBack}
-            disabled={!horizon.canStepBack}
+            disabled={!bounds.canStepBack}
             title="Click to step back by the shown number of days. Hold and drag up/down to adjust the step-back distance."
           >
             <span className="combo-glyph">|◀</span>
@@ -144,6 +145,7 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack }) {
           className="ctrl ctrl--combo"
           onClick={onAdvance}
           onAdjust={adjustStep}
+          disabled={!bounds.canStepForward}
           title="Click to step forward. Hold and drag up/down to adjust step."
         >
           <span className="combo-glyph">▶|</span>

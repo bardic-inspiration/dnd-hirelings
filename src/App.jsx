@@ -18,7 +18,7 @@ import ConfirmModal from './components/Modals/ConfirmModal.jsx';
 export default function App() {
   const { configProps, portraitsProps, itemIconsProps, libraryProps, tagRegistryProps, confirmProps, setSelectedTaskId, setSelectedItemId, pendingApply, setPendingApply } = useUI();
   const { dispatch } = useGame();
-  const { start, stop, advance, retreat, resync } = usePlayClock();
+  const { start, stop, advance, retreat, resync, bounds } = usePlayClock();
 
   usePalette();
   useDynReconcile();
@@ -82,7 +82,7 @@ export default function App() {
   return (
     <>
       <PageTitle />
-      <TopBar onPlay={start} onStop={stop} onAdvance={advance} onStepBack={retreat} />
+      <TopBar onPlay={start} onStop={stop} onAdvance={advance} onStepBack={retreat} bounds={bounds} />
       <Dashboard />
 
       {configProps      && <ConfigModal onRestartPlay={resync} />}
