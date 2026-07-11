@@ -6,14 +6,32 @@ Guild Manager has no HTTP backend. "API" here means the public interfaces of eac
 
 ## Contexts
 
-### `useGame()` → `{ state, dispatch }`
+### `useGame()` → `{ state, dispatch, mode }`
 
 The primary game state interface. Provides the normalized state tree and dispatch.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `state` | `GameState` | Full application state (see State Shape) |
-| `dispatch` | `(action: Action) => void` | Dispatch a reducer action |
+| `dispatch` | `(action: Action) => void` | Dispatch a reducer action (gated when networked) |
+| `mode` | `'gm'\|'player'\|'spectator'` | This client's permission mode; `'gm'` offline. Pass to `isActionAllowed` for affordance checks (`usePermission`) |
+
+### `useNetSession()` → `NetSessionContext \| null`
+
+Networked GM/Player session state and turn control (spec:
+`docs/specs/gm-player-mode.md`). Returns `null` offline (no `?session=` URL param
+→ no provider); callers must treat `null` as today's ungated single-player app.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled, role, sessionId` | — | Session identity (`role`: `'gm'\|'party'`) |
+| `baton` | `{ turnOwner, status, holder }` | Server-owned turn state |
+| `holder, holdsWriteLock, mode, headRev, lastReview, incoming` | — | Derived, read-only (`incoming` bumps `seq` per full pull; `GameProvider` applies its HEAD as `REPLACE_STATE`) |
+| `claimPen()` | `() => Promise` | `POST /claim` (party) |
+| `commitTurn()` | `() => Promise` | Build + `POST /commit` the finished turn (party) |
+| `setBaton(turnOwner, head?)` | — | `POST /baton` (GM) — hand-off carries `head`, take-back omits it |
+| `finalize(cutIndex, message, head)` | — | `POST /finalize` (GM) |
+| `refresh()` | `() => Promise` | Manual full pull |
 
 ### `useUI()` → `UIContext`
 
@@ -555,6 +573,70 @@ saveStateToFile(state: GameState): Promise<void>
 loadStateFromFile(file: File): Promise<GameState>
 ```
 
+### `src/logic/permissions.js`
+
+GM/Player permission layer (spec: `docs/specs/gm-player-mode.md`). Pure —
+registry-style allow-sets + a thin predicate, shared verbatim by the dispatch
+gate and every UI affordance check.
+
+```js
+PLAYER_ALLOWED_ACTIONS: Set<string>   // action types a turn-holding player may dispatch
+PLAYER_SESSION_KEYS: Set<string>      // session keys a player may SESSION_UPDATE (timeStep/stepBack/rateMultiplier)
+SPECTATOR_ALLOWED_ACTIONS: Set<string> // DYN_RECONCILE only
+isActionAllowed(mode, action): boolean // gm → true; player → allow-set (+ per-key SESSION_UPDATE); spectator → allow-set; unknown → false
+deriveMode(role, baton, holdsWriteLock): 'gm'|'player'|'spectator'  // never stored
+gateDispatch(rawDispatch, getMode): (action) => void  // silent backstop; getMode is ref-backed
+```
+
+### `src/logic/clockSources.js`
+
+Clock-source registry (`live` / `recorded`) for `usePlayClock`. Registry idiom:
+uniform member shape, graceful fallback (unknown → `live`).
+
+```js
+CLOCK_SOURCE_REGISTRY: { [source]: { stepForward, stepBackward, bounds, interpolate } }
+clockSourceFor(source): source                       // unknown → live
+stateAt(ctx, i): { newState, index }                 // reconstruct recorded state; clamps to [0, max]; top index = endState
+logPrefix(ctx, i): EventLogEntry[]                    // turn-slice log cut at the i-th 'tick' boundary
+```
+
+`live` step functions return `advanceTime`/`rollbackTime`'s shape; `recorded`
+returns `{ newState, index }` or `null` at a bound. `recorded.interpolate` is
+`false` (never start the RAF interpolator in replay).
+
+### `src/logic/netSession.js`
+
+Network transport for GM/Player mode — plain `fetch` wrappers over the route
+table, all rooted at `/api`, plus `buildCommit`. The network analog of
+`session.js`; the commit document is serializable and transport-agnostic.
+
+```js
+BATON_POLL_MS: number                                // light baton poll interval
+readSessionParams(search?): { enabled, sessionId, role }  // ?session=<id>&role=gm|party; offline by default
+fetchSession(id) / putSession(id, head) / fetchBaton(id)
+claimPen(id) / postCommit(id, commit) / fetchPending(id) / postFinalize(id, payload) / postBaton(id, payload)
+buildCommit({ base, snapshots, eventLog, endState }): CommitDoc  // strips eventLog/tagRegistry from snapshots
+```
+
+Errors reject with `err.status` attached (403/404/409) so callers can branch.
+
+**Session server** (`server/index.js`, zero deps, `npm run server`, vite `/api`
+proxy → `localhost:3001`). One JSON file per session under `server/data/`
+(gitignored), written atomically, snapshot-then-mutate (pre-mutation head appended
+to an append-only archive). Runs no game logic. `role` is asserted from `?role=`
+(honor-system). Routes (all `/api/session/:id…`):
+
+| Method | Route | Actor | Effect / errors |
+|---|---|---|---|
+| `GET` | `/session/:id` | any | `{ headRev, head, baton, lastReview }`; `404` if absent |
+| `PUT` | `/session/:id` | GM | Create/seed with `{ head }` (idempotent) |
+| `GET` | `/session/:id/baton` | any | `{ headRev, baton }` (cheap poll) |
+| `POST` | `/session/:id/claim` | party | Mint `holder`; `409` if taken; `403` unless party's turn |
+| `POST` | `/session/:id/commit` | party | Store `pendingCommit`; `403` non-holder; `409` stale `base` |
+| `GET` | `/session/:id/pending` | GM | The commit document; `404` if none |
+| `POST` | `/session/:id/finalize` | GM | `{ cutIndex, message?, head }` → new HEAD, `lastReview` |
+| `POST` | `/session/:id/baton` | GM | `{ turnOwner, head? }` — hand-off sets HEAD; take-back frees lock, discards pending |
+
 ### `src/logic/eventLog.js`
 
 ```js
@@ -701,17 +783,36 @@ interface TruncationConfig {
 
 ## Hooks
 
-### `usePlayClock()` → `{ start, stop, advance, retreat }`
+### `usePlayClock({ source?, sourceContext? })` → `{ start, stop, advance, retreat, resync, bounds, index }`
 
 | Method | Description |
 |--------|-------------|
-| `start()` | Begin the game loop (interval + RAF) |
+| `start()` | Begin the game loop (interval + RAF, RAF only when the source interpolates) |
 | `stop()` | Halt the game loop |
-| `advance()` | Advance `session.timeStep` days manually (step-forward button) |
-| `retreat()` | Pause, then reverse `session.stepBack` ticks via `rollbackTime` (step-back button); stops early at the horizon, no-op if already there |
+| `advance()` | Advance `session.timeStep` ticks manually (step-forward button) |
+| `retreat()` | Pause, then reverse `session.stepBack` ticks (step-back button); no-op at the bound |
+| `bounds` | `{ canStepBack, canStepForward }` — drives control dimming (generalizes the rollback horizon) |
+| `index` | The recorded-source playhead (used by the review viewer's finalize cut) |
 
-Reads the live clock/rollback configs through refs; a clock config edit
-restarts a running interval so pacing changes apply immediately.
+`source` defaults to `'live'` (the existing `advanceTime`/`rollbackTime` path).
+`'recorded'` replays a commit's snapshot array via `CLOCK_SOURCE_REGISTRY`
+(`sourceContext = { snapshots, endState, eventLog }`, read through a ref).
+`runTick`/`retreat` still dispatch `APPLY_TICK`/`APPLY_ROLLBACK`, so the reducer is
+source-agnostic. Reads the live clock/rollback configs through refs; a clock
+config edit restarts a running interval so pacing changes apply immediately.
+
+### `usePermission()` → `(action) => boolean`
+
+Returns `can(action)` = `isActionAllowed(useGame().mode, action)` — the affordance
+predicate, backstopped by the same check in the dispatch gate. Offline mode is
+`'gm'`, so every affordance shows.
+
+### `useReviewBanner()`
+
+Party-side disclosure banner (D-disclosure). Watches `useNetSession().lastReview`;
+when a `rev` newer than the per-browser acknowledgment arrives, raises a one-time
+alert with the GM's message and the kept/cut notice. No-op offline / for GMs.
+Mount once near the app root.
 
 ### `useClockConfig()` → `ClockConfig`
 
@@ -723,7 +824,10 @@ normalized via `normalizeClockConfig`.
 
 Returns the live normalized rollback configuration (deployed
 `public/config/rollback.yml` merged with any overlay), normalized via
-`normalizeRollbackConfig`.
+`normalizeRollbackConfig`. Rule lock (D-rules): while `useGame().mode` is
+`'player'`, `log.enabled` is forced `true` regardless of the overlay, so a party
+turn's log slice — and thus rollback and review honesty — cannot be switched off
+mid-turn. Nothing is stored.
 
 ### `useTagsConfig()` → `TagsConfig`
 

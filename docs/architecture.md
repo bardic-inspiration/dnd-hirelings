@@ -38,13 +38,14 @@ This makes them independently testable and safe to call from both React hooks an
 
 ### 2. State tier (`src/state/`)
 
-Three React contexts:
+React contexts:
 
 | Context | Contents | Persisted |
 |---------|----------|-----------|
-| `GameContext` | `{ state, dispatch }` — the full game world via `useReducer` | Yes, localStorage on every change |
+| `GameContext` | `{ state, dispatch, mode }` — the full game world via `useReducer`; `mode` is the client's permission mode (`'gm'` offline) | Yes, localStorage on every change |
 | `UIContext` | Mostly ephemeral UI state: selection, modal props, playing flag | Card expand/collapse, plus each persistence-enabled modal's open state (`MODAL_PERSISTENCE`); rest ephemeral |
 | `ConfigContext` | Runtime config documents: fetched base YAML per manifest entry + user-edit overlay | Overlays only (`CONFIG_OVERLAYS`); base docs re-fetched per load |
+| `NetSessionContext` | Networked GM/Player sessions only (mounted when the URL carries `?session=…`): baton, write-lock, poll loop, turn-control methods | No (baton is server-owned; write-lock token is in-memory) |
 
 Images load without any blocking gate: the theme background is a decorative CSS background preloaded in `index.html`, and modal pickers preload their thumbnails locally via `useAssetGroup` (issue #90).
 
@@ -92,6 +93,40 @@ Task progress is **not** tag-encoded. Each task carries `conditions: Condition[]
 `GameContext` wraps `useReducer(reducer, null, loadState)`. Every game mutation is an action dispatched through `useGame().dispatch`. The reducer in `src/state/reducer.js` handles 30+ action types and is the only place that writes new state. After every state change, a `useEffect` in `GameProvider` persists to localStorage.
 
 The reducer also auto-registers new tag paths into `state.tagRegistry` whenever an agent or task tag is authored (via `registerTags()`), keeping the registry in sync with authored content without requiring explicit registry management.
+
+### GM/Player Mode (networked sessions)
+
+Optional turn-based multiplayer over the same component tree (spec:
+`docs/specs/gm-player-mode.md`). It is off by default: with no `?session=` URL
+param the app is exactly the offline single-player client — no
+`NetSessionProvider`, ungated dispatch, mode `'gm'`. Two orthogonal axes layer
+over the existing machinery:
+
+- **Permission mode** (`src/logic/permissions.js`) — a pure predicate
+  `isActionAllowed(mode, action)` over three modes (`gm` / `player` /
+  `spectator`), plus `deriveMode(role, baton, holdsWriteLock)` (never stored) and
+  `gateDispatch(rawDispatch, getMode)`. When networked, `GameProvider` wraps
+  dispatch with the gate (silent backstop) composed with a snapshot recorder; the
+  same predicate drives UI affordance hiding via `usePermission`, so pre-check and
+  backstop cannot disagree. `REPLACE_STATE` (server HEAD pulls) uses the ungated
+  `rawDispatch` and so needs no allow-set entry.
+- **Clock source** (`src/logic/clockSources.js`) — a registry (`live` /
+  `recorded`) supplying the play clock's step/bounds. `usePlayClock({ source })`
+  routes `runTick`/`retreat` through the source but still dispatches
+  `APPLY_TICK`/`APPLY_ROLLBACK`, so the reducer is source-agnostic. `recorded`
+  indexes into a commit's per-tick snapshot array (`stateAt`) for turn replay and
+  never starts the RAF interpolator.
+
+The **review viewer** (`ReviewModal.jsx`) is not a separate screen: it is the
+live dashboard mounted in a sandboxed second `GameProvider`
+(`initialState=<snapshot>`, `persist=false`, `mode="spectator"`), clock source
+`recorded`. Commit shape is F1-B — a commit carries a full `GameState` snapshot
+per tick (snapshots are free: `APPLY_TICK`'s payload is already a complete
+`newState`), so the standalone session server (`server/index.js`, zero deps,
+`npm run server`, reached via the vite `/api` proxy) runs no game logic: it stores
+blobs and enforces baton ownership + the write-lock at the route. See
+`docs/api.md` for the permissions module, `netSession` transport, and the route
+table.
 
 The Tag Registry modal is the single authoring/assignment surface for tags and condition templates: browsing, structure editing (ADD), assignment to board entities and library drafts (APPLY via `TAG_APPLY` / `TASK_CONDITION_ADD` / `onApply`), and pattern-linked conditions. Opened with no target, APPLY arms a **selection mode** hosted by App.jsx — the next board-entity click receives the pending tag or condition (`pendingApply` in UIContext).
 
