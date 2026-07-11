@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   fetchSession, putSession, fetchBaton, claimPen as claimPenRequest,
   postCommit, postFinalize, postBaton, BATON_POLL_MS,
@@ -117,16 +117,17 @@ export function NetSessionProvider({ role, sessionId, children }) {
   const registerCommitSource = useCallback((fn) => { commitSourceRef.current = fn; }, []);
   const registerSeed = useCallback((fn) => { seedRef.current = fn; }, []);
 
-  return (
-    <NetSessionContext.Provider value={{
-      enabled: true, role, sessionId,
-      baton, holder, holdsWriteLock, mode, headRev, lastReview, incoming,
-      claimPen, commitTurn, setBaton: setBatonOwner, finalize, refresh,
-      registerCommitSource, registerSeed,
-    }}>
-      {children}
-    </NetSessionContext.Provider>
-  );
+  const value = useMemo(() => ({
+    enabled: true, role, sessionId,
+    baton, holder, holdsWriteLock, mode, headRev, lastReview, incoming,
+    claimPen, commitTurn, setBaton: setBatonOwner, finalize, refresh,
+    registerCommitSource, registerSeed,
+  }), [
+    role, sessionId, baton, holder, holdsWriteLock, mode, headRev, lastReview, incoming,
+    claimPen, commitTurn, setBatonOwner, finalize, refresh, registerCommitSource, registerSeed,
+  ]);
+
+  return <NetSessionContext.Provider value={value}>{children}</NetSessionContext.Provider>;
 }
 
 /**

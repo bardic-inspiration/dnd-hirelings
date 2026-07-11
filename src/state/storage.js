@@ -21,7 +21,37 @@ export const STORAGE_KEYS = {
   CARD_EXPANSION: 'dnd-hirelings-card-expansion-v1',
   OPEN_MODALS: 'dnd-hirelings-open-modals-v1',
   CONFIG_OVERLAYS: 'dnd-hirelings-config-overlays-v1',
+  /** Per-session last-acknowledged review rev (D-disclosure banner). @param {string} id */
+  REVIEW_ACK: (id) => `dnd-hirelings-review-ack-${id}-v1`,
 };
+
+/**
+ * Loads the last review `rev` this browser acknowledged for a session (the
+ * disclosure banner is shown once per newer rev — see the ModePanel banner).
+ * Missing/corrupt data reads as `0`, so any real review (`rev >= 1`) surfaces.
+ *
+ * @param {string} sessionId
+ * @returns {number}
+ */
+export function loadReviewAck(sessionId) {
+  const raw = Number(localStorage.getItem(STORAGE_KEYS.REVIEW_ACK(sessionId)));
+  return Number.isFinite(raw) ? raw : 0;
+}
+
+/**
+ * Records the review `rev` acknowledged for a session. Best-effort: storage
+ * errors are swallowed so a full/blocked quota never breaks the banner.
+ *
+ * @param {string} sessionId
+ * @param {number} rev
+ */
+export function saveReviewAck(sessionId, rev) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.REVIEW_ACK(sessionId), String(rev));
+  } catch {
+    // ignore quota / availability errors — acknowledgment is best-effort
+  }
+}
 
 // Reads the persisted `{ [modalName]: props }` map (issue #81). Any corrupt or
 // non-object payload degrades to an empty map, so a bad entry opens no modal.
