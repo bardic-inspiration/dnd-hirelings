@@ -43,9 +43,9 @@ export default [
     },
   },
 
-  // Build/tooling configs run in Node.
+  // Build/tooling configs and the standalone session server run in Node.
   {
-    files: ['vite.config.js', 'eslint.config.js'],
+    files: ['vite.config.js', 'eslint.config.js', 'server/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',

@@ -3,6 +3,7 @@ dist/
 dev/
 .claude/
 .vite/
+server/data/
 
 # Pre-conversion image sources kept locally for re-export; not served or bundled.
 public/assets/*/originals/

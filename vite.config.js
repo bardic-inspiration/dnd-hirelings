@@ -38,6 +38,10 @@ function imageManifestPlugin({ name, virtualId, dir, basePath }) {
 export default defineConfig(({ mode }) => ({
   // Pure-function unit tests only (logic/constants tiers) — no DOM environment.
   test: { environment: 'node' },
+  // Networked GM/Player sessions reach the standalone session server (npm run
+  // server) through this proxy; offline play never touches it. See
+  // docs/specs/gm-player-mode.md §4.
+  server: { proxy: { '/api': 'http://localhost:3001' } },
   plugins: [
     react(),
     // The manifest plugins' fs.watch handles keep vitest's server from
