@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Working guide (AGENTS.md)
+    url: https://github.com/bardic-inspiration/dnd-hirelings/blob/main/AGENTS.md
+    about: How work is scoped, committed, and reviewed in this repo. Read it before filing.
+  - name: Workflow — issues
+    url: https://github.com/bardic-inspiration/dnd-hirelings/blob/main/docs/workflow.md#issues
+    about: How to scope, label, and link an issue before filing it.
