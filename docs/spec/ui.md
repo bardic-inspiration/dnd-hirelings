@@ -185,4 +185,5 @@ Two palettes, `light` and `dark`, switched from the top bar and remembered per
 browser. All colors are CSS custom properties applied to `:root`; structural
 values (radius, spacing, fonts) are fixed in the stylesheet. Each palette has
 a decorative background image ([`assets.md`](assets.md)). Class names follow
-the flat-compound convention in [`CLAUDE.md`](../../CLAUDE.md).
+the flat-compound convention in
+[`documentation.md`](../documentation.md) "Code".
