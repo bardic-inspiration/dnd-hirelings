@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 
-// The single-letter names CLAUDE.md blesses as conventional idioms, plus `_` for
+// The single-letter names docs/documentation.md blesses as idioms, plus `_` for
 // throwaway params. `id-length` flags any other single-letter identifier
 // (advisory only — see note below).
 const NAMING_IDIOMS = ['i', 'v', 'n', 'a', 'b', 'e', 'r', '_'];
@@ -36,7 +36,7 @@ export default [
       // camelCase is enforced (catches snake_case regressions); property names
       // are left alone because tag/config data uses non-camel keys.
       camelcase: ['error', { properties: 'never' }],
-      // Encode the relaxed naming rule (CLAUDE.md): full words, minus a small
+      // Encode the naming rule (docs/documentation.md "Code"): full words, minus a small
       // set of blessed single-letter idioms. Advisory (warn) so it guides new
       // code without failing CI or forcing a churn of existing callback params.
       'id-length': ['warn', { min: 2, exceptions: NAMING_IDIOMS, properties: 'never' }],

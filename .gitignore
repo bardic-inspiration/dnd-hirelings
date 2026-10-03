@@ -1,8 +1,13 @@
 node_modules/
 dist/
-dev/
-.claude/
 .vite/
+
+# Local scratch space; only PR screenshots are committed (docs/workflow.md "Screenshots").
+/dev/*
+!/dev/screenshots/
+
+# Personal Claude Code settings; the shared ones in .claude/ are committed.
+.claude/settings.local.json
 
 # Pre-conversion image sources kept locally for re-export; not served or bundled.
 public/assets/*/originals/

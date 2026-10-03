@@ -12,7 +12,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "fix": "eslint . --fix",
+    "check": "npm run lint && npm test && npm run build"
   },
   "dependencies": {
     "js-yaml": "^4.2.0",

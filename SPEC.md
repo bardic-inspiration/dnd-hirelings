@@ -130,9 +130,10 @@ entry — never a branch in the caller. Unknown keys fall back gracefully.
 
 **Dependencies are few by design.** Runtime: React, React DOM, js-yaml. Dev:
 Vite, Vitest, ESLint. No router, CSS framework, state library, or formatter.
-Why: `useReducer` is enough at this scale, the stylesheet is bespoke, and
-ESLint is lint-only so it never fights the code's deliberate column alignment.
-A new dependency needs the maintainer's approval.
+Why: `useReducer` is enough at this scale and the stylesheet is bespoke; the
+formatter's absence is explained in [`docs/documentation.md`](docs/documentation.md)
+"Code". Adding a dependency needs approval ([`AGENTS.md`](AGENTS.md) "Hard
+rules").
 
 ## Quality bars
 

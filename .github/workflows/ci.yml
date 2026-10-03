@@ -1,0 +1,80 @@
+# CI — the merge gate. docs/ci.md says what it must do, and why.
+#
+# The gate is one command, `check` (AGENTS.md "Commands"), that you, agents,
+# and CI all run: toolchain setup, install, check. A Markdown-only diff skips
+# all three, but the job still runs and reports green, so `gate` can be a
+# required status check.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect docs-only change
+        id: changes
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="$PR_BASE"; HEAD="$PR_HEAD"
+          else
+            BASE="$PUSH_BEFORE"; HEAD="$PUSH_AFTER"
+          fi
+
+          if [ -z "$BASE" ] || [ -z "$HEAD" ] \
+            || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+            || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            echo "No comparable base commit (new branch, force-push, or manual run) — running full checks."
+            exit 0
+          fi
+
+          CHANGED="$(git diff --name-only "$BASE...$HEAD")"
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          if [ -z "$CHANGED" ] || printf '%s\n' "$CHANGED" | grep -qvE '\.md$'; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Markdown-only diff — skipping setup and check (docs/ci.md)."
+          fi
+
+      - name: Set up Node.js
+        if: steps.changes.outputs.docs_only != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        if: steps.changes.outputs.docs_only != 'true'
+        run: npm ci
+
+      - name: Check
+        if: steps.changes.outputs.docs_only != 'true'
+        run: npm run check
