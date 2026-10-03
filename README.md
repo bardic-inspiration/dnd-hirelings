@@ -34,19 +34,27 @@ I'm a n00b learning about web development & design.  I use Claude Code, OpenCode
 Playable as a single-player tool. Larger work in progress is tracked as open
 [plan issues](https://github.com/bardic-inspiration/dnd-hirelings/issues?q=is%3Aissue+is%3Aopen+label%3Aplan).
 
-## Documentation
+## How this repo is built
 
-[`SPEC.md`](SPEC.md) is the source of truth for how the app behaves, with an
-area file for each part of the system under [`docs/spec/`](docs/spec/).
+This project is built largely by AI coding sessions in small, verifiable
+steps:
 
-## Getting Started
+- **The task is the prompt, the PR is the response, review is the evaluation,
+  and the squash commit on `main` is the record.**
+- [`SPEC.md`](SPEC.md) is the source of truth for what to build, with an area
+  file for each part of the system under [`docs/spec/`](docs/spec/); work
+  bigger than one PR is sequenced by a plan — a GitHub issue, with its tasks
+  as sub-issues.
+- Every change passes the same gate — one `check` command, run locally and in
+  CI — and a human merges it.
+- So `git log` on `main` reads one line per change, with its why in the body.
 
-```bash
-npm install
-npm run dev
-```
+Agents and humans starting fresh should read [`AGENTS.md`](AGENTS.md) first.
 
-Open `http://localhost:5173`.
+## Development
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) to get set up; the commands are in
+[`AGENTS.md`](AGENTS.md) "Commands".
 
 ## Credits
 
