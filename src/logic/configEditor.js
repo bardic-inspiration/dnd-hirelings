@@ -475,14 +475,14 @@ const SAVE_TYPES = [{ description: 'Guild Manager config', accept: { 'applicatio
 /**
  * Serializes a config document to YAML with a generated header. The shipped
  * file's comments are NOT preserved — `yaml.dump` regenerates from data (see
- * docs/gotchas.md).
+ * docs/spec/config.md).
  *
  * @param {object} doc - Raw config document
  * @returns {string}
  */
 export function serializeConfigDoc(doc) {
   const header = '# Guild Manager config — generated export (source comments are not preserved).\n'
-    + '# See docs/architecture.md → "Runtime Configuration System".\n';
+    + '# See docs/spec/config.md.\n';
   return header + yaml.dump(doc ?? {}, { indent: 2, lineWidth: -1 });
 }
 

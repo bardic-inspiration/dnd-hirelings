@@ -1,6 +1,6 @@
 # Clock configuration. The simulation's base time unit is the tick (one tick =
 # one day); the calendar below is a UI-only mapping from elapsed ticks to a
-# year/day label. See docs/architecture.md → "Game Clock & Tick Rollback".
+# year/day label. See docs/spec/clock.md.
 
 # How many days make up a display year.
 calendar:

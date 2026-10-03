@@ -5,15 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 - **Guild Manager** is a single-page dashboard for managing NPC agents in roleplaying games. 
 - Players create **agents**, assign **tasks**, transact **items**, and operate a **game clock** that drives automated progress.
+- [`SPEC.md`](SPEC.md) is the source of truth for what the app does: purpose, invariants, architecture, and an area file per subsystem under `docs/spec/`. UI principles are in `docs/spec/ui.md` "Principles".
 
-## UI Principles: 
-- Versatile: Components serve multiple functions.
-- Transparent: UI structure mirrors data schema
-- Modular: Components are pluggable and reusable.
-- Configurable
-- Consistent: Reuse standard styles and processes throughout.
-- Anticipate and solve text spillage
-- No page scroll
+## Code Conventions
 
 ### CSS class naming (flat compound):
 - Block: `.block` · Sub-element: `.block-element` · State: `.block--state` (double-hyphen modifier applied as a second class).
@@ -46,12 +40,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 1. Scope Partitioning
 *   **Source Code (`/src`):** The sole source of truth for implementation intent. Every exported function, hook, context, and component must include standard docstrings (e.g., JSDoc) detailing purpose, parameters, return values, and side effects. Keep logic context local; do not explain individual function mechanics in markdown files.
-*   **Markdown Docs (`/docs`):** The sole source of truth for high-level orchestration. Contains system architecture, cross-module data flows, public API contracts, environmental setup, and known system edge cases. Do not duplicate source code logic here.
+*   **Spec (`SPEC.md`, `docs/spec/`):** The sole source of truth for what the system does: architecture, cross-module data flows, data contracts and file formats, and known edge cases. Present tense only; planned work is marked `Planned (#N):` and history stays in git. Do not duplicate source code logic here.
 
 ### 2. Operational Rules
-*   **Synchronized Commits:** If a code change alters a public interface, cross-module boundary, or structural behavior, update the corresponding file in `/docs` within the same pass to prevent architectural drift.
-*   **Visible Gaps:** Proactively document ambiguities, incomplete implementations, or architectural gaps directly within the relevant code file or markdown doc rather than leaving them unaddressed.
-*   **No Redundancy:** Do not generate explanatory prose in `/docs` for self-evident code or logic fully captured by inline docstrings.
+*   **Synchronized Commits:** If a code change alters a public interface, cross-module boundary, or structural behavior, update `SPEC.md` or the matching `docs/spec/` file within the same pass to prevent architectural drift.
+*   **Visible Gaps:** Proactively document ambiguities, incomplete implementations, or architectural gaps directly within the relevant code file or markdown doc rather than leaving them unaddressed; undecided behavior goes in `SPEC.md` "Open questions".
+*   **No Redundancy:** Do not generate explanatory prose in the spec for self-evident code or logic fully captured by inline docstrings.
 
 ## Git Practices:
 Commits, pull requests and issues chart the project's evolution and inform iteration.

@@ -11,7 +11,7 @@ const basePromises = new Map();
 
 // Fetches and parses one runtime config file, degrading a missing or
 // unparseable file to an empty document (console.warn, never throws) — the
-// lenient runtime-input contract from docs/gotchas.md.
+// lenient runtime-input contract in docs/spec/config.md.
 function fetchBaseDoc(url) {
   if (!basePromises.has(url)) {
     basePromises.set(url, fetch(url)

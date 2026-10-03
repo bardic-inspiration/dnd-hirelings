@@ -1,5 +1,5 @@
 # Rollback configuration — event-based clock rewind.
-# See docs/architecture.md → "Game Clock & Tick Rollback".
+# See docs/spec/clock.md → "Rollback".
 
 # Master switch: `false` removes the step-back button entirely.
 enabled: true

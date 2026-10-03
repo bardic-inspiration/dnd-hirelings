@@ -67,7 +67,7 @@ describe('parseUIConfig', () => {
   });
 });
 
-// The canonical D&D ruleset (see docs/architecture.md → Dynamic Tags).
+// The canonical D&D ruleset (see docs/spec/tags.md → Dynamic tags).
 const RULES = normalizeRulesConfig({
   dynamic: {
     level: '[max(1, floor(0.5*(1+sqrt(1+{xp}/125))))]',
