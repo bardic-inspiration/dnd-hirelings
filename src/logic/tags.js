@@ -28,7 +28,7 @@ export const TAG_REGISTRY = {
   // they double as unquoted rule keys in config/rules.yml. `xp`, `hp`, and
   // `hitdie` carry plain values; `level`, `ac`, `pb`, `hp-max`, and
   // `xp-lvl(-max)` are governed by the rules registry and applied as `dyn,`
-  // markers (see docs/architecture.md → Dynamic Tags). Structure only — no
+  // markers (see docs/spec/tags.md → Dynamic tags). Structure only — no
   // expressions live in the tag registry.
   ac: {}, pb: {}, hitdie: {},
   hp: {}, 'hp-max': {},

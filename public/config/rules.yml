@@ -4,8 +4,8 @@
 #
 # Fetched at runtime (ships in the deployed bundle as-is, so edits here take
 # effect without a rebuild). Parsed and validated by src/logic/rulesConfig.js;
-# consumed via src/hooks/useRulesConfig.js. See docs/architecture.md
-# → "Dynamic Tags".
+# consumed via src/hooks/useRulesConfig.js. See docs/spec/tags.md
+# → "Dynamic tags".
 #
 # How dynamic tags work:
 #   - An object opts in by carrying a `dyn,<address>` tag (Tag Registry modal).

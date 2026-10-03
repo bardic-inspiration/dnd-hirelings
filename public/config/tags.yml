@@ -1,5 +1,5 @@
 # Tag system configuration.
-# See docs/architecture.md → "Tag-based Attribute System".
+# See docs/spec/tags.md → "The tag registry".
 
 # Locked mode. When true, tags of all new entities (agents, tasks, items) are
 # validated against the current tag registry and creation of entities carrying

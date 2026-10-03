@@ -109,7 +109,7 @@ export function truncateEnd(text, maxChars) {
  *    segment → `<TAG>`, modifier → `<PRE>`) — only where the placeholder is
  *    actually shorter — until it fits: `<PRE>,<TAG>:<TAGS>=<VAL>`.
  * 4. Floor: return the final form even when it still exceeds the budget
- *    (the CSS ellipsis on the container is the backstop; see docs/gotchas.md).
+ *    (the CSS ellipsis on the container is the backstop; see docs/spec/ui.md → Text display).
  *
  * Pure; no side effects.
  *

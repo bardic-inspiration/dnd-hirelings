@@ -1,4 +1,4 @@
-// Tag value resolvers: registry-bounded values (docs/tag-values.md, issue #104).
+// Tag value resolvers: registry-bounded values (docs/spec/tags.md → Implied values).
 // Every segment in a tag string is registered by definition; explicit `=values`
 // are never registered. A tag ending on a registered LEAF carries an implied
 // value whose default varies by use case — true for matching, the leaf segment

@@ -5,8 +5,8 @@
 #
 # Fetched at runtime (it ships in the deployed bundle as-is, so edits here take
 # effect without a rebuild). Parsed and validated by src/logic/UI.js;
-# consumed via src/hooks/useUIConfig.js. See docs/architecture.md
-# → "Configurable Card Elements".
+# consumed via src/hooks/useUIConfig.js. See docs/spec/config.md
+# → "Card elements".
 #
 # Source grammar (each entry is a tag-like path):
 #   <field>            bare agent scalar field (rate)

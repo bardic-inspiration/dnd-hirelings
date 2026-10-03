@@ -2,7 +2,7 @@
 // switch governing creation-time tag entry. Locked mode validates every new
 // entity's tags against the live tag registry and blocks creation on
 // unregistered tags; unlocked mode registers them instead (see
-// state/reducer.js create actions and docs/gotchas.md → Locked Tags).
+// state/reducer.js create actions and docs/spec/tags.md → The tag registry).
 
 /**
  * Shipped defaults for `public/config/tags.yml`. Unlocked by default: new

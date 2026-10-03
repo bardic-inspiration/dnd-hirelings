@@ -3,7 +3,7 @@
 // expressions governing dynamic (`dyn,`) tag values; future rule kinds become
 // sibling sections. The deployed file ships the reference D&D ruleset — this
 // is the first fully config-driven slice of the game rules (see
-// docs/architecture.md → Dynamic Tags).
+// docs/spec/tags.md → Dynamic tags).
 //
 // Expression format: the whole expression is wrapped in a square-bracket
 // envelope — `"[10+floor(({ability:dex}-10)/2)]"` — isolating it from pattern
