@@ -1,0 +1,77 @@
+# PR title — the title becomes the subject of the squash commit on main, so
+# it must be a Conventional Commits subject (docs/workflow.md "Commits",
+# docs/ci.md "PR title check"). The same check blocks spikes, which never
+# merge (docs/workflow.md "Spikes").
+#
+# The title and branch name are untrusted input: they reach the scripts only
+# through env, and are never echoed at the start of a log line.
+
+name: PR title
+
+on:
+  pull_request:
+    # edited: re-check when the title is fixed. synchronize: attach a result
+    # to every new head commit, so the required check is never missing.
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      # A spike is marked by its branch (spike/…) or, where the agent platform
+      # assigns the branch name, by its title (spike: …). Either one fails
+      # this required check, so a spike can't be merged by accident.
+      - name: Block spikes
+        shell: bash
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          title="${TITLE,,}"
+          spike_title='^spike[:(]'
+          if [[ "$HEAD_REF" == spike/* || "$title" =~ $spike_title ]]; then
+            echo "::error title=Spike::Spikes never merge. Record the findings, file the follow-ups, then close this PR (docs/workflow.md \"Spikes\")."
+            exit 1
+          fi
+          echo "Not a spike."
+
+      - name: Check the title is a Conventional Commits subject
+        shell: bash
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Keep in sync with the type list in docs/workflow.md "Commits".
+          types='feat|fix|docs|test|refactor|chore|ci|build|style'
+          form="^($types)(\([a-z0-9][a-z0-9._/-]*\))?!?: [^[:space:]]"
+          subject="$TITLE (#$NUMBER)"
+          max=72
+
+          fail() {
+            echo "::error title=PR title::$1 See docs/workflow.md."
+            echo "Current title -> $TITLE"
+            exit 1
+          }
+
+          # GitHub's "Revert" button titles the PR `Revert "<original title>"`,
+          # matching `git revert`. That's legible as is.
+          if [[ "$TITLE" =~ ^Revert\ \".+\"$ ]]; then
+            echo "Revert title accepted -> $subject"
+            exit 0
+          fi
+
+          [[ "$TITLE" =~ $form ]] \
+            || fail "Use Conventional Commits form: type(scope): imperative subject. Types: ${types//|/, }."
+          [[ "$TITLE" != *. ]] \
+            || fail "Drop the trailing period."
+          (( ${#subject} <= max )) \
+            || fail "Too long: the commit subject on main would be ${#subject} characters, including the \" (#$NUMBER)\" GitHub appends. Limit: $max."
+
+          echo "Commit subject on main -> $subject"
