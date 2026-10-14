@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
-  makeWorkEvent, makeCompleteEvent, makeTickEvent, normalizeEvent,
+  makeWorkEvent, makeCompleteEvent, makeActionEvent, makeTickEvent, normalizeEvent,
   capEventLog, serializeEventLog, parseEventLog, EVENT_LOG_COLUMNS,
 } from './eventLog.js';
 
 const agent = { id: 'a1', name: 'Ada' };
-const task = { id: 't1', name: 'Task, One', attributes: ['skill:arcana'], results: { gold: 5 } };
+const task = { id: 't1', name: 'Task, One', attributes: ['skill:arcana'] };
 const condition = { id: 'c1', name: 'ARCANA', target: 100 };
 
 describe('capEventLog', () => {
@@ -32,25 +32,55 @@ describe('normalizeEvent', () => {
   });
 });
 
+describe('makeWorkEvent', () => {
+  it('records a vessel deposit under the vessel\'s key, name, and bound', () => {
+    expect(makeWorkEvent({ seq: 0, clock: 1, agent, task, condition, delta: 4, progress: 6, actionKind: 'vessel.deposit' }))
+      .toMatchObject({ eventType: 'work_contribution', conditionId: 'c1', conditionName: 'ARCANA', target: 100,
+        delta: 4, progress: 6, data: {}, actionKind: 'vessel.deposit', reverseData: {} });
+  });
+});
+
 describe('makeCompleteEvent', () => {
-  it('records the spawn/unassign ids rollback needs, defaulting to empty', () => {
-    expect(makeCompleteEvent({ seq: 0, clock: 0, task }).data)
-      .toMatchObject({ spawnedAgentIds: [], unassignedAgentIds: [] });
-    const event = makeCompleteEvent({
-      seq: 0, clock: 0, task, spawnedAgentIds: ['s1'], unassignedAgentIds: ['a1'],
+  it('records the completion for audit: the task and its tags', () => {
+    expect(makeCompleteEvent({ seq: 0, clock: 2, task })).toMatchObject({
+      eventType: 'task_complete', taskId: 't1', taskName: 'Task, One',
+      data: { isComplete: true, attributes: ['skill:arcana'] },
     });
-    expect(event.data.spawnedAgentIds).toEqual(['s1']);
-    expect(event.data.unassignedAgentIds).toEqual(['a1']);
+    expect(makeCompleteEvent({ seq: 0, clock: 2, task }).data).not.toHaveProperty('results');
+  });
+});
+
+describe('makeActionEvent', () => {
+  it('records an action with its kind, params, deltas, and reverse recipe', () => {
+    const record = { kind: 'flag.set', params: { key: 'x', value: 1 }, deltas: { key: 'x', value: 1 }, reverseData: { had: false } };
+    expect(makeActionEvent({ seq: 4, clock: 2, task, record })).toMatchObject({
+      seq: 4, eventType: 'action', clock: 2, taskId: 't1', taskName: 'Task, One',
+      actionKind: 'flag.set', data: { params: record.params, deltas: record.deltas }, reverseData: { had: false },
+    });
+  });
+
+  it('marks a skipped action in data', () => {
+    const record = { kind: 'tag.apply', params: {}, deltas: null, reverseData: {}, skipped: 'locked' };
+    expect(makeActionEvent({ seq: 0, clock: 1, task, record }).data).toEqual({ params: {}, deltas: null, skipped: 'locked' });
+  });
+});
+
+describe('makeTickEvent', () => {
+  it('records the tick\'s rolls only when it rolled', () => {
+    expect(makeTickEvent({ seq: 0, clock: 1, wagesTotal: 0, wages: [] }).data).toEqual({ wagesTotal: 0, wages: [] });
+    const rolls = [{ operatorId: 'g', agentId: 'a1', rollIndex: 0, notation: '1d20', result: 7 }];
+    expect(makeTickEvent({ seq: 0, clock: 1, wagesTotal: 0, wages: [], rolls }).data.rolls).toEqual(rolls);
   });
 });
 
 describe('CSV round-trip', () => {
-  it('serializes and re-parses work, completion, and tick events without loss', () => {
+  it('serializes and re-parses work, completion, action, and tick events without loss', () => {
     const log = [
       makeWorkEvent({ seq: 0, clock: 1, agent, task, condition, delta: 4, progress: 4 }),
-      makeCompleteEvent({ seq: 1, clock: 2, task, spawnedAgentIds: ['s1'], unassignedAgentIds: ['a1'] }),
+      makeCompleteEvent({ seq: 1, clock: 2, task }),
+      makeActionEvent({ seq: 2, clock: 2, task, record: { kind: 'bank.adjust', params: { amount: 5 }, deltas: { amount: 5 }, reverseData: {} } }),
       makeTickEvent({
-        seq: 2, clock: 2, wagesTotal: 2,
+        seq: 3, clock: 2, wagesTotal: 2,
         wages: [{ agentId: 'a1', agentName: 'Ada', amount: 2 }],
       }),
     ];

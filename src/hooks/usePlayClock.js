@@ -6,6 +6,7 @@ import { rollbackTime } from '../logic/rollback.js';
 import { flashAgentCard } from '../logic/dom.js';
 import { useClockConfig } from './useClockConfig.js';
 import { useRollbackConfig } from './useRollbackConfig.js';
+import { useTagsConfig } from './useTagsConfig.js';
 
 /**
  * Manages the game loop: a `setInterval` for discrete ticks and a `requestAnimationFrame`
@@ -33,6 +34,7 @@ export function usePlayClock() {
   const { playing, setPlaying } = useUI();
   const clockConfig = useClockConfig();
   const rollbackConfig = useRollbackConfig();
+  const { locked } = useTagsConfig();
 
   const stateRef   = useRef(state);
   const playingRef = useRef(playing);
@@ -40,6 +42,7 @@ export function usePlayClock() {
   // stale values between config edits and the next (re)start.
   const clockConfigRef    = useRef(clockConfig);
   const rollbackConfigRef = useRef(rollbackConfig);
+  const lockedRef         = useRef(locked);
   const tickInfoRef = useRef({ lastTickWallTime: 0, tickIntervalMs: 1000, taskProgressPerTick: {} });
   const intervalRef = useRef(null);
   const rafRef      = useRef(null);
@@ -47,6 +50,7 @@ export function usePlayClock() {
   useEffect(() => { stateRef.current = state; }, [state]);
   useEffect(() => { playingRef.current = playing; }, [playing]);
   useEffect(() => { rollbackConfigRef.current = rollbackConfig; }, [rollbackConfig]);
+  useEffect(() => { lockedRef.current = locked; }, [locked]);
 
   // Advance `count` ticks: advance state, publish the per-tick progress rates for
   // the RAF loop, commit, and flash agents that couldn't contribute.
@@ -56,6 +60,7 @@ export function usePlayClock() {
     const result = advanceTime(stateRef.current, {
       count,
       rollbackConfig: rollbackConfigRef.current,
+      locked: lockedRef.current,
     });
     stateRef.current = result.newState;
     if (resetWallTime) tickInfoRef.current.lastTickWallTime = Date.now();

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { reducer } from './reducer.js';
 import { normalizeRulesConfig } from '../logic/rulesConfig.js';
+import { lowerTask, conditionsView, resultsView } from '../logic/taskModel.js';
 
 // Minimal board state exercising the TAG_APPLY dedup path (issue #82).
 const baseState = () => ({
@@ -269,5 +270,58 @@ describe('DYN_RECONCILE', () => {
       agents: [{ id: 'a1', attributes: ['ability:dex=14', 'dyn,ac=12'], activities: [] }],
     };
     expect(reducer(state, { type: 'DYN_RECONCILE', rules })).toBe(state);
+  });
+});
+
+describe('task engine sugar verbs (#117)', () => {
+  const taskState = () => ({
+    session: { bank: 10 },
+    agents: [{ id: 'a1', attributes: [], activities: ['task:t1'] }],
+    tasks: [lowerTask({ id: 't1', name: 'T', requirements: [], attributes: [], isComplete: false,
+      conditions: [{ id: 'c1', name: 'WORK', target: 4, progress: 1, tracker: { kind: 'work', tagPath: null, compare: null } }],
+      results: { gold: 5, items: [{ name: 'Rope', quantity: 1 }], agents: [] } })],
+    inventory: [],
+    tagRegistry: {},
+  });
+
+  it('TASK_CREATE lowers preset condition templates into operators and vessels', () => {
+    const preset = { name: 'SCOUT', conditions: [{ name: 'X', target: 5, tracker: { kind: 'work', tagPath: 'skill:stealth' } }] };
+    const [task] = reducer({ ...taskState(), tasks: [] }, { type: 'TASK_CREATE', preset }).tasks;
+    expect(task).not.toHaveProperty('conditions');
+    expect(task).not.toHaveProperty('results');
+    expect(conditionsView(task)).toEqual([{ id: expect.any(String), name: 'X', progress: 0, target: 5,
+      tracker: { kind: 'work', tagPath: 'skill:stealth', compare: null } }]);
+    expect(resultsView(task)).toEqual({ gold: 0, items: [], agents: [] });
+  });
+
+  it('TASK_CONDITION_ADD / UPDATE / REMOVE edit the lowered task', () => {
+    let state = reducer(taskState(), { type: 'TASK_CONDITION_ADD', id: 't1',
+      template: { name: 'ARC', target: 3, tracker: { kind: 'work', tagPath: 'skill:arcana', compare: null } } });
+    expect(conditionsView(state.tasks[0]).map(row => row.name)).toEqual(['WORK', 'ARC']);
+    expect(state.tagRegistry.skill.arcana).toEqual({});
+    state = reducer(state, { type: 'TASK_CONDITION_UPDATE', id: 't1', conditionId: 'c1', changes: { progress: 4, target: 6 } });
+    expect(conditionsView(state.tasks[0])[0]).toMatchObject({ id: 'c1', progress: 4, target: 6 });
+    state = reducer(state, { type: 'TASK_CONDITION_REMOVE', id: 't1', conditionId: 'c1' });
+    expect(conditionsView(state.tasks[0]).map(row => row.name)).toEqual(['ARC']);
+  });
+
+  it('TASK_UPDATE_RESULTS edits the results view', () => {
+    const state = reducer(taskState(), { type: 'TASK_UPDATE_RESULTS', id: 't1', changes: { gold: 9 } });
+    expect(resultsView(state.tasks[0])).toEqual({ gold: 9, items: [{ name: 'Rope', quantity: 1 }], agents: [] });
+  });
+
+  it('TASK_SET_COMPLETE runs the completion: unassigns and pays the results', () => {
+    const state = reducer(taskState(), { type: 'TASK_SET_COMPLETE', id: 't1', isComplete: true });
+    expect(state.tasks[0].isComplete).toBe(true);
+    expect(state.agents[0].activities).toEqual([]);
+    expect(state.session.bank).toBe(15);
+    expect(state.inventory.map(item => [item.name, item.quantity])).toEqual([['Rope', 1]]);
+  });
+
+  it('TASK_DUPLICATE copies operators, vessels, and effects with an empty blackboard', () => {
+    const state = reducer(taskState(), { type: 'TASK_DUPLICATE', id: 't1' });
+    const [orig, copy] = state.tasks;
+    expect(copy.id).not.toBe(orig.id);
+    expect(copy).toMatchObject({ operators: orig.operators, vessels: orig.vessels, effects: orig.effects, blackboard: {}, isComplete: false });
   });
 });

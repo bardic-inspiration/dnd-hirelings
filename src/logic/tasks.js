@@ -1,5 +1,6 @@
-import { parseTag, buildTag, MODIFIER_REGISTRY } from './tags.js';
-import { uid, now } from '../utils.js';
+import { parseTag, MODIFIER_REGISTRY } from './tags.js';
+import { successVesselKeys, isVesselFull } from './taskModel.js';
+import { applyActions } from './actions.js';
 
 /**
  * Routes a tag string to the task list that stores it. Routing is the task's
@@ -16,112 +17,44 @@ export function routeTaskTag(tagString) {
 }
 
 /**
- * Returns true when the task should complete at the end of a tick.
- * Each condition is checked independently — overshooting one cannot satisfy a
- * deficit in another. A task with zero conditions carries an implied
- * "clock advanced" condition: it completes whenever `clockAdvanced` is true
- * (i.e. at least one eligible agent worked it this tick).
+ * Returns true when the task should complete at the end of a tick: every
+ * success vessel's `fullWhen` passes against its fill. Vessels are checked
+ * independently — overshooting one cannot cover a deficit in another. A task
+ * with no success vessels carries an implied "clock advanced" condition: it
+ * completes whenever `clockAdvanced` is true (an eligible agent worked it
+ * this tick).
  *
  * @param {Task} task
  * @param {boolean} [clockAdvanced] - True when an eligible agent worked the task this tick
  * @returns {boolean}
  */
 export function checkTaskComplete(task, clockAdvanced = false) {
-  const conditions = task.conditions || [];
-  if (conditions.length === 0) return clockAdvanced;
-  return conditions.every(condition => condition.progress >= condition.target);
+  const keys = successVesselKeys(task);
+  if (keys.length === 0) return clockAdvanced;
+  return keys.every(key => isVesselFull(task, key));
 }
 
 /**
- * Applies a task's reward payload to the world state.
+ * Completes a task: marks it complete, then applies `agent.unassign` (every
+ * agent assigned to it) and its completion effects through `applyActions`.
+ * The tick logs the returned records as `action` rows; the ✓ button
+ * (`TASK_SET_COMPLETE`) discards them, since hand edits are not logged.
  *
- * Steps:
- * 1. Merges `results.items` into inventory (adds to existing stack or creates new row).
- * 2. Spawns `results.agents` from their templates.
- * 3. Computes gold delta from `results.gold`.
- *
- * Does NOT mark the task complete or unassign agents — that is `applyTaskComplete`'s job.
- *
- * @param {Task} task
- * @param {InventoryItem[]} inventory
- * @param {Agent[]} agents
- * @returns {{ newInventory: InventoryItem[], newAgents: Agent[], bankDelta: number,
- *   spawnedAgentIds: string[] }} `spawnedAgentIds` lists the freshly minted
- *   agent ids so the completion event can record them for rollback
- */
-export function applyResults(task, inventory, agents) {
-  let newInventory = inventory.map(item => ({ ...item }));
-
-  // 1. Merge result items into inventory.
-  for (const reward of task.results?.items || []) {
-    const quantity = Number(reward.quantity) || 0;
-    if (!reward.name || quantity <= 0) continue;
-    const existing = newInventory.find(item => item.name.toLowerCase() === reward.name.toLowerCase());
-    if (existing) existing.quantity += quantity;
-    else newInventory.push({ id: uid(), name: reward.name, quantity, icon: '', description: '', value: 0, attributes: [] });
-  }
-
-  // 2. Spawn result agents from templates.
-  let newAgents = agents;
-  const spawned = [];
-  for (const spawn of task.results?.agents || []) {
-    const quantity = Math.max(0, Math.floor(Number(spawn.quantity) || 0));
-    const template = spawn.template || {};
-    for (let index = 0; index < quantity; index++) {
-      spawned.push({
-        id: uid(),
-        name:        template.name        || 'NEW HIRELING',
-        icon:        template.icon        || '',
-        rate:        template.rate        ?? 1,
-        rateUnit:    template.rateUnit    || 'GP/DAY',
-        description: template.description || '',
-        attributes:  Array.isArray(template.attributes) ? [...template.attributes] : [],
-        activities:  [],
-        createdAt:   now(),
-        lastAssigned: null,
-      });
-    }
-  }
-  if (spawned.length) newAgents = [...agents, ...spawned];
-
-  // 3. Gold reward.
-  const bankDelta = Number(task.results?.gold) || 0;
-
-  return { newInventory, newAgents, bankDelta, spawnedAgentIds: spawned.map(agent => agent.id) };
-}
-
-/**
- * Orchestrates task completion: marks the task done, removes all agent assignments
- * to it, then calls `applyResults` to distribute rewards.
- *
+ * @param {object} world - `{ agents, tasks, inventory, session, tagRegistry }`
  * @param {string} taskId
- * @param {Task[]} tasks
- * @param {Agent[]} agents
- * @param {InventoryItem[]} inventory
- * @returns {{ newTasks: Task[], newAgents: Agent[], newInventory: InventoryItem[],
- *   bankDelta: number, spawnedAgentIds: string[], unassignedAgentIds: string[] }}
- *   The id lists let the completion event record exactly which agents were
- *   spawned and unassigned, so rollback can reverse both
+ * @param {{ locked?: boolean }} [options] - Locked mode for tag-writing actions
+ * @returns {{ world: object, records: object[] }} The input world and no
+ *   records for an unknown task id
  */
-export function applyTaskComplete(taskId, tasks, agents, inventory) {
-  const taskTag = buildTag(['task', taskId]);
-  const task = tasks.find(task => task.id === taskId);
-  if (!task) {
-    return {
-      newTasks: tasks, newAgents: agents, newInventory: inventory,
-      bankDelta: 0, spawnedAgentIds: [], unassignedAgentIds: [],
-    };
-  }
-
-  const newTasks = tasks.map(task => task.id !== taskId ? task : { ...task, isComplete: true });
-  const unassignedAgentIds = agents
-    .filter(agent => agent.activities.includes(taskTag))
-    .map(agent => agent.id);
-  const unassigned = agents.map(agent => ({ ...agent, activities: agent.activities.filter(act => act !== taskTag) }));
-
-  const { newInventory, newAgents, bankDelta, spawnedAgentIds } = applyResults(task, inventory, unassigned);
-
-  return { newTasks, newAgents, newInventory, bankDelta, spawnedAgentIds, unassignedAgentIds };
+export function completeTask(world, taskId, { locked = false } = {}) {
+  const task = world.tasks.find(task => task.id === taskId);
+  if (!task) return { world, records: [] };
+  const completed = { ...world, tasks: world.tasks.map(entry => (entry.id === taskId ? { ...entry, isComplete: true } : entry)) };
+  const actions = [
+    { kind: 'agent.unassign', params: { selector: { scope: 'assigned' } } },
+    ...(task.effects ?? []).filter(effect => effect.on === 'completion').flatMap(effect => effect.actions),
+  ];
+  return applyActions(completed, actions, { taskId, locked });
 }
 
 /**

@@ -1,18 +1,20 @@
-// Conditions: structured progress subcategories attached to tasks. A condition
-// is NOT a tag — it references the tag registry through an abstract path
-// (`tracker.tagPath`) and tracks its own `progress` toward a numeric `target`.
-// Trackers are modular: each `tracker.kind` maps to a contribution function in
-// TRACKER_REGISTRY, so future event- or rule-driven trackers plug in here
-// without touching the clock loop.
+// Conditions: the authoring shape for task progress — a `target`, a
+// `progress`, and a `tracker` linking it to agent tags through an abstract
+// path (`tracker.tagPath`). A condition is NOT a tag. Tasks no longer store
+// conditions: presets and the condition controls author them, and
+// logic/taskModel.js lowers each one into a gate + contribute pair and a
+// vessel (docs/spec/task-engine.md "Migration"). This module owns the
+// template guards, the draft grammar, the display labels, and legacy `work`
+// tag migration.
 
 import { parseTag } from './tags.js';
-import { formatPatternLabel, matchTagPath, matchTagValue, parsePattern, VALUE_COMPARE_REGISTRY } from './tagMatching.js';
-import { resolveTagValue } from './tagValues.js';
+import { formatPatternLabel, parsePattern, VALUE_COMPARE_REGISTRY } from './tagMatching.js';
 import { uid } from '../utils.js';
 
 /**
  * @typedef {object} ConditionTracker
- * @property {string} kind - Tracker kind; key into `TRACKER_REGISTRY` (currently only `'work'`)
+ * @property {string} kind - Tracker kind: `'work'` (lowered to gate + contribute); any
+ *   other kind lowers to an inert `write` operator carrying the tracker
  * @property {string|null} tagPath - Pattern path matched (open mode) against agent
  *   attribute tags via `logic/tagMatching.js` (e.g. `'skill:arcana'`, `'skill:*'`,
  *   `'skill:**'`), or `null` to accept any assigned agent
@@ -40,74 +42,6 @@ function normalizeCompare(raw, path) {
  */
 
 /** @typedef {ConditionTemplate & { id: string, progress: number }} Condition */
-
-/**
- * `'work'` tracker: per-tick contribution of one assigned agent to a condition.
- *
- * The tag link is matched in the engine's `'open'` mode (`logic/tagMatching.js`)
- * against an agent attribute's full segment path (modifier tags excluded).
- * Without wildcards this is exact alignment: `tagPath: 'skill'` matches only a
- * literal `skill=value` tag — `skill:arcana=3` does NOT satisfy it. Wildcards
- * widen the link explicitly: `'skill:*'` matches any specific skill,
- * `'skill:**'` the whole skill subtree, `'**:potato'` any path ending in potato.
- *
- * When the tracker carries a `compare` term, it is tested against each
- * path-matched tag's display-resolved value (`logic/tagValues.js`) INSIDE the
- * search, so a wildcard link selects the first *qualifying* tag — an agent
- * with several path matches contributes through whichever one passes.
- *
- * Rates:
- * - `tagPath: null` → base rate `workRate * stepDays` (any agent contributes)
- * - matched tag with explicit numeric value → `(workRate + value * skillBonus) * stepDays`
- * - matched tag without one → base rate (leaf strings never become rate bonuses)
- * - no matching/qualifying tag → 0 (the agent does not contribute)
- *
- * @param {Condition} condition
- * @param {{ effectiveAttributes: string[], session: Session, stepDays: number, registry: TagRegistry }} context
- * @returns {number} Progress units contributed this tick
- */
-function workContribution(condition, { effectiveAttributes, session, stepDays, registry }) {
-  const workRate   = session.workRate   ?? 1;
-  const skillBonus = session.skillBonus ?? 1;
-  const { tagPath, compare = null } = condition.tracker;
-  if (!tagPath) return workRate * stepDays;
-
-  const match = effectiveAttributes
-    .map(tag => parseTag(tag))
-    .find(parsed => !parsed.modifier
-      && matchTagPath(tagPath, parsed.segments, { mode: 'open' })
-      && matchTagValue(compare, resolveTagValue('display', parsed, registry)));
-  if (!match) return 0;
-
-  const value = resolveTagValue('numeric', match, registry);
-  if (value === null) return workRate * stepDays;
-  return (workRate + value * skillBonus) * stepDays;
-}
-
-/**
- * Maps `tracker.kind` to its contribution function — the extension point for
- * future progress trackers (event counters, rule evaluators, …). Each function
- * receives `(condition, context)` and returns the progress units one agent
- * contributes in one tick.
- *
- * @type {{ [kind: string]: (condition: Condition, context: object) => number }}
- */
-export const TRACKER_REGISTRY = {
-  work: workContribution,
-};
-
-/**
- * Computes one agent's per-tick contribution to a condition by dispatching to
- * the tracker registered for `condition.tracker.kind`. Unknown kinds contribute 0.
- *
- * @param {Condition} condition
- * @param {{ effectiveAttributes: string[], session: Session, stepDays: number }} context
- * @returns {number} Progress units contributed this tick
- */
-export function computeConditionContribution(condition, context) {
-  const tracker = TRACKER_REGISTRY[condition.tracker?.kind];
-  return tracker ? tracker(condition, context) : 0;
-}
 
 // Display glyphs for comparison operators; unmapped operators render as-is.
 const COMPARE_SYMBOLS = { '==': '=', '>=': '≥', '<=': '≤' };
@@ -317,15 +251,4 @@ export function migrateLegacyWork(workTags, workProgress = {}) {
     const stored = parseFloat(workProgress?.[template.tracker.tagPath ?? '']);
     return { ...conditionFromTemplate(template), progress: stored > 0 ? stored : 0 };
   });
-}
-
-/**
- * Returns a copy of `conditions` with all progress reset to 0 (ids preserved).
- * Used when a completed task is reset.
- *
- * @param {Condition[]} conditions
- * @returns {Condition[]}
- */
-export function resetConditions(conditions) {
-  return (conditions || []).map(condition => ({ ...condition, progress: 0 }));
 }
