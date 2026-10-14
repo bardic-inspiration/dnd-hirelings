@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   makeWorkEvent, makeCompleteEvent, makeTickEvent, normalizeEvent,
-  capEventLog, serializeEventLog, parseEventLog,
+  capEventLog, serializeEventLog, parseEventLog, EVENT_LOG_COLUMNS,
 } from './eventLog.js';
 
 const agent = { id: 'a1', name: 'Ada' };
@@ -74,5 +74,53 @@ describe('CSV round-trip', () => {
     const header = 'seq,eventType,clock,agentId,agentName,taskId,taskName,conditionId,conditionName,delta,progress,target,data';
     const row = '0,work_contribution,0,a1,Ada,t1,T,c1,ARCANA,1,1,100,{not json';
     expect(parseEventLog(`${header}\n${row}`)[0].data).toEqual({});
+  });
+});
+
+describe('action columns (#117)', () => {
+  const LEGACY_COLUMNS = [
+    'seq', 'eventType', 'clock',
+    'agentId', 'agentName', 'taskId', 'taskName',
+    'conditionId', 'conditionName', 'delta', 'progress', 'target', 'data',
+  ];
+
+  it('appends actionKind and reverseData after data, keeping every earlier column in place', () => {
+    expect(EVENT_LOG_COLUMNS).toEqual([...LEGACY_COLUMNS, 'actionKind', 'reverseData']);
+  });
+
+  it('defaults actionKind to an empty string and reverseData to {} on every built row', () => {
+    const rows = [
+      makeWorkEvent({ seq: 0, clock: 1, agent, task, condition, delta: 1, progress: 1 }),
+      makeCompleteEvent({ seq: 1, clock: 1, task }),
+      makeTickEvent({ seq: 2, clock: 1, wagesTotal: 0, wages: [] }),
+    ];
+    for (const row of rows) expect(row).toMatchObject({ actionKind: '', reverseData: {} });
+  });
+
+  it('normalizes rows that predate the columns to the defaults', () => {
+    expect(normalizeEvent({ taskId: 't1' })).toMatchObject({ actionKind: '', reverseData: {} });
+    expect(normalizeEvent({ taskId: 't1', actionKind: 7, reverseData: 'x' }))
+      .toMatchObject({ actionKind: '7', reverseData: {} });
+  });
+
+  it('round-trips both columns through CSV', () => {
+    const row = normalizeEvent({
+      seq: 4, eventType: 'action', clock: 2, taskId: 't1', taskName: 'Task, One',
+      data: { params: { amount: 50 }, deltas: [] },
+      actionKind: 'bank.adjust', reverseData: { before: { flag: 'a,"b"' } },
+    });
+    expect(parseEventLog(serializeEventLog([row]))).toEqual([row]);
+  });
+
+  it('reads a CSV written before the columns existed', () => {
+    const header = LEGACY_COLUMNS.join(',');
+    const csvRow = '0,work_contribution,0,a1,Ada,t1,T,c1,ARCANA,1,1,100,{}';
+    expect(parseEventLog(`${header}\n${csvRow}`)[0]).toMatchObject({ actionKind: '', reverseData: {} });
+  });
+
+  it('falls back to {} for a corrupt reverseData cell', () => {
+    const header = EVENT_LOG_COLUMNS.join(',');
+    const csvRow = '0,action,0,,,t1,T,,,0,0,0,{},bank.adjust,{not json';
+    expect(parseEventLog(`${header}\n${csvRow}`)[0]).toMatchObject({ actionKind: 'bank.adjust', reverseData: {} });
   });
 });

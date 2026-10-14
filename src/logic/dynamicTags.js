@@ -18,6 +18,8 @@
 //   the marker); wildcards sum matching markers' totals. Missing → 1 +
 //   warning. Chains evaluate in dependency order; cycles collapse every
 //   marker on the cycle to 1 + warning.
+// - a rule containing dice (`d20`) never rolls: it defaults to 1 + warning
+//   (`evaluateDynamic`), because a random payload would never settle.
 // - a marker with NO rule (or an unparseable rule) is INVALID: no value
 //   exists, the payload is stripped, and the UI renders the invalid state.
 // Warnings are always derived, never stored.
@@ -25,7 +27,7 @@
 import { parseTag, buildTag } from './tags.js';
 import { resolveTagValue } from './tagValues.js';
 import { parsePattern, matchTagPath } from './tagMatching.js';
-import { parseExpression, evaluateExpression } from './expressions.js';
+import { parseExpression, evaluateDynamic } from './expressions.js';
 import { getEffectiveAttributes } from './agents.js';
 
 /**
@@ -164,7 +166,9 @@ export function evaluateDynamicTags(effectiveAttributes, rulesConfig, registry) 
     const { ast } = parseExpression(rule.expression);
     let warnings = [];
     stack.push(address);
-    let exprValue = evaluateExpression(ast, (refPath, scope) => resolveReference(refPath, scope, warnings));
+    const evaluated = evaluateDynamic(ast, (refPath, scope) => resolveReference(refPath, scope, warnings));
+    let exprValue = evaluated.value;
+    if (evaluated.warning) warnings.push(evaluated.warning);
     stack.pop();
     if (cyclic.has(address)) {
       exprValue = 1;

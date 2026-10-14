@@ -16,6 +16,9 @@
 #
 # Expression grammar (see src/logic/expressions.js):
 #   - numbers, + - * / % and parentheses; results keep decimals
+#   - comparisons == != >= <= > < and && || ! yield 1 or 0
+#   - dice (d20, 2d6) parse, but rules never roll: a rule with dice defaults
+#     to 1 and flags a warning
 #   - functions: floor(x) ceil(x) round(x) sqrt(x) min(a,b,…) max(a,b,…)
 #   - {address}       the object's STATIC tag value at that address
 #   - {dyn,address}   the object's DYNAMIC tag total at that address

@@ -1,13 +1,18 @@
 # Task Engine
 
-**`Planned (#117):`** this whole area. It replaces conditions and results
-([`tasks.md`](tasks.md)) with one engine: ordered **operators** gate and
-modulate per-tick **flow** into **vessels**; **actions** are the universal
-effect primitive; a task-local **blackboard** carries written state; dice are
-**seeded** and replay-derived; rollback stays best-effort through per-kind
-reverses. Part of [`SPEC.md`](../../SPEC.md).
+One engine for tasks: ordered **operators** gate and modulate per-tick
+**flow** into **vessels**; **actions** are the universal effect primitive; a
+task-local **blackboard** carries written state; dice are **seeded** and
+replay-derived; rollback stays best-effort through per-kind reverses. Part of
+[`SPEC.md`](../../SPEC.md).
+
+`Planned (#117):` the engine replaces conditions and results
+([`tasks.md`](tasks.md)). Each section marks what of it is planned;
+"Expressions" is built in full.
 
 ## The model
+
+`Planned (#117):` this section.
 
 Each tick, flow passes through every active task. Everything is admitted by
 default; **gates** admit or reject it, **modulators** scale it, and flow that
@@ -23,6 +28,9 @@ actions.
   and is lowered into it on load ([Migration](#migration)).
 
 ## Shapes
+
+`Planned (#117):` every shape here except `Flow` and `RollRecord`
+(`src/logic/operators.js`; `createFlow()` returns the starting flow).
 
 ```ts
 interface Task {                     // stored shape from storage key -v7
@@ -74,6 +82,8 @@ missing fields default to `operators: []`, `vessels: {}`, `effects: []`,
 
 ## Operators
 
+`Planned (#117):` this section.
+
 `OPERATOR_REGISTRY` (`src/logic/operators.js`) maps a kind to
 `(op, flow, ctx) => flow`. It subsumes `TRACKER_REGISTRY`.
 
@@ -94,6 +104,8 @@ number of passers once instead of once per passer. Order is author-controlled
 and literal. A contribute deposits its `expr` (or 1) unless `count` is set.
 
 ## The tick
+
+`Planned (#117):` this section.
 
 `advanceTick` keeps its envelope — one new state per tick, committed whole by
 `APPLY_TICK` — but replaces the per-condition loop with the fold:
@@ -133,8 +145,10 @@ source, so it changes additively:
 - **Columns.** `actionKind` (string, default `''`) and `reverseData` (JSON,
   default `{}`) are appended after `data`. `reverseData` carries the reverse
   recipe, including pre-images for writes whose inverse restores a prior
-  value. Older builds importing a newer CSV drop the two columns; those rows
-  fall back to the legacy reverse.
+  value. A row that records no action carries the defaults, and a row or CSV
+  without the columns normalizes to them. Older builds importing a newer CSV
+  drop the two columns; those rows fall back to the legacy reverse.
+- `Planned (#117):` the rest of this section.
 - **Rows**, in the order `work* → task_complete* → action* → tick`:
 
   | Type | For | Notes |
@@ -167,19 +181,29 @@ parser already resolves references first and evaluates second, the new
 surface is a small grammar addition, and a dependency needs approval.
 
 - **Grammar**, loosest to tightest: `||`, `&&`, `== != >= <= > <`, `+ -`,
-  `* / %`, unary `! -`, primary. Booleans are `1` / `0`; non-finite operands
-  propagate. A dice literal `NdM` (`d20` = `1d20`) is one node.
-- A dice node calls `roll(n, m)` from the active function table; with no
-  `roll`, it evaluates to `NaN`.
+  `* / %`, unary `! -`, primary. Comparisons and `&& || !` yield `1` / `0`,
+  reading any nonzero operand as true; a non-finite operand makes them `NaN`,
+  and arithmetic propagates non-finite values. Both sides of `&&` and `||`
+  always evaluate. Why: how many dice an expression rolls never depends on
+  its values. A dice literal `NdM` (`d20` = `1d20`) is one node; N and M are
+  positive integers, else a parse error. A lone `=`, `&`, or `|` is a parse
+  error.
+- A dice node calls the `roll` entry (`apply(n, m)`) of the active function
+  table; with no `roll`, it evaluates to `NaN`. `roll(…)` is not callable
+  syntax.
 - **API:** `evaluateExpression(ast, resolve, functions = EXPRESSION_FUNCTIONS)`;
-  `evaluateCheck(source, { resolve, roll })` for operators;
-  `evaluateDynamic` for dynamic tags, which never receives `roll`.
+  `evaluateCheck(source, { resolve, roll })` for operators, returning
+  `{ value, error }` — `NaN` and the parse error on bad source, with nothing
+  rolled; `evaluateDynamic(ast, resolve)` for dynamic tags, returning
+  `{ value, warning }`, which never receives `roll`.
 - **Determinism (tested):** `EXPRESSION_FUNCTIONS` never contains randomness;
   a dice expression on the dynamic path warns and defaults to 1; reconcile
   stays idempotent. Why: dynamic payloads are stored, so a random value would
   churn saves, loop the reconcile effect, and corrupt rollback.
 
 ## References
+
+`Planned (#117):` this section.
 
 Operators resolve references through their own resolver, separate from the
 dynamic-tag resolver:
@@ -194,19 +218,25 @@ dynamic-tag resolver:
 
 ## Randomness
 
-`src/logic/rng.js`: a string-hash seed feeding a small PRNG, with no
-dependency.
+`src/logic/rng.js`: a string-hash seed (FNV-1a with MurmurHash3's
+finalizer) feeding mulberry32, with no dependency. `createRng(key)` returns a
+key's stream of values in `[0, 1)`; `rollDice(key, n, m)` draws N dice from
+it and returns `{ result, values }`; `rollSeedKey(parts)` builds the key.
+Golden-value tests pin both algorithms. Why: changing either changes every
+replayed roll.
 
 - **Seed key:** `` `${clock}|${taskId}|${operatorId}|${agentId}|${rollIndex}` ``.
   One stream per key; `NdM` draws N values from it (one literal, one
   `rollIndex`).
-- `rollIndex` counts up per `(taskId, operatorId, agentId)` within a tick, so
-  follow-up and effect-fired rolls get distinct indices.
-- **Replay re-derives every roll:** results repeat when rules and
-  participants are unchanged and change when the author edits the operator.
-  The log records outcomes for audit, never as a source of truth.
+- `Planned (#117):` `rollIndex` counts up per `(taskId, operatorId, agentId)`
+  within a tick, so follow-up and effect-fired rolls get distinct indices.
+- `Planned (#117):` **replay re-derives every roll:** results repeat when
+  rules and participants are unchanged and change when the author edits the
+  operator. The log records outcomes for audit, never as a source of truth.
 
 ## Actions
+
+`Planned (#117):` this section.
 
 `ACTION_REGISTRY` (`src/logic/actions.js`) maps a kind to
 `{ apply(action, ctx) → { deltas, logRow }, reverse(row, ctx) → deltas | null }`.
@@ -241,6 +271,8 @@ Selectors reuse the tag-matching engine
 
 ## Migration
 
+`Planned (#117):` this section.
+
 The storage key becomes `dnd-hirelings-state-v7`. `loadState` reads `-v7`,
 else reads `-v6` and lowers it through `normalizeState`. Lowering is
 idempotent:
@@ -265,6 +297,8 @@ operator carrying its payload, so nothing is dropped.
 
 ## Authoring
 
+`Planned (#117):` this section.
+
 - A `tasks` entry in `CONFIG_FILES` (`kind: 'state'`, bound to `state.tasks`)
   with a `TASKS_SCHEMA`: operators as a list, vessels as an `anyKey` map,
   `expr` and `fullWhen` checked softly through `parseExpression`.
@@ -273,6 +307,8 @@ operator carrying its payload, so nothing is dropped.
   keep working through the sugar verbs.
 
 ## Worked examples
+
+`Planned (#117):` this section.
 
 **Find Victor and Zellen** — fixed window, 4 ticks:
 

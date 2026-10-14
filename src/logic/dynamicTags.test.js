@@ -239,3 +239,34 @@ describe('collectDynTagWarnings', () => {
     expect(collectDynTagWarnings(state, rules({ ac: '[10+floor(({ability:dex}-10)/2)]' })).size).toBe(0);
   });
 });
+
+describe('dice and comparisons in rules (#117)', () => {
+  it('never rolls: a dice rule is valid, defaults to 1, and warns', () => {
+    const results = evaluateDynamicTags(['xp=300', 'dyn,luck'], rules({ luck: '[d20+{xp}]' }), registry);
+    expect(results.get('luck')).toMatchObject({ value: 1, valid: true });
+    expect(results.get('luck').warnings).toEqual([expect.stringMatching(/dice/)]);
+  });
+
+  it('evaluates comparisons and booleans to 1 or 0', () => {
+    const results = evaluateDynamicTags(
+      ['ability:dex=14', 'dyn,nimble', 'dyn,clumsy'],
+      rules({ nimble: '[{ability:dex}>=14 && {ability:dex}<18]', clumsy: '[!{dyn,nimble}]' }),
+      registry,
+    );
+    expect(results.get('nimble').value).toBe(1);
+    expect(results.get('clumsy').value).toBe(0);
+  });
+
+  it('keeps reconcile idempotent with a dice rule', () => {
+    const state = {
+      tagRegistry: registry, tasks: [], inventory: [],
+      agents: [{ attributes: ['dyn,luck'], activities: [] }],
+    };
+    const config = rules({ luck: '[2d6]' });
+    const first = reconcileDynamicTags(state, config);
+    const second = reconcileDynamicTags(first.state, config);
+    expect(first.state.agents[0].attributes).toEqual(['dyn,luck=1']);
+    expect(second.changed).toBe(false);
+    expect(second.state).toBe(first.state);
+  });
+});

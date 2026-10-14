@@ -86,12 +86,14 @@ interface EventLogEntry {
                             // task_complete: { isComplete, attributes, results,
                             //                  spawnedAgentIds, unassignedAgentIds }
                             // tick: { wagesTotal, wages }
+  actionKind: string;       // task-engine action kind; '' otherwise
+  reverseData: object;      // the action's reverse recipe; {} otherwise
 }
 ```
 
 `Planned (#117):` the stored `Task` replaces `conditions` and `results` with
-`operators`, `vessels`, `effects`, `blackboard`, and `duration`, and the log
-gains two columns ([`task-engine.md`](task-engine.md) "Shapes").
+`operators`, `vessels`, `effects`, `blackboard`, and `duration`
+([`task-engine.md`](task-engine.md) "Shapes").
 
 **Loading normalizes** every state, from storage or a file, through
 `normalizeState`, which:
@@ -194,10 +196,11 @@ available and falls back to a download link (`downloadFile`).
 
 ```
 seq, eventType, clock, agentId, agentName, taskId, taskName,
-conditionId, conditionName, delta, progress, target, data
+conditionId, conditionName, delta, progress, target, data,
+actionKind, reverseData
 ```
 
-`data` is a JSON blob. Import maps columns by the file's own header, so
+`data` and `reverseData` are JSON blobs; a malformed one reads as `{}`. Import maps columns by the file's own header, so
 columns may only ever be appended — never reordered or removed.
 
 **Icons are stored as absolute paths** (`/assets/portraits/…`) in saves and
