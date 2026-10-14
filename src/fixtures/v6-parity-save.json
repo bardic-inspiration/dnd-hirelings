@@ -1,0 +1,78 @@
+{
+  "session": {
+    "id": "parity", "title": "PARITY", "clock": 5, "timeStep": 1, "stepBack": 1,
+    "bank": 40, "rateMultiplier": 1, "workRate": 1, "skillBonus": 2
+  },
+  "agents": [
+    { "id": "a1", "name": "ARIA", "icon": "", "rate": 2, "rateUnit": "GP/DAY", "description": "",
+      "attributes": ["skill:arcana=3", "class:wizard"], "activities": ["task:t1"], "createdAt": 1, "lastAssigned": null },
+    { "id": "a2", "name": "BRAM", "icon": "", "rate": 1.5, "rateUnit": "GP/DAY", "description": "",
+      "attributes": ["skill:athletics=2", "class:fighter"], "activities": ["task:t1", "task:t2"], "createdAt": 1, "lastAssigned": null },
+    { "id": "a3", "name": "CYNE", "icon": "", "rate": 6, "rateUnit": "GP/DAY", "description": "",
+      "attributes": ["class:druid"], "activities": ["task:t3"], "createdAt": 1, "lastAssigned": null },
+    { "id": "a4", "name": "DUNN", "icon": "", "rate": 3, "rateUnit": "GP/DAY", "description": "",
+      "attributes": ["skill:arcana=1"], "activities": ["task:t4"], "createdAt": 1, "lastAssigned": null },
+    { "id": "a5", "name": "ELM", "icon": "", "rate": 0.5, "rateUnit": "GP/DAY", "description": "",
+      "attributes": [], "activities": ["task:t5"], "createdAt": 1, "lastAssigned": null }
+  ],
+  "tasks": [
+    { "id": "t1", "name": "WARD", "description": "", "requirements": [], "attributes": ["skill:arcana"],
+      "isComplete": false, "createdAt": 1,
+      "conditions": [
+        { "id": "c1", "name": "ARCANA", "target": 12, "progress": 0, "tracker": { "kind": "work", "tagPath": "skill:arcana", "compare": null } },
+        { "id": "c2", "name": "WORK", "target": 4, "progress": 0, "tracker": { "kind": "work", "tagPath": null, "compare": null } },
+        { "id": "c3", "name": "ANY SKILL ≥ 2", "target": 9, "progress": 0, "tracker": { "kind": "work", "tagPath": "skill:*", "compare": { "op": ">=", "value": "2" } } }
+      ],
+      "results": {
+        "gold": 25,
+        "items": [{ "name": "rope", "quantity": 2 }, { "name": "Gem", "quantity": 1 }],
+        "agents": [{ "template": { "name": "SQUIRE", "icon": "", "rate": 1, "rateUnit": "GP/DAY", "description": "",
+          "attributes": ["skill:athletics=1"] }, "quantity": 1 }]
+      } },
+    { "id": "t2", "name": "HAUL", "description": "", "requirements": [], "attributes": [],
+      "isComplete": false, "createdAt": 1,
+      "conditions": [
+        { "id": "c4", "name": "ATHLETICS", "target": 5, "progress": 0, "tracker": { "kind": "work", "tagPath": "skill:athletics", "compare": null } }
+      ],
+      "results": { "gold": 0, "items": [], "agents": [] } },
+    { "id": "t3", "name": "GROVE", "description": "", "requirements": [], "attributes": [],
+      "isComplete": false, "createdAt": 1,
+      "conditions": [
+        { "id": "c5", "name": "DRUID", "target": 50, "progress": 1.5, "tracker": { "kind": "work", "tagPath": "class:*", "compare": { "op": "==", "value": "druid" } } },
+        { "id": "c6", "name": "STUBBORN", "target": 3, "progress": 0, "tracker": { "kind": "work", "tagPath": "trait:stubborn", "compare": null } }
+      ],
+      "results": { "gold": 10, "items": [], "agents": [] } },
+    { "id": "t4", "name": "CLIMB", "description": "", "requirements": ["req,item:rope=2"], "attributes": [],
+      "isComplete": false, "createdAt": 1,
+      "conditions": [
+        { "id": "c7", "name": "WORK", "target": 4, "progress": 0, "tracker": { "kind": "work", "tagPath": null, "compare": null } }
+      ],
+      "results": { "gold": 5, "items": [], "agents": [] } },
+    { "id": "t5", "name": "WATCH", "description": "", "requirements": [], "attributes": [],
+      "isComplete": false, "createdAt": 1, "conditions": [],
+      "results": { "gold": 3, "items": [{ "name": "rope", "quantity": 1 }], "agents": [] } },
+    { "id": "t6", "name": "DONE", "description": "", "requirements": [], "attributes": [],
+      "isComplete": true, "createdAt": 1,
+      "conditions": [
+        { "id": "c8", "name": "WORK", "target": 2, "progress": 2, "tracker": { "kind": "work", "tagPath": null, "compare": null } }
+      ],
+      "results": { "gold": 99, "items": [], "agents": [] } }
+  ],
+  "inventory": [
+    { "id": "i1", "name": "Rope", "quantity": 1, "icon": "", "description": "", "value": 1, "attributes": [] }
+  ],
+  "tagRegistry": {
+    "skill": { "arcana": {}, "athletics": {} },
+    "class": { "wizard": {}, "fighter": {}, "druid": {} },
+    "trait": {}
+  },
+  "eventLog": [
+    { "seq": 0, "eventType": "work_contribution", "clock": 5, "agentId": "a3", "agentName": "CYNE", "taskId": "t3", "taskName": "GROVE",
+      "conditionId": "c5", "conditionName": "DRUID", "delta": 1.5, "progress": 1.5, "target": 50, "data": {} },
+    { "seq": 1, "eventType": "task_complete", "clock": 5, "agentId": "", "agentName": "", "taskId": "t6", "taskName": "DONE",
+      "conditionId": "", "conditionName": "", "delta": 0, "progress": 0, "target": 0,
+      "data": { "isComplete": true, "attributes": [], "results": { "gold": 99, "items": [], "agents": [] }, "spawnedAgentIds": [], "unassignedAgentIds": [] } },
+    { "seq": 2, "eventType": "tick", "clock": 5, "agentId": "", "agentName": "", "taskId": "", "taskName": "",
+      "conditionId": "", "conditionName": "", "delta": 0, "progress": 0, "target": 0, "data": { "wagesTotal": 6, "wages": [{ "agentId": "a3", "agentName": "CYNE", "amount": 6 }] } }
+  ]
+}

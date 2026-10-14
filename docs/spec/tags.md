@@ -73,8 +73,10 @@ allows. A fresh session is seeded with:
 | stat addresses | `ac pb hitdie hp hp-max xp xp-lvl xp-lvl-max` (flat, hyphenated, so they double as rule keys) |
 
 **Registration.** Paths enter the registry when tags are authored
-(`TAG_APPLY`, `TASK_CONDITION_ADD`) and when entities are created from presets
-(`AGENT_CREATE`, `TASK_CREATE`, `INVENTORY_ADD`). Values are never registered.
+(`TAG_APPLY`, `TASK_CONDITION_ADD`), when entities are created from presets
+(`AGENT_CREATE`, `TASK_CREATE`, `INVENTORY_ADD`), and when a tick's
+tag-writing actions run unlocked ([`task-engine.md`](task-engine.md)
+"Actions"). Values are never registered.
 Dynamic instance tags (`task:…`, `bind:…`) are never registered or validated.
 Duplicating an entity registers nothing.
 
@@ -97,7 +99,11 @@ create actions refuse any entity carrying a tag the registry doesn't allow;
 - Bundled presets carry tags outside the seed registry (`skill:sword`,
   `rarity:common`), so a locked fresh session refuses them until those paths
   are registered.
-- `Planned (#117):` tag-writing task actions pass through the same check
+- Tag-writing task actions (`tag.apply`, `tag.adjust`, and the templates of
+  `agent.spawn` and `object.create`) pass through the same check: locked and
+  unregistered, the action is skipped and its log row marked
+  `data.skipped: 'locked'`; the tick still runs. `advanceTime` and
+  `TASK_SET_COMPLETE` carry `locked` like the create actions
   ([`task-engine.md`](task-engine.md) "Actions").
 
 **File I/O.** The registry exports to and imports from YAML (Tag Registry

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  routeTaskTag, checkTaskComplete, applyResults, applyTaskComplete, computeBlockedTaskIds,
-} from './tasks.js';
+import { routeTaskTag, checkTaskComplete, completeTask, computeBlockedTaskIds } from './tasks.js';
+import { lowerTask } from './taskModel.js';
 
 describe('routeTaskTag', () => {
   it('routes req/block modifiers to requirements, everything else to attributes', () => {
@@ -13,7 +12,12 @@ describe('routeTaskTag', () => {
 });
 
 describe('checkTaskComplete', () => {
-  const withConditions = (conditions) => ({ conditions });
+  // Lowered from legacy conditions, so each condition is a vessel.
+  const withConditions = (conditions) => lowerTask({
+    id: 't', conditions: conditions.map((condition, index) => ({
+      id: `c${index}`, name: 'C', tracker: { kind: 'work', tagPath: null, compare: null }, ...condition,
+    })),
+  });
 
   it('completes only when every condition meets its target', () => {
     expect(checkTaskComplete(withConditions([
@@ -28,55 +32,54 @@ describe('checkTaskComplete', () => {
     expect(checkTaskComplete(withConditions([]), true)).toBe(true);
     expect(checkTaskComplete(withConditions([]), false)).toBe(false);
   });
-});
 
-describe('applyResults', () => {
-  it('adds new reward items and merges into an existing stack by name', () => {
-    const task = { results: { gold: 0, items: [{ name: 'Ring', quantity: 2 }], agents: [] } };
-    const inventory = [{ id: 'i1', name: 'ring', quantity: 1, attributes: [] }];
-    const { newInventory } = applyResults(task, inventory, []);
-    expect(newInventory).toHaveLength(1);
-    expect(newInventory[0].quantity).toBe(3);
-  });
-
-  it('spawns reward agents from templates and returns the gold delta', () => {
-    const task = { results: {
-      gold: 50,
-      items: [],
-      agents: [{ template: { name: 'GOBLIN' }, quantity: 2 }],
-    } };
-    const { newAgents, bankDelta, spawnedAgentIds } = applyResults(task, [], []);
-    expect(bankDelta).toBe(50);
-    expect(newAgents).toHaveLength(2);
-    expect(newAgents.every(agent => agent.name === 'GOBLIN' && agent.id)).toBe(true);
-    expect(spawnedAgentIds).toEqual(newAgents.map(agent => agent.id));
-  });
-
-  it('does not mutate the source inventory', () => {
-    const inventory = [{ id: 'i1', name: 'ring', quantity: 1, attributes: [] }];
-    applyResults({ results: { items: [{ name: 'ring', quantity: 1 }] } }, inventory, []);
-    expect(inventory[0].quantity).toBe(1);
+  it('counts only success vessels, and treats a task with none as zero-condition', () => {
+    const task = lowerTask({ id: 't', vessels: {
+      found: { fullWhen: '>= 2' }, clock: { fullWhen: '>= 9', success: false },
+    }, blackboard: { found: 2 } });
+    expect(checkTaskComplete(task)).toBe(true);
+    const tally = lowerTask({ id: 't', vessels: { tally: { fullWhen: '>= 1', success: false } } });
+    expect(checkTaskComplete(tally, false)).toBe(false);
+    expect(checkTaskComplete(tally, true)).toBe(true);
   });
 });
 
-describe('applyTaskComplete', () => {
+describe('completeTask', () => {
+  const world = (results) => ({
+    session: { bank: 10 },
+    tasks: [lowerTask({ id: 't1', name: 'T', isComplete: false, results }), lowerTask({ id: 't2', isComplete: false })],
+    agents: [
+      { id: 'a1', activities: ['task:t1', 'item:sword=1'], attributes: [] },
+      { id: 'a2', activities: ['task:t2'], attributes: [] },
+    ],
+    inventory: [{ id: 'i1', name: 'ring', quantity: 1, attributes: [] }],
+    tagRegistry: {},
+  });
+
   it('marks the task complete and unassigns every agent from it', () => {
-    const tasks = [{ id: 't1', isComplete: false, results: { gold: 0, items: [], agents: [] } }];
-    const agents = [
-      { id: 'a1', activities: ['task:t1', 'item:sword=1'] },
-      { id: 'a2', activities: ['task:t2'] },
-    ];
-    const { newTasks, newAgents, unassignedAgentIds } = applyTaskComplete('t1', tasks, agents, []);
-    expect(newTasks[0].isComplete).toBe(true);
-    expect(newAgents[0].activities).toEqual(['item:sword=1']);
-    expect(newAgents[1].activities).toEqual(['task:t2']);
-    expect(unassignedAgentIds).toEqual(['a1']);
+    const { world: next, records } = completeTask(world({ gold: 0, items: [], agents: [] }), 't1');
+    expect(next.tasks[0].isComplete).toBe(true);
+    expect(next.agents[0].activities).toEqual(['item:sword=1']);
+    expect(next.agents[1].activities).toEqual(['task:t2']);
+    expect(records).toEqual([expect.objectContaining({ kind: 'agent.unassign', deltas: { agentIds: ['a1'], taskId: 't1' } })]);
+  });
+
+  it('pays the results view: items merge into a stack by name, agents spawn, gold lands', () => {
+    const { world: next, records } = completeTask(world({
+      gold: 25, items: [{ name: 'Ring', quantity: 2 }], agents: [{ template: { name: 'GOBLIN' }, quantity: 2 }],
+    }), 't1');
+    expect(next.inventory).toHaveLength(1);
+    expect(next.inventory[0].quantity).toBe(3);
+    expect(next.agents.slice(2).map(agent => agent.name)).toEqual(['GOBLIN', 'GOBLIN']);
+    expect(next.session.bank).toBe(35);
+    expect(records.map(record => record.kind)).toEqual(['agent.unassign', 'bank.adjust', 'inventory.add', 'agent.spawn']);
   });
 
   it('is a no-op for an unknown task id', () => {
-    const tasks = [{ id: 't1', isComplete: false }];
-    const result = applyTaskComplete('nope', tasks, [], []);
-    expect(result.newTasks).toBe(tasks);
+    const before = world({ gold: 5 });
+    const result = completeTask(before, 'nope');
+    expect(result.world).toBe(before);
+    expect(result.records).toEqual([]);
   });
 });
 

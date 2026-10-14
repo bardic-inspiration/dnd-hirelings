@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { collectPresetTags, unregisteredEntityTags, seedTagRegistry } from './tagRegistry.js';
+import { collectPresetTags, unregisteredEntityTags, seedTagRegistry, tagsInUse } from './tagRegistry.js';
 
 describe('seedTagRegistry', () => {
   it('seeds the reference stat addresses as flat leaves', () => {
@@ -78,5 +78,21 @@ describe('unregisteredEntityTags', () => {
   it('never reports dynamic instance tags', () => {
     const preset = { attributes: ['bind:weapon:item:sword', 'task:abc123'] };
     expect(unregisteredEntityTags(registry, 'agent', preset)).toEqual([]);
+  });
+});
+
+describe('tagsInUse', () => {
+  it('counts gate tag links but not flow or flag reads', () => {
+    const state = {
+      agents: [{ attributes: ['skill:arcana=1'], activities: ['task:t1'] }],
+      tasks: [{ requirements: ['req,skill:arcana'], attributes: [], operators: [
+        { id: 'a', kind: 'gate', read: 'skill:stealth' },
+        { id: 'b', kind: 'gate', read: 'flow' },
+        { id: 'c', kind: 'gate', read: 'flag:alarm' },
+        { id: 'd', kind: 'contribute', target: 'v' },
+      ] }],
+      inventory: [{ attributes: ['rarity:common'] }],
+    };
+    expect(tagsInUse(state).sort()).toEqual(['rarity:common', 'req,skill:arcana', 'skill:arcana=1', 'skill:stealth', 'task:t1']);
   });
 });

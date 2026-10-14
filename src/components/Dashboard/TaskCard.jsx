@@ -1,7 +1,8 @@
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { agentsAssignedTo } from '../../logic/agents.js';
-import { resetConditions } from '../../logic/conditions.js';
+import { conditionsView, resetVessels } from '../../logic/taskModel.js';
+import { useTagsConfig } from '../../hooks/useTagsConfig.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import EditableSpan from '../EditableSpan.jsx';
 import Tooltip from '../Tooltip.jsx';
@@ -11,7 +12,7 @@ import ResultsSection from './TaskSections/ResultsSection.jsx';
 import TagRow from './TaskSections/TagRow.jsx';
 
 function TaskProgressBar({ task }) {
-  const conditions = task.conditions || [];
+  const conditions = conditionsView(task);
   const totalRequired = conditions.reduce((sum, condition) => sum + condition.target, 0);
   // Each condition is capped at its own target so overshoot in one cannot
   // inflate the overall bar.
@@ -57,6 +58,7 @@ function AttributesSection({ task }) {
 export default function TaskCard({ task }) {
   const { state, dispatch } = useGame();
   const { selectedTaskId, setSelectedTaskId, isExpanded, toggleExpanded, openConfirm } = useUI();
+  const { locked } = useTagsConfig();
 
   const selected = selectedTaskId === task.id;
   const expanded = isExpanded('task', task.id);
@@ -74,9 +76,9 @@ export default function TaskCard({ task }) {
   const handleComplete = (e) => {
     e.stopPropagation();
     if (task.isComplete) {
-      dispatch({ type: 'TASK_UPDATE', id: task.id, changes: { isComplete: false, conditions: resetConditions(task.conditions) } });
+      dispatch({ type: 'TASK_UPDATE', id: task.id, changes: { isComplete: false, blackboard: resetVessels(task) } });
     } else {
-      dispatch({ type: 'TASK_SET_COMPLETE', id: task.id, isComplete: true });
+      dispatch({ type: 'TASK_SET_COMPLETE', id: task.id, isComplete: true, locked });
     }
   };
 

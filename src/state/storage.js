@@ -1,7 +1,8 @@
 import { MODIFIER_REGISTRY } from '../logic/tags.js';
 import { seedTagRegistry } from '../logic/tagRegistry.js';
-import { normalizeCondition, migrateLegacyWork } from '../logic/conditions.js';
+import { migrateLegacyWork } from '../logic/conditions.js';
 import { normalizeEvent } from '../logic/eventLog.js';
+import { lowerTask } from '../logic/taskModel.js';
 
 /**
  * Central registry of every localStorage key the app reads or writes.
@@ -10,11 +11,16 @@ import { normalizeEvent } from '../logic/eventLog.js';
  * alongside any suffix bump.
  * v4: `task.work`/`task.workProgress` replaced by `task.conditions`.
  * v6: agent `xp`/`hp` fields replaced by plain valued tags (`xp=…`/`hp=…`);
- * dynamic stats became user-authored `dyn,` tags. No migration — pre-release
+ * dynamic stats became user-authored `dyn,` tags. No migration — pre-v6
  * saves are abandoned (older keys are simply ignored).
+ * v7: `task.conditions` and `task.results` replaced by the task engine's
+ * `operators`, `vessels`, `effects`, `blackboard`, and `duration`. Migrated:
+ * `loadState` falls back to the v6 key and lowers it (`LEGACY_STATE`).
  */
 export const STORAGE_KEYS = {
-  STATE: 'dnd-hirelings-state-v6',
+  STATE: 'dnd-hirelings-state-v7',
+  /** Read once, when no v7 save exists; never written. */
+  LEGACY_STATE: 'dnd-hirelings-state-v6',
   PALETTE: 'dnd-hirelings-palette-v1',
   /** @param {string} type - 'agents' | 'tasks' | 'items' */
   PRESETS: (type) => `dnd-hirelings-presets-${type}-v1`,
@@ -146,8 +152,6 @@ export function saveCardExpansion(deviations) {
   localStorage.setItem(STORAGE_KEYS.CARD_EXPANSION, JSON.stringify(serialized));
 }
 
-export const DEFAULT_RESULTS = { gold: 0, items: [], agents: [] };
-
 // Default state structure for the application
 export const DEFAULT_STATE = {
   session: {
@@ -182,33 +186,6 @@ function sanitizeRegistry(raw) {
   return clean(raw);
 }
 
-function normalizeResults(r) {
-  const src = r && typeof r === 'object' ? r : {};
-  const gold = Number(src.gold);
-  return {
-    gold: Number.isFinite(gold) ? gold : 0,
-    items: Array.isArray(src.items)
-      ? src.items.map(item => ({
-          name: String(item?.name ?? ''),
-          quantity: Number(item?.quantity ?? item?.qty) || 0,
-        })).filter(item => item.name)
-      : [],
-    agents: Array.isArray(src.agents)
-      ? src.agents.map(spawn => ({
-          template: {
-            name:        spawn?.template?.name        ?? 'NEW HIRELING',
-            icon:        spawn?.template?.icon        ?? '',
-            rate:        spawn?.template?.rate        ?? 1,
-            rateUnit:    spawn?.template?.rateUnit    ?? 'GP/DAY',
-            description: spawn?.template?.description ?? '',
-            attributes:  Array.isArray(spawn?.template?.attributes) ? spawn.template.attributes : [],
-          },
-          quantity: Number(spawn?.quantity ?? spawn?.qty) || 1,
-        }))
-      : [],
-  };
-}
-
 // Migrates tag strings from older formats to the current grammar.
 export function migrateTag(tag) {
   if (typeof tag !== 'string') return tag;
@@ -233,6 +210,9 @@ export function migrateTag(tag) {
  * - `tagLibrary` → `tagRegistry` field rename
  * - Corrupt or missing `tagRegistry` (falls back to `seedTagRegistry()`)
  * - `qty` → `quantity` field rename on inventory items and task result items
+ * - Tasks lowered to the task-engine shape (`lowerTask`): `conditions` and
+ *   `results` (v6) become operators, vessels, completion effects, and
+ *   blackboard fills; already-lowered tasks pass through
  * - `timeStep` / `stepBack` coerced to positive numbers (legacy string values are
  *   parsed); range bounds are enforced at edit sites against `clock.yml`, not at load
  * - Legacy `task.work` tags + `task.workProgress` buckets migrated to `task.conditions`
@@ -270,18 +250,19 @@ export function normalizeState(raw) {
   }));
   state.tasks = (raw.tasks || []).map(task => {
     const { work, workProgress, ...rest } = task;
-    return {
+    // Pre-v4 tasks carry `work` tags instead of conditions; v7 tasks carry neither.
+    const conditions = Array.isArray(task.conditions)
+      ? task.conditions
+      : migrateLegacyWork(Array.isArray(work) ? work.filter(Boolean).map(migrateTag) : [], workProgress);
+    return lowerTask({
       ...rest,
       requirements: Array.isArray(task.requirements) ? task.requirements.filter(Boolean).map(migrateTag) : [],
       attributes:   Array.isArray(task.attributes)   ? task.attributes.filter(Boolean).map(migrateTag)   : [],
       description:  task.description  ?? '',
       isComplete:   task.isComplete   ?? false,
       createdAt:    task.createdAt    ?? Date.now(),
-      conditions:   Array.isArray(task.conditions)
-        ? task.conditions.map(normalizeCondition)
-        : migrateLegacyWork(Array.isArray(work) ? work.filter(Boolean).map(migrateTag) : [], workProgress),
-      results:      normalizeResults(task.results),
-    };
+      conditions,
+    });
   });
   // `tagLibrary` is the pre-rename field name; read it as a fallback so sessions
   // saved before the rename keep their registry.
@@ -327,15 +308,16 @@ export function normalizeState(raw) {
 }
 
 /**
- * Loads and normalizes state from localStorage. Returns `DEFAULT_STATE` on
- * first run, if the stored value is corrupt, or when only pre-v6 keys exist
- * (abandoned without migration — see `STORAGE_KEYS`).
+ * Loads and normalizes state from localStorage: the v7 save, else the v6 save
+ * (lowered by `normalizeState`). Returns `DEFAULT_STATE` on first run, if the
+ * stored value is corrupt, or when only pre-v6 keys exist (abandoned without
+ * migration — see `STORAGE_KEYS`).
  *
  * @returns {GameState}
  */
 export function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.STATE);
+    const raw = localStorage.getItem(STORAGE_KEYS.STATE) ?? localStorage.getItem(STORAGE_KEYS.LEGACY_STATE);
     if (!raw) return DEFAULT_STATE;
     return normalizeState(JSON.parse(raw));
   } catch {

@@ -383,16 +383,19 @@ export function flattenRegistry(registry, expanded) {
 
 // Collects every tag string currently applied across the game state: authored
 // attribute tags, dynamic activity tags (task assignments, carried & bound
-// items), AND condition tag links (a tracker's `tagPath` is a valid tag string),
-// so usage counts and deletion warnings reflect all live references. Order is
-// irrelevant — the caller only counts occurrences.
+// items), AND gate tag links (a gate's `read` tag path is a valid tag string;
+// `flow` and `flag:` reads are not tags), so usage counts and deletion
+// warnings reflect all live references. Order is irrelevant — the caller only
+// counts occurrences.
 export function tagsInUse(state) {
   const tags = [];
   for (const agent of state.agents || []) tags.push(...(agent.attributes || []), ...(agent.activities || []));
   for (const task of state.tasks || []) {
     tags.push(...(task.requirements || []), ...(task.attributes || []));
-    for (const condition of task.conditions || []) {
-      if (condition.tracker?.tagPath) tags.push(condition.tracker.tagPath);
+    for (const op of task.operators || []) {
+      if (op.kind === 'gate' && typeof op.read === 'string' && op.read && op.read !== 'flow' && !op.read.startsWith('flag:')) {
+        tags.push(op.read);
+      }
     }
   }
   for (const item of state.inventory || []) tags.push(...(item.attributes || []));
