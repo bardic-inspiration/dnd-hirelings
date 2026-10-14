@@ -15,16 +15,19 @@ export const MAX_LOG_ROWS = 50000;
 
 /**
  * CSV column order — the single source of truth shared by `serializeEventLog`
- * and `parseEventLog`. `data` is always last (it holds a JSON blob).
+ * and `parseEventLog`. Columns are only ever appended: import maps cells by
+ * the file's own header, so older files still load.
  * @type {string[]}
  */
 export const EVENT_LOG_COLUMNS = [
   'seq', 'eventType', 'clock',
   'agentId', 'agentName', 'taskId', 'taskName',
   'conditionId', 'conditionName', 'delta', 'progress', 'target', 'data',
+  'actionKind', 'reverseData',
 ];
 
 const NUMERIC_COLUMNS = new Set(['seq', 'clock', 'delta', 'progress', 'target']);
+const JSON_COLUMNS = new Set(['data', 'reverseData']);
 
 const CSV_TYPES = [{ description: 'Hireling event log', accept: { 'text/csv': ['.csv'] } }];
 
@@ -46,6 +49,10 @@ const CSV_TYPES = [{ description: 'Hireling event log', accept: { 'text/csv': ['
  * @property {object} data - Extension payload. `work_contribution`: `{}`.
  *   `task_complete`: `{ isComplete, attributes, results, spawnedAgentIds, unassignedAgentIds }`.
  *   `tick`: `{ wagesTotal, wages: [{ agentId, agentName, amount }] }`.
+ * @property {string} actionKind - The task-engine action the row records
+ *   (`ACTION_REGISTRY` key); `''` for rows without one
+ * @property {object} reverseData - The action's reverse recipe, including
+ *   pre-images; `{}` for rows without one
  */
 
 /**
@@ -71,6 +78,8 @@ export function makeWorkEvent({ seq, clock, agent, task, condition, delta, progr
     progress,
     target: condition.target ?? 0,
     data: {},
+    actionKind: '',
+    reverseData: {},
   };
 }
 
@@ -105,6 +114,8 @@ export function makeCompleteEvent({ seq, clock, task, spawnedAgentIds = [], unas
       spawnedAgentIds,
       unassignedAgentIds,
     },
+    actionKind: '',
+    reverseData: {},
   };
 }
 
@@ -135,12 +146,14 @@ export function makeTickEvent({ seq, clock, wagesTotal, wages }) {
     progress: 0,
     target: 0,
     data: { wagesTotal, wages },
+    actionKind: '',
+    reverseData: {},
   };
 }
 
 /**
  * Guards a raw log entry from storage or an imported CSV. Coerces numeric
- * fields, defaults `eventType`/`data`, and returns `null` for rows missing a
+ * fields, defaults `eventType`/`data`/`actionKind`/`reverseData`, and returns `null` for rows missing a
  * `taskId` (callers should filter those out). `'tick'` boundary rows are exempt
  * from the `taskId` requirement — they never carry one.
  *
@@ -168,6 +181,8 @@ export function normalizeEvent(raw) {
     progress: num(source.progress),
     target: num(source.target),
     data: source.data && typeof source.data === 'object' ? source.data : {},
+    actionKind: String(source.actionKind ?? ''),
+    reverseData: source.reverseData && typeof source.reverseData === 'object' ? source.reverseData : {},
   };
 }
 
@@ -194,7 +209,7 @@ function csvCell(value) {
 
 /**
  * Serializes the log to an RFC-4180-style CSV string (header row + one row per
- * entry). The `data` object is JSON-encoded into its cell.
+ * entry). The `data` and `reverseData` objects are JSON-encoded into their cells.
  *
  * @param {EventLogEntry[]} eventLog
  * @returns {string}
@@ -203,7 +218,7 @@ export function serializeEventLog(eventLog) {
   const rows = [EVENT_LOG_COLUMNS.join(',')];
   for (const entry of eventLog || []) {
     const cells = EVENT_LOG_COLUMNS.map(column =>
-      csvCell(column === 'data' ? JSON.stringify(entry.data ?? {}) : entry[column]));
+      csvCell(JSON_COLUMNS.has(column) ? JSON.stringify(entry[column] ?? {}) : entry[column]));
     rows.push(cells.join(','));
   }
   return rows.join('\n');
@@ -212,7 +227,7 @@ export function serializeEventLog(eventLog) {
 // Splits one CSV line into fields, honoring double-quoted fields (with doubled
 // quotes for literal quotes). Does not span newlines: callers split on rows
 // first, which is safe because serialized cells never contain raw newlines
-// (the only multiline candidate, `data`, is single-line JSON).
+// (the only multiline candidates, the JSON columns, are single-line JSON).
 function parseCsvLine(line) {
   const fields = [];
   let field = '';
@@ -237,8 +252,8 @@ function parseCsvLine(line) {
 
 /**
  * Parses a CSV string produced by `serializeEventLog` back into entries.
- * Numeric columns are coerced; the `data` cell is JSON-parsed (falling back to
- * `{}` if malformed, so a hand-edited file can't crash the app). A trailing
+ * Numeric columns are coerced; the JSON cells (`data`, `reverseData`) are parsed,
+ * falling back to `{}` if malformed, so a hand-edited file can't crash the app. A trailing
  * newline / blank final line is ignored.
  *
  * @param {string} csvText
@@ -254,8 +269,8 @@ export function parseEventLog(csvText) {
     const raw = {};
     header.forEach((column, index) => {
       const cell = cells[index] ?? '';
-      if (column === 'data') {
-        try { raw.data = JSON.parse(cell); } catch { raw.data = {}; }
+      if (JSON_COLUMNS.has(column)) {
+        try { raw[column] = JSON.parse(cell); } catch { raw[column] = {}; }
       } else if (NUMERIC_COLUMNS.has(column)) {
         raw[column] = Number(cell);
       } else {

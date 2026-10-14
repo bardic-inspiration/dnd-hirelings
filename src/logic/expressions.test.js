@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { parseExpression, evaluateExpression, collectReferences } from './expressions.js';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  parseExpression, evaluateExpression, collectReferences,
+  evaluateCheck, evaluateDynamic, EXPRESSION_FUNCTIONS,
+} from './expressions.js';
 
 // Parses then evaluates in one step; fails the test on parse errors.
 // Dyn-scoped refs read from `refs` under a 'dyn,'-prefixed key.
@@ -132,5 +135,148 @@ describe('collectReferences', () => {
   it('returns empty for reference-free expressions', () => {
     const { ast } = parseExpression('1+2');
     expect(collectReferences(ast)).toEqual([]);
+  });
+});
+
+describe('comparisons and booleans', () => {
+  it('yields 1 or 0 for every comparison', () => {
+    expect(evaluate('3>2')).toBe(1);
+    expect(evaluate('3<2')).toBe(0);
+    expect(evaluate('2>=2')).toBe(1);
+    expect(evaluate('2<=1')).toBe(0);
+    expect(evaluate('2==2')).toBe(1);
+    expect(evaluate('2!=2')).toBe(0);
+  });
+
+  it('yields 1 or 0 for && || !, reading any nonzero as true', () => {
+    expect(evaluate('1&&0')).toBe(0);
+    expect(evaluate('2&&-3')).toBe(1);
+    expect(evaluate('0||0')).toBe(0);
+    expect(evaluate('0||5')).toBe(1);
+    expect(evaluate('!0')).toBe(1);
+    expect(evaluate('!7')).toBe(0);
+    expect(evaluate('!!7')).toBe(1);
+  });
+
+  it('binds loosest to tightest: || && comparison + * unary', () => {
+    expect(evaluate('1||0&&0')).toBe(1);        // || looser than &&
+    expect(evaluate('1+2>2&&1')).toBe(1);       // arithmetic before comparison
+    expect(evaluate('2*3==6')).toBe(1);
+    expect(evaluate('!0+1')).toBe(2);           // unary ! tighter than +
+    expect(evaluate('-2<-1')).toBe(1);
+    expect(evaluate('1<2==1')).toBe(1);         // comparisons are left-associative
+  });
+
+  it('compares reference values', () => {
+    expect(evaluate('{skill:stealth}+3>=11', { 'skill:stealth': 8 })).toBe(1);
+    expect(evaluate('{skill:stealth}+3>=11', { 'skill:stealth': 7 })).toBe(0);
+  });
+
+  it('propagates a non-finite operand through comparisons and booleans', () => {
+    expect(Number.isNaN(evaluate('1/0>1'))).toBe(true);
+    expect(Number.isNaN(evaluate('sqrt(0-1)==1'))).toBe(true);
+    expect(Number.isNaN(evaluate('0&&sqrt(0-1)'))).toBe(true);
+    expect(Number.isNaN(evaluate('1||1/0'))).toBe(true);
+    expect(Number.isNaN(evaluate('!sqrt(0-1)'))).toBe(true);
+  });
+
+  it('rejects a lone = | or &', () => {
+    const errorOf = (source) => parseExpression(source).error;
+    expect(errorOf('1=1')).toMatch(/unexpected character "="/);
+    expect(errorOf('1|0')).toMatch(/unexpected character "\|"/);
+    expect(errorOf('1&0')).toMatch(/unexpected character "&"/);
+    expect(errorOf('1>')).toMatch(/unexpected end/);
+  });
+});
+
+describe('dice literals', () => {
+  // A roll stub that records its calls and returns count*sides (the maximum).
+  const rolling = () => {
+    const calls = [];
+    return { calls, roll: (count, sides) => { calls.push([count, sides]); return count * sides; } };
+  };
+
+  it('parses NdM as one dice node; dM means 1dM', () => {
+    expect(parseExpression('2d6').ast).toEqual({ kind: 'dice', count: 2, sides: 6 });
+    expect(parseExpression('d20').ast).toEqual({ kind: 'dice', count: 1, sides: 20 });
+    expect(parseExpression('D8').ast).toEqual({ kind: 'dice', count: 1, sides: 8 });
+  });
+
+  it('calls roll(n, m) from the function table, once per dice node', () => {
+    const { calls, roll } = rolling();
+    const { ast } = parseExpression('d20+{skill:stealth}>=11 && 2d6>3');
+    const value = evaluateExpression(ast, () => 2, { ...EXPRESSION_FUNCTIONS, roll: { arity: 2, apply: roll } });
+    expect(value).toBe(1);
+    expect(calls).toEqual([[1, 20], [2, 6]]);
+  });
+
+  it('evaluates to NaN when the table has no roll', () => {
+    const { ast } = parseExpression('d20+5');
+    expect(Number.isNaN(evaluateExpression(ast, () => 0))).toBe(true);
+  });
+
+  it('rejects zero or fractional dice', () => {
+    expect(parseExpression('0d6').error).toMatch(/dice/);
+    expect(parseExpression('2d0').error).toMatch(/dice/);
+    expect(parseExpression('1.5d6').error).toMatch(/unexpected/);
+  });
+
+  it('keeps unknown identifiers that only start with d as errors', () => {
+    expect(parseExpression('d20x').error).toMatch(/unknown function "d20x"/);
+    expect(parseExpression('dex').error).toMatch(/unknown function "dex"/);
+  });
+
+  it('is not a reference: collectReferences skips it', () => {
+    const { ast } = parseExpression('d20+{skill:combat}');
+    expect(collectReferences(ast)).toEqual([{ path: 'skill:combat', scope: 'static' }]);
+  });
+});
+
+describe('determinism (#117)', () => {
+  it('EXPRESSION_FUNCTIONS never contains randomness', () => {
+    expect(EXPRESSION_FUNCTIONS).not.toHaveProperty('roll');
+    expect(parseExpression('roll(1,20)').error).toMatch(/unknown function "roll"/);
+  });
+
+  it('evaluateDynamic never rolls: a dice expression warns and defaults to 1', () => {
+    const { ast } = parseExpression('d20+{xp}');
+    const resolve = vi.fn(() => 5);
+    expect(evaluateDynamic(ast, resolve)).toEqual({ value: 1, warning: expect.stringMatching(/dice/) });
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it('evaluateDynamic matches evaluateExpression on a dice-free expression', () => {
+    const { ast } = parseExpression('max(1, floor({xp}/125))>=2');
+    const resolve = () => 300;
+    expect(evaluateDynamic(ast, resolve)).toEqual({ value: evaluateExpression(ast, resolve), warning: null });
+  });
+});
+
+describe('evaluateCheck', () => {
+  it('parses and evaluates a check with the given resolver and roll', () => {
+    const roll = vi.fn(() => 9);
+    const { value, error } = evaluateCheck('d20+{skill:stealth}>=11', {
+      resolve: (path) => (path === 'skill:stealth' ? 2 : 0),
+      roll,
+    });
+    expect(error).toBeNull();
+    expect(value).toBe(1);
+    expect(roll).toHaveBeenCalledWith(1, 20);
+  });
+
+  it('evaluates a dice expression to its rolled total', () => {
+    expect(evaluateCheck('2d6+1', { resolve: () => 0, roll: (count, sides) => count * sides }).value).toBe(13);
+  });
+
+  it('returns NaN with the parse error for bad source, without rolling', () => {
+    const roll = vi.fn();
+    const { value, error } = evaluateCheck('d20+', { resolve: () => 0, roll });
+    expect(Number.isNaN(value)).toBe(true);
+    expect(error).toMatch(/unexpected end/);
+    expect(roll).not.toHaveBeenCalled();
+  });
+
+  it('leaves dice NaN when no roll is given', () => {
+    expect(Number.isNaN(evaluateCheck('d6', { resolve: () => 0 }).value)).toBe(true);
   });
 });

@@ -182,10 +182,15 @@ app **materializes** the computed total into the tag's value
   `{` are YAML flow syntax and fail to parse. Future rule kinds become sibling
   sections of `dynamic:`.
 - **Expression grammar** (`src/logic/expressions.js`): numbers;
-  `+ - * / %`; parentheses; `floor ceil round sqrt min max`; brace-wrapped
-  references. A bare identifier is a parse error unless it is a function call.
-  Results keep decimals; round explicitly. Parsing never throws (it returns
-  `{ ast, error }`).
+  `+ - * / %`; comparisons `== != >= <= > <` and `&& || !`, which yield `1` or
+  `0`; parentheses; `floor ceil round sqrt min max`; brace-wrapped references;
+  dice literals (`d20`, `2d6`). A bare identifier is a parse error unless it
+  is a function call. Results keep decimals; round explicitly. Parsing never
+  throws (it returns `{ ast, error }`). The full grammar is
+  [`task-engine.md`](task-engine.md) "Expressions".
+- **Rules never roll.** A rule containing dice defaults to `1` with a warning.
+  Why: payloads are stored, so a random value would churn saves, loop
+  reconciliation, and corrupt rollback.
 - **References:** `{addr}` reads the object's **static** tag value at the
   address — never the dynamic total. `{dyn,addr}` reads the dynamic total.
   Wildcards (`{class:*}`, `{dyn,class:*}`) sum the numeric matches in their
@@ -196,8 +201,8 @@ app **materializes** the computed total into the tag's value
 - **Failure modes.** A marker whose address has no rule, or a rule that fails
   to parse, is **invalid**: its payload is stripped to the bare marker and the
   UI shows the invalid state. A missing or non-numeric reference, a
-  `{dyn,…}` cycle, zero numeric wildcard matches, or a non-finite result each
-  default to `1` with a warning. Warnings are derived on read, never stored.
+  `{dyn,…}` cycle, zero numeric wildcard matches, a dice literal, or a
+  non-finite result each default to `1` with a warning. Warnings are derived on read, never stored.
 - **Reconciliation.** `DYN_RECONCILE` (dispatched by `useDynReconcile` after
   any state or rules change) rewrites every stale payload across agents,
   items, and tasks. It returns the same state reference when nothing changed.
@@ -222,7 +227,3 @@ dynamic:
   xp-lvl: "[{xp}-125*((2*{dyn,level}-1)*(2*{dyn,level}-1)-1)]"
   xp-lvl-max: "[125*((2*{dyn,level}+1)*(2*{dyn,level}+1)-1)-125*((2*{dyn,level}-1)*(2*{dyn,level}-1)-1)]"
 ```
-
-`Planned (#117):` the expression grammar gains comparisons, booleans, and
-dice; the dynamic-tag path never rolls dice
-([`task-engine.md`](task-engine.md) "Expressions").

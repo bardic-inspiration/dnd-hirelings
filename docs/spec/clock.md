@@ -101,8 +101,9 @@ writer.
   monotonic id that survives trimming; it is not an array index.
 - `log.enabled: false` stops recording. `EVENTLOG_CLEAR` empties the log.
 
-`Planned (#117):` the log gains `actionKind` and `reverseData` columns and an
-`action` row family ([`task-engine.md`](task-engine.md) "Event log and
+Every row carries `actionKind` (`''`) and `reverseData` (`{}`), the columns
+task-engine actions fill. `Planned (#117):` an `action` row family, and rows
+that fill those columns ([`task-engine.md`](task-engine.md) "Event log and
 rollback").
 
 ## Rollback
