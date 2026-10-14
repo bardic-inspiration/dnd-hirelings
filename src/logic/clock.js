@@ -178,17 +178,16 @@ function advanceTick(state, rollbackConfig, locked) {
     result.records.forEach(record => actionRecords.push({ task, record }));
   }
 
-  let eventLog = state.eventLog ?? [];
+  const newEvents = [];
   if (logEnabled) {
-    const newEvents = [];
     for (const { event } of workEvents.sort(byRank)) newEvents.push({ ...event, seq: seq++ });
     for (const task of completed) newEvents.push(makeCompleteEvent({ seq: seq++, clock: clockAfter, task }));
     for (const { task, record } of actionRecords) newEvents.push(makeActionEvent({ seq: seq++, clock: clockAfter, task, record }));
     // Seal the tick with the boundary event — appended on every tick so
     // rollback is uniformly tick-granular even when no work happened.
     newEvents.push(makeTickEvent({ seq, clock: clockAfter, wagesTotal, wages, rolls: runs.flatMap(run => run.result.rolls) }));
-    eventLog = capEventLog([...eventLog, ...newEvents], maxRows);
   }
+  const eventLog = capEventLog([...(state.eventLog ?? []), ...newEvents], maxRows);
 
   return {
     newState: { ...state, ...world, session: { ...world.session, clock: clockAfter }, eventLog },

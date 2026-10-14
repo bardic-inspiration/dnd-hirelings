@@ -70,7 +70,7 @@ green.
 | Term | Meaning |
 |---|---|
 | **Agent** | An NPC hireling: name, portrait, daily `rate`, description, `attributes` and `activities` tag lists. |
-| **Task** | A job: requirements, attributes, conditions (progress targets), and results (rewards). |
+| **Task** | A job: requirements, attributes, and the task engine's operators, vessels, effects, and blackboard — authored as conditions (progress targets) and results (rewards). |
 | **Item** | An inventory row: name, quantity, icon, unit value, attribute tags. Held items move into agents' bags. |
 | **Bank** | The guild's gold (`session.bank`). Wages draw from it; sales and rewards add to it. |
 | **Tag** | A string `[modifier,]segment[:segment…][=value]` describing a property, requirement, bonus, or activity. |
@@ -79,10 +79,14 @@ green.
 | **Tag registry** | The keys-only tree of every tag path in play or allowed (`state.tagRegistry`). |
 | **Dynamic tag** | A `dyn,<address>` tag whose value is computed from a rule and written into the tag. |
 | **Rules registry** | `public/config/rules.yml`: the expressions that govern dynamic tags. |
-| **Condition** | A task's progress subcategory: a `target`, a `progress`, and a tracker linking it to agent tags. |
+| **Condition** | A task's progress subcategory: a `target`, a `progress`, and a tracker linking it to agent tags. Stored lowered into a gate, a contribute, and a vessel. |
+| **Operator** | One step of a task's per-tick fold: a gate admits or rejects an agent's flow, a contribute deposits it into a vessel, an effect fires actions. |
+| **Vessel** | A task's progress store: a fill (on the blackboard) and a `fullWhen` test. A task completes when its success vessels are full. |
+| **Action** | The one effect primitive — a deposit, a reward, a spawn, a tag or flag write — applied by the tick and reversed by rollback per kind. |
+| **Blackboard** | A task's own plain-JSON state: vessel fills and flags operators read. |
 | **Assign / bind** | Assign: an agent takes a task, or an item moves to an agent. Bind: an agent equips a bag item, optionally into a slot. |
 | **Tick** | The simulation's unit of time; one tick is one day. |
-| **Event log** | The per-tick record of work, completions, and wages that drives rollback. |
+| **Event log** | The per-tick record of deposits, completions, actions, and wages that drives rollback. |
 | **Preset** | A template for a new agent, task, or item — bundled (standard) or user-authored. |
 | **Order** | The library's cart: preset lines with quantities, submitted at once. |
 | **Config file** | A YAML document the app reads at runtime (`public/config/`) or build time (`config/`). |
@@ -96,7 +100,7 @@ depend in one direction — components → hooks → state → logic:
 
 | Tier | Path | Owns |
 |---|---|---|
-| Logic | `src/logic/` | Game mechanics as plain functions over plain objects: tags, matching, conditions, clock, rollback, expressions, config normalizers. |
+| Logic | `src/logic/` | Game mechanics as plain functions over plain objects: tags, matching, the task engine (operators, actions, task shape), clock, rollback, expressions, config normalizers. |
 | State | `src/state/` | `GameContext` (the game world, `useReducer`), `UIContext` (selection, modals, card expansion), `ConfigContext` (runtime config documents), and `storage.js` (persistence). |
 | Hooks | `src/hooks/` | Bridges between state and React lifecycle: the play loop, config readers, presets, gestures, measurement. |
 | Components | `src/components/` | Layout, event wiring, and display formatting only — no game rules. |
@@ -122,7 +126,9 @@ entry — never a branch in the caller. Unknown keys fall back gracefully.
 | `MATCH_MODE_REGISTRY` | `logic/tagMatching.js` | Pattern match mode → matcher. |
 | `VALUE_COMPARE_REGISTRY` | `logic/tagMatching.js` | Comparison operator → test. |
 | `VALUE_RESOLVER_REGISTRY` | `logic/tagValues.js` | Use case → implied-value resolver. |
-| `TRACKER_REGISTRY` | `logic/conditions.js` | Condition tracker kind → contribution function. |
+| `OPERATOR_REGISTRY` | `logic/operators.js` | Operator kind → per-agent step. |
+| `QUANTIFIER_REGISTRY` | `logic/operators.js` | Gate quantifier → outcome collapse. |
+| `ACTION_REGISTRY` | `logic/actions.js` | Action kind → apply, reverse, switchboard category. |
 | `EXPRESSION_FUNCTIONS` | `logic/expressions.js` | Expression function name → implementation. |
 | `TAG_LABEL_VARIANTS` | `logic/truncation.js` | Tag display style → rendering parts. |
 | `VALUE_KINDS` | `logic/configEditor.js` | Config scalar kind → suggest/check. |
@@ -160,7 +166,7 @@ rules").
 | [`docs/spec/ui.md`](docs/spec/ui.md) | Layout, the agent card, selection, the Tag Registry modal, text display, modals, styling. |
 | [`docs/spec/persistence.md`](docs/spec/persistence.md) | State shape, storage keys, save and file formats, the action vocabulary. |
 | [`docs/spec/assets.md`](docs/spec/assets.md) | Images and fonts: layout, formats, manifests, loading. |
-| [`docs/spec/task-engine.md`](docs/spec/task-engine.md) | The expression grammar and seeded randomness. `Planned (#117):` operators, vessels, and actions. |
+| [`docs/spec/task-engine.md`](docs/spec/task-engine.md) | Operators, vessels, actions, the blackboard, the expression grammar, seeded randomness. `Planned (#117):` time windows and the authoring surface. |
 | [`docs/spec/multiplayer.md`](docs/spec/multiplayer.md) | `Planned (#116):` GM/player mode and async turn review. |
 
 ## Open questions
@@ -179,10 +185,10 @@ editing the spec, then delete it here.
 - **Duplicate effective attributes.** An agent carries at most one attribute
   per path, so a condition's tag link never sees two matches today. If
   effective attributes ever stack duplicates, which one contributes?
-- **Locked mode gates creation only.** Task-result spawns, free-form entity
-  edits (`AGENT_UPDATE`, `TASK_UPDATE`, `INVENTORY_UPDATE_ITEM`), and session
+- **Locked mode gates creation and task actions only.** Free-form entity
+  edits (`AGENT_UPDATE`, `TASK_UPDATE`, `INVENTORY_UPDATE_ITEM`) and session
   import (`REPLACE_STATE`) can introduce unregistered tags. Should the gate
-  cover them? (`Planned (#117)` covers tag-writing actions only.)
+  cover them?
 - **Task orders.** A library order of N tasks creates N task instances, like
   agents. Is that the intended task behavior?
 - **Stat-square sizing.** The medallion and boxes are a fixed 34 px square

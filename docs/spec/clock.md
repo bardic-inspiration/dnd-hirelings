@@ -27,9 +27,11 @@ tick-level however many ticks one call spans. Each tick:
    bill. If the bank can't cover it, no one works or is paid that tick, and
    every eligible agent flashes. Otherwise the bank is debited (rounded to
    cents).
-3. **Apply work.** Each paid agent contributes to each condition of its
-   current task ([`tasks.md`](tasks.md) "Conditions").
-4. **Complete tasks** whose conditions are met, applying their results.
+3. **Apply work.** Each worked task's operators run across its paid agents,
+   reading the start-of-tick state; then their deposits and fired effects
+   apply ([`task-engine.md`](task-engine.md) "The tick").
+4. **Complete tasks** whose conditions are met, applying their completion
+   effects.
 5. **Log** the tick ([Event log](#event-log)) and advance the clock by one.
 
 ## Pacing and controls
@@ -63,7 +65,8 @@ React state would re-render the board every frame.
 
 - Interpolation advances each bar by `elapsed / interval` of the tick's
   contribution, capped per condition at its target.
-- Condition rows are addressed by `[data-task-id][data-condition-id]` on
+- Condition rows are a task's vessels, addressed by
+  `[data-task-id][data-condition-id]` (the vessel key) on
   `.condition-item-bar-fill` and `.condition-item-progress`.
 - **A focused element is never written.** The condition progress number is a
   click-to-edit span; the loop skips it while it has focus.
@@ -85,14 +88,17 @@ source — `live` (today's behavior) or `recorded` (replaying a committed turn)
 ([`persistence.md`](persistence.md) "Files"). `advanceTime` is its only
 writer.
 
-- **One group per tick**, in the order `work* → task_complete* → tick`:
-  - one `work_contribution` row per (agent, condition) that received
-    progress, with that tick's `delta`;
+- **One group per tick**, in the order `work* → task_complete* → action* → tick`:
+  - one `work_contribution` row per vessel deposit, with that tick's `delta`;
   - one `task_complete` row per task completing that tick, recording its
-    tags, results, and the exact `spawnedAgentIds` and `unassignedAgentIds`;
+    tags;
+  - one `action` row per action the tick applied — unassignments, rewards,
+    and every other effect — with its kind, deltas, and reverse recipe;
   - one `tick` boundary row, **always** — even on a tick where nothing
     happened — recording that tick's wage payments
-    (`data: { wagesTotal, wages }`).
+    (`data: { wagesTotal, wages }`) and any dice it rolled.
+- Every row carries `actionKind` and `reverseData`
+  ([`task-engine.md`](task-engine.md) "Event log and rollback").
 - So a 10-tick step logs 10 groups, and the log always ends on a `tick`
   boundary.
 - **Only tick effects are logged.** Hand edits — progress, renames,
@@ -101,18 +107,15 @@ writer.
   monotonic id that survives trimming; it is not an array index.
 - `log.enabled: false` stops recording. `EVENTLOG_CLEAR` empties the log.
 
-Every row carries `actionKind` (`''`) and `reverseData` (`{}`), the columns
-task-engine actions fill. `Planned (#117):` an `action` row family, and rows
-that fill those columns ([`task-engine.md`](task-engine.md) "Event log and
-rollback").
-
 ## Rollback
 
 Step back reverses ticks using the event log, not snapshots.
 `rollbackTick(state, config)` reverses the most recent `tick` group: its rows
-in strict reverse order (completions and work first), then the boundary's
-wage refund and a one-tick clock decrement; then it truncates the group off
-the log. `rollbackTime(state, { count })` loops it, stopping at the horizon.
+in strict reverse order (actions, completions, and work first, each through
+its action kind's reverse —
+[`task-engine.md`](task-engine.md) "Event log and rollback"), then the
+boundary's wage refund and a one-tick clock decrement; then it truncates the
+group off the log. `rollbackTime(state, { count })` loops it, stopping at the horizon.
 Replaying forward afterwards regenerates fresh rows with continuing `seq`.
 
 - **Only tick effects reverse.** Inverses subtract recorded deltas
@@ -120,7 +123,8 @@ Replaying forward afterwards regenerates fresh rows with continuing `seq`.
   edits made since the tick survive.
 - **Best-effort, never blocking (`INV-7`).** Entities deleted since are
   skipped; the bank and item quantities clamp at 0. Spawned agents are deleted
-  even if edited since; items they held are not returned.
+  even if edited since; items they held are not returned. An agent removed by
+  `agent.remove` stays removed.
 - **The recorded wage total is authoritative**, so a step back refunds that
   tick's exact wages regardless of later rate, step, or calendar changes.
 - **The horizon** is one tick before the oldest retained `tick` row
@@ -136,17 +140,17 @@ Replaying forward afterwards regenerates fresh rows with continuing `seq`.
 | Key | Effect |
 |---|---|
 | `enabled` | Shows or hides the step-back button. |
-| `reverse.workProgress` | Subtract condition progress. |
+| `reverse.workProgress` | Subtract vessel deposits. |
 | `reverse.wages` | Refund wages. |
 | `reverse.taskCompletion` | Un-complete completed tasks. |
-| `reverse.rewardGold` | Remove reward gold. |
-| `reverse.rewardItems` | Remove reward items. |
-| `reverse.spawnedAgents` | Delete agents spawned by results. |
-| `reverse.agentReassignment` | Restore agents' task assignments. |
+| `reverse.rewardGold` | Reverse `bank.adjust`. |
+| `reverse.rewardItems` | Reverse `inventory.add` / `inventory.remove`. |
+| `reverse.spawnedAgents` | Delete agents spawned by `agent.spawn`. |
+| `reverse.agentReassignment` | Reverse `agent.assign` / `agent.unassign`. |
 | `log.enabled`, `log.maxRows` | Event logging, above. |
 
 A disabled switch leaves that effect in place when the clock winds back.
 
-`Planned (#117):` rows carrying an `actionKind` reverse through that action's
-own `reverse`, and the switchboard accepts per-action-kind flags
-([`task-engine.md`](task-engine.md) "Event log and rollback").
+Other action kinds always reverse. `Planned (#117):` the switchboard accepts
+per-action-kind flags ([`task-engine.md`](task-engine.md) "Event log and
+rollback").
