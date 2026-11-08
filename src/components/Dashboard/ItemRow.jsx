@@ -7,6 +7,7 @@ import EditableSpan from '../EditableSpan.jsx';
 import TagLabel from '../TagLabel.jsx';
 import Tooltip from '../Tooltip.jsx';
 import DragNumber from './DragNumber.jsx';
+import { publicUrl } from '../../constants/paths.js';
 
 export default function ItemRow({ item }) {
   const { dispatch } = useGame();
@@ -66,7 +67,7 @@ export default function ItemRow({ item }) {
         <Tooltip content="Click to set icon">
           <div
             className="item-icon"
-            style={item.icon ? { backgroundImage: `url("${item.icon}")` } : {}}
+            style={item.icon ? { backgroundImage: `url("${publicUrl(item.icon)}")` } : {}}
             onClick={handleIconClick}
           />
         </Tooltip>

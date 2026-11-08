@@ -21,8 +21,27 @@ public/assets/
     └── originals/                # pre-conversion sources — gitignored
 ```
 
-Everything under `public/` is served at the site root:
-`public/assets/portraits/portrait-001.webp` is `/assets/portraits/portrait-001.webp`.
+Everything under `public/` is served beneath the site's **base path**:
+`public/assets/portraits/portrait-001.webp` is the **app path**
+`/assets/portraits/portrait-001.webp`, served at `<base>assets/portraits/portrait-001.webp`.
+
+## App paths
+
+The base is `/` under `vite dev` and in the CI gate, and a sub-path when
+deployed (Vite's `base`, from the `BASE_PATH` environment variable at build
+time). So:
+
+- **Data and constants write app paths, root-relative and without the base**
+  — config URLs (`configRegistry.js`), bundled preset URLs (`libraries.jsx`),
+  palette backgrounds, manifest entries, and every stored `icon`. Saves,
+  presets, and exports therefore load under any base.
+- **The base is applied only where a path reaches the browser** — a `fetch`,
+  a CSS `url()`, an image preload — through `publicUrl(path)`
+  (`src/constants/paths.js`). It prefixes paths starting with a single `/` and
+  passes anything else (`data:` URLs from uploads, absolute URLs) through.
+- **Files Vite processes resolve themselves:** `index.html` links and
+  stylesheet `url()`s are rewritten at build; the `index.html` bootstrap
+  script writes `%BASE_URL%` for its background paths.
 
 ## Formats
 

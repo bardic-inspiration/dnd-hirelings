@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { uid } from '../utils.js';
+import { publicUrl } from '../constants/paths.js';
 
 // Module-level cache of bundled (standard) presets, keyed by config.bundledUrl,
 // so reopening a library doesn't refetch. Standard presets are read-only and
@@ -10,7 +11,7 @@ async function fetchBundled(config) {
   if (bundledCache.has(config.bundledUrl)) return bundledCache.get(config.bundledUrl);
   let list = [];
   try {
-    const res = await fetch(config.bundledUrl);
+    const res = await fetch(publicUrl(config.bundledUrl));
     if (res.ok) {
       const raw = await res.json();
       if (Array.isArray(raw)) list = normalizeMany(raw, config, 'standard');

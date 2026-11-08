@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { publicUrl } from '../constants/paths.js';
 
 /**
  * Tracks per-image load state for a local group of asset URLs.
@@ -31,7 +32,7 @@ export function useAssetGroup(urls) {
       });
       img.onload  = done;
       img.onerror = done;
-      img.src = url;
+      img.src = publicUrl(url);
       if (img.complete) done(); // cached images resolve synchronously
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

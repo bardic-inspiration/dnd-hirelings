@@ -4,6 +4,7 @@ import { useUI } from '../../state/UIContext.jsx';
 import { PORTRAIT_URLS, isValidImageFile } from '../../constants/portraits.js';
 import { useAssetGroup } from '../../hooks/useAssetGroup.js';
 import { highlight } from '../../logic/text.jsx';
+import { publicUrl } from '../../constants/paths.js';
 
 export default function PortraitsModal() {
   const { portraitsProps, closePortraits } = useUI();
@@ -101,7 +102,7 @@ function PortraitFrame({ url, name, query, ready, onSelect }) {
     <div
       className={`portrait-frame${cls}${loadingCls}`}
       onClick={handleClick}
-      style={ready ? { backgroundImage: `url("${url}")` } : undefined}
+      style={ready ? { backgroundImage: `url("${publicUrl(url)}")` } : undefined}
     >
       <span className="portrait-caption">{highlight(name, query)}</span>
     </div>

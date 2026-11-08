@@ -6,6 +6,7 @@ import EditableSpan from '../../EditableSpan.jsx';
 import TagLabel from '../../TagLabel.jsx';
 import Tooltip from '../../Tooltip.jsx';
 import DragNumber from '../../Dashboard/DragNumber.jsx';
+import { publicUrl } from '../../../constants/paths.js';
 
 // Editable item preview. Mirrors an expanded ItemRow but binds to a draft via
 // onChange. Items will gain richer fields later; the layout is built to absorb
@@ -20,7 +21,7 @@ export default function ItemPreview({ draft, onChange }) {
         <Tooltip content="Click to set icon">
           <div
             className="item-icon"
-            style={draft.icon ? { backgroundImage: `url("${draft.icon}")` } : {}}
+            style={draft.icon ? { backgroundImage: `url("${publicUrl(draft.icon)}")` } : {}}
             onClick={() => openItemIcons(url => onChange({ icon: url }))}
           />
         </Tooltip>

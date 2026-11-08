@@ -12,6 +12,7 @@ import { buildOrder, submitOrder } from '../../logic/order.js';
 import { unregisteredEntityTags } from '../../logic/tagRegistry.js';
 import { useTagsConfig } from '../../hooks/useTagsConfig.js';
 import { savePresetToFile, savePresetListToFile, loadPresetsFromFile } from '../../logic/presets.js';
+import { publicUrl } from '../../constants/paths.js';
 
 export default function LibraryModal() {
   const { libraryProps } = useUI();
@@ -185,7 +186,7 @@ function LibraryModalBody({ config }) {
                 >
                   <div
                     className="library-row-icon"
-                    style={config.rowIcon(preset) ? { backgroundImage: `url("${config.rowIcon(preset)}")` } : {}}
+                    style={config.rowIcon(preset) ? { backgroundImage: `url("${publicUrl(config.rowIcon(preset))}")` } : {}}
                   />
                   <span className="library-row-name">{highlight(preset.name, query.trim())}</span>
                   <Tooltip content="Click row +1 · right-click −1 · type to set">

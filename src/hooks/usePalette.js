@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { PALETTES } from '../constants/palettes.js';
 import { STORAGE_KEYS } from '../state/storage.js';
+import { publicUrl } from '../constants/paths.js';
 
 // Legacy key written before palette was versioned; read as fallback during migration.
 const PALETTE_KEY_LEGACY = 'dnd-hirelings-palette';
@@ -26,7 +27,7 @@ export function applyPalette(name) {
   root.style.setProperty('--warn',         palette.warn || '#e84040');
   root.style.setProperty('--accent',       palette.accent || '#d2a24e');
 
-  root.style.setProperty('--bg-image', palette.backgroundImage ? `url('${palette.backgroundImage}')` : 'none');
+  root.style.setProperty('--bg-image', palette.backgroundImage ? `url('${publicUrl(palette.backgroundImage)}')` : 'none');
   localStorage.setItem(STORAGE_KEYS.PALETTE, name);
 }
 

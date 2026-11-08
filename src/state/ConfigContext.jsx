@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import yaml from 'js-yaml';
 import { CONFIG_FILES } from '../logic/configRegistry.js';
 import { loadConfigOverlays, saveConfigOverlays } from './storage.js';
+import { publicUrl } from '../constants/paths.js';
 
 const ConfigContext = createContext(null);
 
@@ -14,7 +15,7 @@ const basePromises = new Map();
 // lenient runtime-input contract in docs/spec/config.md.
 function fetchBaseDoc(url) {
   if (!basePromises.has(url)) {
-    basePromises.set(url, fetch(url)
+    basePromises.set(url, fetch(publicUrl(url))
       .then(res => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         return res.text();
