@@ -8,6 +8,7 @@ import {
 } from '../logic/tagRegistry.js';
 import { normalizeConditionTemplate } from '../logic/conditions.js';
 import { lowerTask, addCondition, updateCondition, removeCondition, setResults } from '../logic/taskModel.js';
+import { setValueAt } from '../logic/configEditor.js';
 import { collectAllHeldItems, mergeItemQty } from '../logic/agents.js';
 import { reconcileDynamicTags } from '../logic/dynamicTags.js';
 
@@ -75,6 +76,8 @@ const pickAgentFields = (preset) => defined({
 const pickTaskFields = (preset) => defined({
   name: preset.name, description: preset.description,
   requirements: preset.requirements, attributes: preset.attributes,
+  operators: preset.operators, vessels: preset.vessels,
+  effects: preset.effects, duration: preset.duration, results: preset.results,
 });
 const pickItemFields = (preset) => defined({
   name: preset.name, icon: preset.icon, quantity: preset.quantity, value: preset.value,
@@ -289,6 +292,18 @@ export function reducer(state, action) {
 
     case 'TASK_UPDATE':
       return { ...state, tasks: state.tasks.map(task => task.id !== action.id ? task : { ...task, ...action.changes }) };
+
+    case 'TASK_CONFIG_COMMIT': {
+      const path = Array.isArray(action.path) ? action.path : [action.path];
+      if (!path.length) return state;
+      const tasks = setValueAt(state.tasks, path, action.value);
+      if (tasks === state.tasks) return state;
+      const index = Number(path[0]);
+      if (Number.isInteger(index) && tasks[index]) {
+        tasks[index] = lowerTask(tasks[index]);
+      }
+      return { ...state, tasks };
+    }
 
     case 'TASK_DELETE': {
       const taskTag = `task:${action.id}`;

@@ -470,6 +470,9 @@ export function applyActions(world, actions, ctx) {
 export function reverseActionRow(world, row, reverseSwitches) {
   const entry = ACTION_REGISTRY[row.actionKind];
   if (!entry?.reverse || row.data?.skipped) return world;
-  if (entry.category && reverseSwitches?.[entry.category] === false) return world;
+  const shouldReverse = reverseSwitches?.[row.actionKind]
+    ?? (entry.category ? reverseSwitches?.[entry.category] : undefined)
+    ?? true;
+  if (!shouldReverse) return world;
   return entry.reverse(world, row);
 }

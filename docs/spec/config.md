@@ -39,6 +39,7 @@ entry plus one schema. Entries, in display order:
 | id | Kind | Source |
 |---|---|---|
 | `session` | `state` | `state.session`: `rateMultiplier` (min 0.1), `workRate` (min 0), `skillBonus` (min 0) |
+| `tasks` | `state` | `state.tasks`: operators, vessels, duration, effects, blackboard ([`task-engine.md`](task-engine.md) "Authoring") |
 | `clock` | `file` | `/config/clock.yml` |
 | `rollback` | `file` | `/config/rollback.yml` |
 | `rules` | `file` | `/config/rules.yml` |
@@ -52,7 +53,7 @@ entry plus one schema. Entries, in display order:
   `overlay ?? base ?? {}`. Documents live in React state, so edits apply live
   to every consumer.
 - **`state` entries** bind to game state: `select(state)` reads the section,
-  `commit(dispatch, key, value)` writes one value, `defaults` is the reset
+  `commit(dispatch, keyOrPath, value)` writes one value, `defaults` is the reset
   payload, and `effects` maps keys to effect *names* (`rateMultiplier:
   'restartPlay'`) that the modal resolves to callbacks. Why names: the
   manifest stays plain data. No fetch, no overlay — the reducer is the
@@ -61,17 +62,14 @@ entry plus one schema. Entries, in display order:
   to the deployed file, until reset. If a deployed config change doesn't
   apply, check for an overlay first.
 
-`Planned (#117):` a `state` entry `tasks` bound to `state.tasks`
-([`task-engine.md`](task-engine.md) "Authoring").
-
 **Schemas** are small recursive descriptors kept beside each file's logic
 (`UI_SCHEMA`, `CLOCK_SCHEMA`, `ROLLBACK_SCHEMA`, `TAGS_SCHEMA`, `RULES_SCHEMA`,
-`SESSION_SCHEMA`):
+`SESSION_SCHEMA`, `TASKS_SCHEMA`):
 
 ```js
 // node := { kind: 'map', keys?, anyKey?, closed? }
 //       | { kind: 'list', item } | { kind: 'tuple', size, item }
-//       | { kind: 'scalar', value: 'string'|'number'|'boolean'|'slug'|'enum'|'tagSource'|'expression',
+//       | { kind: 'scalar', value: 'string'|'number'|'boolean'|'slug'|'enum'|'tagSource'|'expression'|'expr'|'fullWhen',
 //           options?, min?, step?, nullable?, label? }
 ```
 

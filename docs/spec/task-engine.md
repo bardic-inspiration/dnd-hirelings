@@ -7,10 +7,6 @@ primitive; a task-local **blackboard** carries written state; dice are
 reverses. Conditions and results ([`tasks.md`](tasks.md)) are authoring forms
 lowered into this engine. Part of [`SPEC.md`](../../SPEC.md).
 
-`Planned (#117):` the `scale`, `roll`, and `write` operators, `duration`,
-per-action-kind rollback switches, and the authoring surface — each marked
-where it appears.
-
 ## The model
 
 Each tick, flow passes through every worked task. Everything is admitted by
@@ -31,7 +27,7 @@ interface Task {                     // stored shape from storage key -v7
   id: string; name: string; description: string;
   requirements: string[]; attributes: string[];
   isComplete: boolean; createdAt: number;
-  duration: { kind: 'open'|'fixed', ticks?: number, cap?: number } | null;  // Planned (#117): read
+  duration: { kind: 'open'|'fixed', ticks?: number, cap?: number } | null;
   operators: Operator[];             // ordered: the fold
   vessels: { [key: string]: Vessel };  // key is also the DOM and log id
   effects: Effect[];                 // task-level, on: 'completion'
@@ -45,8 +41,9 @@ interface Operator {
   read?: string;                     // gate: 'flow' | 'flag:<key>' | a tag path
   compare?: { op: string, value: string };
   expr?: string;                     // expression source: dice, arithmetic, refs
-  combine?: string;                  // Planned (#117): scale only
-  target?: string;                   // contribute only: vessel key
+  combine?: string;                  // scale only: 'set' | 'add' | 'mul' (default 'set')
+  target?: string;                   // contribute: vessel key; write: blackboard key
+  value?: number|string|boolean;     // write only: literal value when expr is absent
   payload?: object;                  // write only: a lowered unknown tracker
   effects?: Effect[];                // fired on this operator's outcome
 }
@@ -88,9 +85,9 @@ passes the flow through.
 | `gate` | Admit or reject | See below. Pass → flow continues; fail → `admitted = false`, and nothing downstream fires for that agent. |
 | `contribute` | Deposit | Add `evaluate(expr)` (default `1`) to `blackboard[target]` — only a positive, finite amount; one `work_contribution` row per depositing agent. |
 | `effect` | Fire actions | Fires its `pass` effects when an admitted flow reaches it. |
-| `scale` | Transform | `Planned (#117):` `flow.value = combine(flow.value, evaluate(expr))`. Never re-admits rejected flow. |
-| `roll` | Seeded die | `Planned (#117):` `flow.value = evaluateCheck(expr)`. |
-| `write` | Write the blackboard | Inert; lowering emits it for an unknown tracker. `Planned (#117):` writes the blackboard, the state half of deferral. |
+| `scale` | Transform | `flow.value = combine(flow.value, evaluate(expr))` (`combine`: `'set'` default, `'add'`, `'mul'`; non-finite evaluates to `0`). Never re-admits rejected flow. |
+| `roll` | Seeded die | `flow.value = evaluateCheck(expr)` (non-finite evaluates to `0`), appending a `RollRecord` per dice literal. |
+| `write` | Write the blackboard | Emits `flag.set` on `target` (evaluated from `expr` when present, else `value`, else `flow.value`) when an admitted flow reaches it; without `target`, stays inert so a lowered unknown tracker (`payload`) passes through. |
 
 **Gates** test one of:
 
@@ -160,9 +157,12 @@ log work* → task_complete* → action* → tick; cap the log
   unlogged.
 - `fullWhen` is a `VALUE_COMPARE_REGISTRY` term (`== >= <= > <`, ordered
   comparisons numeric and fail-closed, no `!=`); a malformed one is never full.
-- `Planned (#117):` **`duration`** compiles at load into a countdown operator
-  and vessel: `fixed` counts toward its own expiry; `open` with a `cap`
-  likewise, with no completion tie-in. Expiry fires nothing.
+- **`duration`** compiles at load into a countdown operator (`id: 'duration'`,
+  deposited once per worked tick) and a `duration` vessel: `fixed` counts
+  toward completion (`success` true); `open` with a `cap` sets
+  `success: false`, with no completion tie-in. Once the `duration` vessel is
+  full at the start of a tick, the task's window has elapsed and its operators
+  do not run. Expiry fires nothing.
 
 ## Event log and rollback
 
@@ -200,10 +200,10 @@ source, so it changes additively:
 - **Switchboard.** `rollback.yml`'s seven `reverse.*` flags gate the kinds:
   `workProgress → vessel.deposit`, `rewardGold → bank.adjust`,
   `rewardItems → inventory.*`, `spawnedAgents → agent.spawn`,
-  `agentReassignment → agent.assign/unassign`; other kinds always reverse;
-  `taskCompletion` and `wages` keep their boundary meanings.
-  `Planned (#117):` the `reverse` map also accepts any action kind; a row is
-  reversed when `reverse[actionKind] ?? reverse[legacyCategory] ?? true`.
+  `agentReassignment → agent.assign/unassign`; `taskCompletion` and `wages`
+  keep their boundary meanings. The `reverse` map also accepts any action
+  kind (`anyKey`); a row is reversed when
+  `reverse[actionKind] ?? reverse[legacyCategory] ?? true`.
 
 ## Expressions
 
@@ -342,20 +342,21 @@ save advances and rolls back tick for tick as it did before the engine.
 
 ## Authoring
 
-- `Planned (#117):` a `tasks` entry in `CONFIG_FILES` (`kind: 'state'`,
-  bound to `state.tasks`) with a `TASKS_SCHEMA`: operators as a list, vessels
-  as an `anyKey` map, `expr` and `fullWhen` checked softly through
-  `parseExpression`.
-- Task presets carry condition templates, which `TASK_CREATE` lowers.
-  `Planned (#117):` presets may carry the full shape.
+- A `tasks` entry in `CONFIG_FILES` (`kind: 'state'`, bound to `state.tasks`,
+  committing through `TASK_CONFIG_COMMIT`) carries `TASKS_SCHEMA`: operators
+  as a list, vessels as an `anyKey` map, `expr` and `fullWhen` soft-checked
+  through `parseExpression` and `parseFullWhen`.
+- Task presets carry condition templates or the full task-engine shape
+  (`operators`, `vessels`, `effects`, `duration`, `results`), which
+  `TASK_CREATE` lowers; `collectPresetTags` includes `gate` operator `read`
+  tag paths.
 - The registry modal's condition mode, `+ CONDITION`, and the results section
   keep working through the sugar verbs.
 
 ## Worked examples
 
-`Planned (#117):` running these from authored preset data. The third
-example's `combat` → `agent.remove` chain is built
-(`src/logic/taskEngine.test.js`).
+Authored in `public/presets/task_presets.json` and tested end-to-end in
+`src/logic/taskEngine.test.js`.
 
 **Find Victor and Zellen** — fixed window, 4 ticks:
 

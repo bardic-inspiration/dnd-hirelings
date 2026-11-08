@@ -227,5 +227,133 @@
       "trait:diplomacy",
       "trait:urban"
     ]
+  },
+  {
+    "name": "FIND VICTOR AND ZELLEN",
+    "description": "Track down Victor and Zellen across the city within a four-tick window.",
+    "requirements": [],
+    "attributes": [
+      "trait:urban",
+      "trait:stealth"
+    ],
+    "duration": { "kind": "fixed", "ticks": 4 },
+    "operators": [
+      {
+        "id": "stealth",
+        "kind": "gate",
+        "quantifier": "all",
+        "expr": "d20 + {skill:stealth}",
+        "compare": { "op": ">=", "value": "11" }
+      },
+      {
+        "id": "investigate",
+        "kind": "gate",
+        "quantifier": "any",
+        "expr": "d20 + {skill:investigation}",
+        "compare": { "op": ">=", "value": "24" }
+      },
+      {
+        "id": "progress",
+        "kind": "contribute",
+        "target": "found",
+        "expr": "1"
+      }
+    ],
+    "vessels": {
+      "found": { "name": "FOUND", "fullWhen": ">= 4" }
+    },
+    "effects": [
+      {
+        "on": "completion",
+        "actions": [
+          { "kind": "bank.adjust", "params": { "amount": 50 } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "INFILTRATE THE CITY WATCH",
+    "description": "Blend into the City Watch patrols and gather intelligence.",
+    "requirements": [],
+    "attributes": [
+      "trait:urban",
+      "trait:stealth"
+    ],
+    "duration": { "kind": "open", "cap": 30 },
+    "operators": [
+      {
+        "id": "perform",
+        "kind": "gate",
+        "quantifier": "all",
+        "expr": "d20 + {skill:performance}",
+        "compare": { "op": ">=", "value": "12" }
+      },
+      {
+        "id": "investigate",
+        "kind": "gate",
+        "quantifier": "any",
+        "expr": "d20 + {skill:investigation}",
+        "compare": { "op": ">=", "value": "28" }
+      },
+      {
+        "id": "progress",
+        "kind": "contribute",
+        "target": "infiltration",
+        "expr": "1"
+      }
+    ],
+    "vessels": {
+      "infiltration": { "name": "INFILTRATION", "fullWhen": ">= 30" }
+    }
+  },
+  {
+    "name": "EXPLORE THE GUA TUNNELS",
+    "description": "Chart the GUA Tunnels while surviving its lethal hazards.",
+    "requirements": [],
+    "attributes": [
+      "trait:dungeon",
+      "trait:combat"
+    ],
+    "duration": { "kind": "open", "cap": 10 },
+    "operators": [
+      { "id": "hazard", "kind": "roll", "expr": "d6" },
+      { "id": "hazardHit", "kind": "gate", "read": "flow", "compare": { "op": "==", "value": "1" } },
+      {
+        "id": "combat",
+        "kind": "gate",
+        "quantifier": "any",
+        "expr": "d20 + {skill:combat}",
+        "compare": { "op": ">=", "value": "13" },
+        "effects": [
+          {
+            "on": "fail",
+            "actions": [
+              {
+                "kind": "agent.remove",
+                "params": {
+                  "selector": { "scope": "operator", "operatorId": "combat", "outcome": "fail" }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "investigate",
+        "kind": "gate",
+        "quantifier": "any",
+        "expr": "d20 + {skill:investigation}",
+        "compare": { "op": ">=", "value": "32" }
+      },
+      {
+        "id": "progress",
+        "kind": "contribute",
+        "target": "mapped",
+        "expr": "1"
+      }
+    ],
+    "vessels": {
+      "mapped": { "name": "MAPPED", "fullWhen": ">= 10" }
+    }
   }
 ]

@@ -67,7 +67,7 @@ describe('lowerTask', () => {
     expect(task.blackboard.c9).toBe(1);
   });
 
-  it('keeps authored engine fields and drops malformed entries', () => {
+  it('keeps authored engine fields, lowers duration into a countdown operator and vessel, and drops malformed entries', () => {
     const task = lowerTask({
       id: 't3',
       operators: [{ id: 'g', kind: 'gate', expr: 'd20>=11' }, null, { kind: 'contribute' }],
@@ -76,20 +76,49 @@ describe('lowerTask', () => {
       blackboard: { found: 2, note: 'x', ok: true, nested: { no: 1 } },
       duration: { kind: 'fixed', ticks: 4 },
     });
-    expect(task.operators).toEqual([{ id: 'g', kind: 'gate', expr: 'd20>=11' }, { id: 'op-2', kind: 'contribute' }]);
-    expect(task.vessels).toEqual({ found: { fullWhen: '>= 4' }, bad: { fullWhen: '>= 1' } });
+    expect(task.operators).toEqual([
+      { id: 'g', kind: 'gate', expr: 'd20>=11' },
+      { id: 'op-2', kind: 'contribute' },
+      { id: 'duration', kind: 'contribute', target: 'duration', expr: '1' },
+    ]);
+    expect(task.vessels).toEqual({
+      found: { fullWhen: '>= 4' },
+      bad: { fullWhen: '>= 1' },
+      duration: { name: 'DURATION', fullWhen: '>= 4' },
+    });
     expect(task.effects).toEqual([{ on: 'completion', actions: [{ kind: 'bank.adjust', params: { amount: 50 } }] }]);
     expect(task.blackboard).toEqual({ found: 2, note: 'x', ok: true });
     expect(task.duration).toEqual({ kind: 'fixed', ticks: 4 });
+    expect(lowerTask(task)).toEqual(task);
+  });
+
+  it('lowers open duration with cap to a non-success countdown vessel, and open without cap to no countdown', () => {
+    const capped = lowerTask({ id: 't4', duration: { kind: 'open', cap: 30 } });
+    expect(capped.operators).toEqual([{ id: 'duration', kind: 'contribute', target: 'duration', expr: '1' }]);
+    expect(capped.vessels.duration).toEqual({ name: 'DURATION', fullWhen: '>= 30', success: false });
+    expect(vesselFill(capped, 'duration')).toBe(0);
+    expect(lowerTask(capped)).toEqual(capped);
+
+    const uncapped = lowerTask({ id: 't5', duration: { kind: 'open' } });
+    expect(uncapped.operators).toEqual([]);
+    expect(uncapped.vessels).toEqual({});
+    expect(uncapped.duration).toEqual({ kind: 'open' });
   });
 });
 
 describe('vessels', () => {
-  it('parses fullWhen into a comparison term, or null when malformed', () => {
+  it('parses fullWhen through VALUE_COMPARE_REGISTRY, or null when malformed', async () => {
+    const { VALUE_COMPARE_REGISTRY } = await import('./tagMatching.js');
     expect(parseFullWhen('>= 4')).toEqual({ op: '>=', value: '4' });
     expect(parseFullWhen('==2')).toEqual({ op: '==', value: '2' });
     expect(parseFullWhen('!= 2')).toBeNull();
     expect(parseFullWhen('soon')).toBeNull();
+    VALUE_COMPARE_REGISTRY['~='] = (actual, expected) => actual === expected;
+    try {
+      expect(parseFullWhen('~= 5')).toEqual({ op: '~=', value: '5' });
+    } finally {
+      delete VALUE_COMPARE_REGISTRY['~='];
+    }
   });
 
   it('reads the fill from the blackboard and tests fullWhen against it, failing closed', () => {

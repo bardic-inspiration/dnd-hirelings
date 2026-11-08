@@ -324,4 +324,33 @@ describe('task engine sugar verbs (#117)', () => {
     expect(copy.id).not.toBe(orig.id);
     expect(copy).toMatchObject({ operators: orig.operators, vessels: orig.vessels, effects: orig.effects, blackboard: {}, isComplete: false });
   });
+
+  it('TASK_CREATE accepts a full-shape task preset and registers gate read tag paths', () => {
+    const preset = {
+      name: 'FIND VICTOR AND ZELLEN',
+      duration: { kind: 'fixed', ticks: 4 },
+      operators: [
+        { id: 'stealth', kind: 'gate', read: 'skill:stealth', expr: 'd20 + {skill:stealth}', compare: { op: '>=', value: '11' } },
+        { id: 'progress', kind: 'contribute', target: 'found', expr: '1' },
+      ],
+      vessels: { found: { fullWhen: '>= 4' } },
+      effects: [{ on: 'completion', actions: [{ kind: 'bank.adjust', params: { amount: 50 } }] }],
+    };
+    const next = reducer({ ...taskState(), tasks: [] }, { type: 'TASK_CREATE', preset });
+    expect(next.tasks[0]).toMatchObject({
+      name: 'FIND VICTOR AND ZELLEN',
+      duration: { kind: 'fixed', ticks: 4 },
+      vessels: {
+        found: { fullWhen: '>= 4' },
+        duration: { name: 'DURATION', fullWhen: '>= 4' },
+      },
+      effects: [{ on: 'completion', actions: [{ kind: 'bank.adjust', params: { amount: 50 } }] }],
+    });
+    expect(next.tagRegistry.skill?.stealth).toEqual({});
+  });
+
+  it('TASK_CONFIG_COMMIT updates a task field at a nested path and re-lowers', () => {
+    const next = reducer(taskState(), { type: 'TASK_CONFIG_COMMIT', path: [0, 'vessels', 'c1', 'fullWhen'], value: '>= 10' });
+    expect(next.tasks[0].vessels.c1.fullWhen).toBe('>= 10');
+  });
 });

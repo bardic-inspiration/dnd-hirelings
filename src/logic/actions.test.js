@@ -62,10 +62,22 @@ describe('bank.adjust', () => {
     expect(reverseActionRow(spent, row, DEFAULT_ROLLBACK_CONFIG.reverse).session.bank).toBe(0);
   });
 
-  it('is gated by reverse.rewardGold', () => {
+  it('is gated by reverse[actionKind] ?? reverse.rewardGold ?? true', () => {
     const { reversed } = roundTrip(makeWorld(), { kind: 'bank.adjust', params: { amount: 50 } },
       normalizeRollbackConfig({ reverse: { rewardGold: false } }).reverse);
     expect(reversed.session.bank).toBe(150);
+
+    const byKindOff = roundTrip(makeWorld(), { kind: 'bank.adjust', params: { amount: 50 } },
+      normalizeRollbackConfig({ reverse: { rewardGold: true, 'bank.adjust': false } }).reverse);
+    expect(byKindOff.reversed.session.bank).toBe(150);
+
+    const byKindOn = roundTrip(makeWorld(), { kind: 'bank.adjust', params: { amount: 50 } },
+      normalizeRollbackConfig({ reverse: { rewardGold: false, 'bank.adjust': true } }).reverse);
+    expect(byKindOn.reversed.session.bank).toBe(100);
+
+    const uncategorizedOff = roundTrip(makeWorld(), { kind: 'flag.set', params: { key: 'alarm', value: true } },
+      normalizeRollbackConfig({ reverse: { 'flag.set': false } }).reverse);
+    expect(uncategorizedOff.reversed.tasks[0].blackboard.alarm).toBe(true);
   });
 });
 

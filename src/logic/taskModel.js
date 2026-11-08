@@ -5,7 +5,7 @@
 // condition and results controls dispatch.
 
 import { normalizeCondition, conditionFromTemplate } from './conditions.js';
-import { matchTagValue } from './tagMatching.js';
+import { matchTagValue, VALUE_COMPARE_REGISTRY } from './tagMatching.js';
 
 /** The contribute expression every lowered `work` condition uses. */
 export const WORK_EXPRESSION = '{session:workRate} + {value} * {session:skillBonus}';
@@ -133,11 +133,25 @@ function normalizeBlackboard(raw) {
   return Object.fromEntries(Object.entries(raw).filter(([, value]) => BLACKBOARD_TYPES.has(typeof value)));
 }
 
+function normalizeDuration(raw) {
+  if (!isPlainObject(raw)) return null;
+  if (raw.kind === 'fixed') {
+    const ticks = Number(raw.ticks ?? raw.cap);
+    return Number.isFinite(ticks) && ticks > 0 ? { kind: 'fixed', ticks } : null;
+  }
+  if (raw.kind === 'open') {
+    const cap = Number(raw.cap ?? raw.ticks);
+    return Number.isFinite(cap) && cap > 0 ? { kind: 'open', cap } : { kind: 'open' };
+  }
+  return null;
+}
+
 /**
  * Brings a task to the stored engine shape. Guards `operators`, `vessels`,
  * `effects`, `blackboard`, and `duration`; lowers any legacy `conditions`
- * (skipping one whose vessel already exists) and `results`; and drops both
- * fields. Idempotent. Other task fields pass through untouched.
+ * (skipping one whose vessel already exists), `results`, and `duration` (into
+ * a countdown operator and vessel); and drops `conditions` and `results`.
+ * Idempotent. Other task fields pass through untouched.
  *
  * @param {object} raw - A task in either shape
  * @returns {Task}
@@ -148,6 +162,7 @@ export function lowerTask(raw) {
   const vessels = normalizeVessels(rest.vessels);
   const effects = normalizeEffects(rest.effects);
   const blackboard = normalizeBlackboard(rest.blackboard);
+  const duration = normalizeDuration(rest.duration);
   for (const condition of Array.isArray(conditions) ? conditions.map(normalizeCondition) : []) {
     if (vessels[condition.id]) continue;
     const lowered = lowerCondition(condition);
@@ -159,27 +174,42 @@ export function lowerTask(raw) {
     const actions = lowerResults(normalizeResults(results));
     if (actions.length) effects.push({ on: 'completion', actions });
   }
+  const bound = duration?.kind === 'fixed' ? duration.ticks : duration?.cap;
+  if (bound) {
+    if (!operators.some(op => op.id === 'duration')) {
+      operators.push({ id: 'duration', kind: 'contribute', target: 'duration', expr: '1' });
+    }
+    vessels.duration ??= {
+      name: 'DURATION',
+      fullWhen: `>= ${bound}`,
+      ...(duration.kind === 'open' ? { success: false } : {}),
+    };
+  }
   return {
     ...rest,
     operators,
     vessels,
     effects,
     blackboard,
-    duration: isPlainObject(rest.duration) ? rest.duration : null,
+    duration,
   };
 }
 
-const FULL_WHEN_RE = /^\s*(==|>=|<=|>|<)\s*(\S.*?)\s*$/;
-
 /**
- * Parses a vessel's `fullWhen` (`'op value'`) into a comparison term.
+ * Parses a vessel's `fullWhen` (`'op value'`) into a comparison term,
+ * matching the operator against `VALUE_COMPARE_REGISTRY`.
  *
  * @param {string} fullWhen
  * @returns {{ op: string, value: string }|null} `null` when malformed
  */
 export function parseFullWhen(fullWhen) {
-  const match = String(fullWhen ?? '').match(FULL_WHEN_RE);
-  return match ? { op: match[1], value: match[2] } : null;
+  const text = String(fullWhen ?? '').trim();
+  const op = Object.keys(VALUE_COMPARE_REGISTRY)
+    .sort((a, b) => b.length - a.length)
+    .find(key => text.startsWith(key));
+  if (!op) return null;
+  const value = text.slice(op.length).trim();
+  return value ? { op, value } : null;
 }
 
 /**
@@ -367,3 +397,83 @@ export function resetVessels(task) {
   for (const key of Object.keys(task.vessels ?? {})) blackboard[key] = 0;
   return blackboard;
 }
+
+const OPERATOR_SCHEMA = {
+  kind: 'map',
+  keys: {
+    id:      { kind: 'scalar', value: 'string' },
+    kind:    { kind: 'scalar', value: 'enum', options: ['gate', 'scale', 'roll', 'contribute', 'write'] },
+    read:    { kind: 'scalar', value: 'string', nullable: true },
+    compare: {
+      kind: 'map',
+      nullable: true,
+      keys: {
+        op:    { kind: 'scalar', value: 'string' },
+        value: { kind: 'scalar', value: 'string' },
+      },
+    },
+    expr:   { kind: 'scalar', value: 'expr', nullable: true },
+    target: { kind: 'scalar', value: 'string', nullable: true },
+  },
+};
+
+const VESSEL_SCHEMA = {
+  kind: 'map',
+  keys: {
+    name:     { kind: 'scalar', value: 'string', label: 'NAME' },
+    fullWhen: { kind: 'scalar', value: 'fullWhen', label: 'FULL WHEN' },
+    success:  { kind: 'scalar', value: 'boolean', nullable: true },
+  },
+};
+
+const EFFECT_SCHEMA = {
+  kind: 'map',
+  keys: {
+    on: { kind: 'scalar', value: 'string' },
+    actions: {
+      kind: 'list',
+      item: {
+        kind: 'map',
+        keys: {
+          kind:   { kind: 'scalar', value: 'string' },
+          params: { kind: 'map' },
+        },
+      },
+    },
+  },
+};
+
+/**
+ * Schema for the TASKS section (state-bound `state.tasks` list): soft-checks
+ * operator expressions (`expr`) and vessel thresholds (`fullWhen`) in the
+ * Configuration Modal.
+ */
+export const TASKS_SCHEMA = {
+  kind: 'list',
+  item: {
+    kind: 'map',
+    keys: {
+      id:           { kind: 'scalar', value: 'string' },
+      name:         { kind: 'scalar', value: 'string', label: 'NAME' },
+      description:  { kind: 'scalar', value: 'string', label: 'DESCRIPTION' },
+      requirements: { kind: 'list', item: { kind: 'scalar', value: 'string' } },
+      attributes:   { kind: 'list', item: { kind: 'scalar', value: 'string' } },
+      operators:    { kind: 'list', item: OPERATOR_SCHEMA },
+      vessels:      { kind: 'map', anyKey: VESSEL_SCHEMA },
+      duration: {
+        kind: 'map',
+        nullable: true,
+        keys: {
+          kind:  { kind: 'scalar', value: 'enum', options: ['fixed', 'open'] },
+          ticks: { kind: 'scalar', value: 'number', min: 1, step: 1, nullable: true },
+          cap:   { kind: 'scalar', value: 'number', min: 1, step: 1, nullable: true },
+        },
+      },
+      effects:    { kind: 'list', item: EFFECT_SCHEMA },
+      blackboard: { kind: 'map' },
+      isComplete: { kind: 'scalar', value: 'boolean' },
+      createdAt:  { kind: 'scalar', value: 'number' },
+    },
+  },
+};
+

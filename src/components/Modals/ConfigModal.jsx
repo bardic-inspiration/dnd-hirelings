@@ -147,7 +147,7 @@ export default function ConfigModal({ onRestartPlay }) {
         ? VALUE_KINDS[schemaNode.value]?.check(value, schemaNode, context)
         : null;
       if (warning) return;
-      entry.binding.commit(dispatch, innerPath[0], value);
+      entry.binding.commit(dispatch, innerPath.length === 1 ? innerPath[0] : innerPath, value);
       effectHandlers[entry.binding.effects?.[innerPath[0]]]?.();
     } else {
       // Commit-with-prune: a cleared list/tuple value drops its emptied row.

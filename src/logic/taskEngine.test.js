@@ -177,3 +177,136 @@ describe('locked mode', () => {
     expect(unlocked.tagRegistry.trait).toEqual({ marked: {} });
   });
 });
+
+describe('durations (fixed and open)', () => {
+  it('fixed duration counts 1 per tick across a party, waits for the window, and expires with no failure branch when a vessel is unfilled', () => {
+    const fixedTask = {
+      duration: { kind: 'fixed', ticks: 4 },
+      operators: [
+        { id: 'check', kind: 'gate', quantifier: 'all', read: 'skill:stealth', compare: { op: '>=', value: '2' } },
+        { id: 'progress', kind: 'contribute', target: 'found', expr: '1' },
+      ],
+      vessels: { found: { fullWhen: '>= 4' } },
+      effects: [{ on: 'completion', actions: [{ kind: 'bank.adjust', params: { amount: 40 } }] }],
+    };
+
+    // Two passing agents deposit 2/tick into `found` (reaching 4 on tick 2),
+    // but `duration` counts 1/tick and is a success vessel, so completion waits until tick 4.
+    const passingParty = [agent('a1', ['skill:stealth=2']), agent('a2', ['skill:stealth=2'])];
+    const after2 = advanceTime(world(fixedTask, passingParty), { count: 2 }).newState;
+    expect(after2.tasks[0].blackboard).toEqual({ found: 4, duration: 2 });
+    expect(after2.tasks[0].isComplete).toBe(false);
+
+    const after4 = advanceTime(after2, { count: 2 }).newState;
+    expect(after4.tasks[0].blackboard).toEqual({ found: 8, duration: 4 });
+    expect(after4.tasks[0].isComplete).toBe(true);
+    expect(after4.session.bank).toBe(100 - 8 + 40);
+
+    // When gates fail, `duration` still counts up to 4; at expiry `found` is 0,
+    // so the task neither completes nor fires a failure branch, and later ticks do not advance it.
+    const failing = advanceTime(world(fixedTask, [agent('a1', ['skill:stealth=1'])]), { count: 4 }).newState;
+    expect(failing.tasks[0].blackboard).toEqual({ duration: 4 });
+    expect(failing.tasks[0].isComplete).toBe(false);
+    expect(failing.session.bank).toBe(96);
+
+    // Even if the agent gains the skill after the window elapsed, the expired task accepts no further work.
+    const lateUpgrade = {
+      ...failing,
+      agents: [{ ...failing.agents[0], attributes: ['skill:stealth=5'] }],
+    };
+    const after5 = advanceTime(lateUpgrade).newState;
+    expect(after5.tasks[0].blackboard).toEqual({ duration: 4 });
+    expect(after5.tasks[0].isComplete).toBe(false);
+
+    // Rolling back tick 4 re-opens the window.
+    const rewound = rollbackTick(failing).newState;
+    expect(rewound.tasks[0].blackboard.duration).toBe(3);
+  });
+
+  it('open duration with cap completes early as soon as success vessels fill, and expires silently at the cap', () => {
+    const openTask = {
+      duration: { kind: 'open', cap: 4 },
+      operators: [
+        { id: 'check', kind: 'gate', read: 'skill:arcana' },
+        { id: 'progress', kind: 'contribute', target: 'research', expr: '2' },
+      ],
+      vessels: { research: { fullWhen: '>= 4' } },
+      effects: [{ on: 'completion', actions: [{ kind: 'bank.adjust', params: { amount: 25 } }] }],
+    };
+
+    // Completes on tick 2 (`research` = 4 >= 4) without waiting for `duration` to reach 4.
+    const early = advanceTime(world(openTask, [agent('a1', ['skill:arcana=1'])]), { count: 2 }).newState;
+    expect(early.tasks[0].blackboard).toEqual({ research: 4, duration: 2 });
+    expect(early.tasks[0].isComplete).toBe(true);
+    expect(early.session.bank).toBe(100 - 2 + 25);
+
+    // When `research` stays unfilled across all 4 ticks, the cap elapses with no completion and stops.
+    const expired = advanceTime(world(openTask, [agent('a1', [])]), { count: 4 }).newState;
+    expect(expired.tasks[0].blackboard).toEqual({ duration: 4 });
+    expect(expired.tasks[0].isComplete).toBe(false);
+    const afterCap = advanceTime({
+      ...expired,
+      agents: [{ ...expired.agents[0], attributes: ['skill:arcana=1'] }],
+    }).newState;
+    expect(afterCap.tasks[0].blackboard).toEqual({ duration: 4 });
+  });
+});
+
+describe('authored preset worked examples (public/presets/task_presets.json)', () => {
+  it('loads and runs all three worked examples from authored preset data', async () => {
+    const { default: taskPresets } = await import('../../public/presets/task_presets.json');
+    const { LIBRARY_CONFIGS } = await import('../constants/libraries.jsx');
+    const { reducer } = await import('../state/reducer.js');
+
+    const spawnPreset = (name, agents) => {
+      const raw = taskPresets.find(entry => entry.name === name);
+      expect(raw).toBeDefined();
+      const preset = LIBRARY_CONFIGS.task.normalize(raw);
+      const created = reducer(world({}, []), { type: 'TASK_CREATE', preset });
+      const task = created.tasks.at(-1);
+      const assigned = agents.map(member => ({ ...member, activities: [`task:${task.id}`] }));
+      return { ...created, tasks: [task], agents: assigned };
+    };
+
+    // 1 — Find Victor and Zellen (fixed window, 4 ticks)
+    const victorState = spawnPreset('FIND VICTOR AND ZELLEN', [
+      agent('scout', ['skill:stealth=20', 'skill:investigation=30']),
+    ]);
+    const victorDone = advanceTime(victorState, { count: 4 }).newState;
+    expect(victorDone.tasks[0].isComplete).toBe(true);
+    expect(victorDone.tasks[0].blackboard).toEqual({ found: 4, duration: 4 });
+
+    // 2 — Infiltrate the City Watch (open, cap 30)
+    const watchState = spawnPreset('INFILTRATE THE CITY WATCH', [
+      agent('bard1', ['skill:performance=20', 'skill:investigation=30']),
+      agent('bard2', ['skill:performance=20', 'skill:investigation=30']),
+    ]);
+    // Two passing agents deposit 2/tick into `infiltration` (>= 30), completing in 15 ticks well before the 30-tick cap.
+    const watchDone = advanceTime(watchState, { count: 15 }).newState;
+    expect(watchDone.tasks[0].isComplete).toBe(true);
+    expect(watchDone.tasks[0].blackboard).toEqual({ infiltration: 30, duration: 15 });
+
+    // 3 — Explore the GUA Tunnels (open, cap 10; lethal hazard on d6 == 1)
+    let tunnelsState = spawnPreset('EXPLORE THE GUA TUNNELS', [
+      agent('hero', ['skill:combat=20', 'skill:investigation=40']),
+      agent('doomed', ['skill:combat=-20', 'skill:investigation=40']),
+    ]);
+    // Advance tick by tick until `hazard` (1d6) rolls 1 for both agents, or force the clock where hero rolls 1.
+    const { rollDice, rollSeedKey } = await import('./rng.js');
+    const taskId = tunnelsState.tasks[0].id;
+    let hazardClock = 1;
+    while (
+      rollDice(rollSeedKey({ clock: hazardClock, taskId, operatorId: 'hazard', agentId: 'hero', rollIndex: 0 }), 1, 6).result !== 1 ||
+      rollDice(rollSeedKey({ clock: hazardClock, taskId, operatorId: 'hazard', agentId: 'doomed', rollIndex: 0 }), 1, 6).result !== 1
+    ) {
+      hazardClock += 1;
+    }
+    tunnelsState = { ...tunnelsState, session: { ...tunnelsState.session, clock: hazardClock - 1 } };
+    const afterHazard = advanceTime(tunnelsState).newState;
+    expect(afterHazard.agents.map(member => member.id)).toEqual(['hero']);
+    expect(afterHazard.tasks[0].blackboard.mapped).toBeGreaterThanOrEqual(1);
+    expect(afterHazard.tasks[0].blackboard.duration).toBe(1);
+  });
+});
+
+
