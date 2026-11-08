@@ -1,12 +1,13 @@
 import { uid, now } from '../utils.js';
-import { normalizeState, DEFAULT_STATE, DEFAULT_RESULTS } from './storage.js';
-import { applyTaskComplete, routeTaskTag } from '../logic/tasks.js';
+import { normalizeState, DEFAULT_STATE } from './storage.js';
+import { completeTask, routeTaskTag } from '../logic/tasks.js';
 import { mergeAttribute, buildTag, parseTag } from '../logic/tags.js';
 import {
   addTagToRegistry, addPath, deleteNode, renameNode,
   collectPresetTags, unregisteredEntityTags,
 } from '../logic/tagRegistry.js';
-import { conditionFromTemplate } from '../logic/conditions.js';
+import { normalizeConditionTemplate } from '../logic/conditions.js';
+import { lowerTask, addCondition, updateCondition, removeCondition, setResults } from '../logic/taskModel.js';
 import { collectAllHeldItems, mergeItemQty } from '../logic/agents.js';
 import { reconcileDynamicTags } from '../logic/dynamicTags.js';
 
@@ -63,10 +64,10 @@ const DEFAULT_ITEM = {
 const defined = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
 
 // Whitelist the fields a preset may contribute to a new board object. Runtime
-// fields (id, createdAt, activities, isComplete, results) and library
+// fields (id, createdAt, activities, isComplete, blackboard) and library
 // bookkeeping (source) are never taken from a preset — the create actions
 // re-stamp those after spreading the picked fields. Preset conditions are
-// templates; TASK_CREATE stamps them into live instances separately.
+// templates; TASK_CREATE lowers them into operators and vessels separately.
 const pickAgentFields = (preset) => defined({
   name: preset.name, icon: preset.icon, rate: preset.rate, rateUnit: preset.rateUnit,
   description: preset.description, attributes: preset.attributes,
@@ -268,18 +269,20 @@ export function reducer(state, action) {
     /* ---------- Tasks ---------- */
     case 'TASK_CREATE': {
       if (createBlocked(state, action, 'task')) return state;
-      const created = Array.from({ length: createCount(action.count) }, () => ({
-        name: 'NEW TASK',
-        description: '',
-        requirements: [],
-        attributes: [],
-        ...(action.preset ? pickTaskFields(action.preset) : null),
-        id: uid(),
-        conditions: (action.preset?.conditions ?? []).map(conditionFromTemplate),
-        results: { ...DEFAULT_RESULTS, items: [], agents: [] },
-        isComplete: false,
-        createdAt: now(),
-      }));
+      const created = Array.from({ length: createCount(action.count) }, () => {
+        const task = lowerTask({
+          name: 'NEW TASK',
+          description: '',
+          requirements: [],
+          attributes: [],
+          ...(action.preset ? pickTaskFields(action.preset) : null),
+          id: uid(),
+          isComplete: false,
+          createdAt: now(),
+        });
+        return (action.preset?.conditions ?? []).reduce(
+          (next, template) => addCondition(next, normalizeConditionTemplate(template)), task);
+      });
       const next = { ...state, tasks: [...state.tasks, ...created] };
       return registerTags(next, ...collectPresetTags('task', action.preset).literalTags);
     }
@@ -299,11 +302,11 @@ export function reducer(state, action) {
     case 'TASK_DUPLICATE': {
       const orig = state.tasks.find(task => task.id === action.id);
       if (!orig) return state;
+      // Vessel keys are per task, so the copy keeps them; its blackboard starts empty.
       const copy = {
         ...JSON.parse(JSON.stringify(orig)),
         id: uid(),
-        // Re-stamp conditions: fresh ids, zero progress.
-        conditions: (orig.conditions || []).map(conditionFromTemplate),
+        blackboard: {},
         isComplete: false,
         createdAt: now(),
       };
@@ -317,14 +320,10 @@ export function reducer(state, action) {
       }
       const task = state.tasks.find(task => task.id === id);
       if (!task || task.isComplete) return state;
-      const { newTasks, newAgents, newInventory, bankDelta } = applyTaskComplete(id, state.tasks, state.agents, state.inventory);
-      return {
-        ...state,
-        tasks: newTasks,
-        agents: newAgents,
-        inventory: newInventory,
-        session: { ...state.session, bank: (state.session.bank ?? 0) + bankDelta },
-      };
+      // The same completion a tick runs; hand edits are not logged, so the
+      // action records are dropped.
+      const { world } = completeTask(state, id, { locked: action.locked === true });
+      return { ...state, ...world };
     }
 
     case 'TASK_REMOVE_TAG': {
@@ -339,49 +338,39 @@ export function reducer(state, action) {
       };
     }
 
+    // Condition and results edits are sugar verbs: they lower at dispatch into
+    // the task's operators, vessels, blackboard, and completion effects
+    // (logic/taskModel.js).
     case 'TASK_CONDITION_ADD': {
-      const condition = conditionFromTemplate(action.template);
+      const template = normalizeConditionTemplate(action.template);
       const next = {
         ...state,
-        tasks: state.tasks.map(task => task.id !== action.id ? task : {
-          ...task,
-          conditions: [...(task.conditions || []), condition],
-        }),
+        tasks: state.tasks.map(task => task.id !== action.id ? task : addCondition(task, template)),
       };
       // A plain tracker tagPath is a valid tag string; register it so the
       // registry's usage counts and deletion warnings cover condition links.
       // Pattern paths (wildcards/escapes) are skipped — `*` is not a valid
       // registry key, and a pattern names a match, not a structure node.
-      const tagPath = condition.tracker.tagPath;
+      const tagPath = template.tracker.tagPath;
       return tagPath && !/[\\*]/.test(tagPath) ? registerTags(next, tagPath) : next;
     }
 
     case 'TASK_CONDITION_UPDATE':
       return {
         ...state,
-        tasks: state.tasks.map(task => task.id !== action.id ? task : {
-          ...task,
-          conditions: (task.conditions || []).map(condition =>
-            condition.id !== action.conditionId ? condition : { ...condition, ...action.changes }),
-        }),
+        tasks: state.tasks.map(task => task.id !== action.id ? task : updateCondition(task, action.conditionId, action.changes)),
       };
 
     case 'TASK_CONDITION_REMOVE':
       return {
         ...state,
-        tasks: state.tasks.map(task => task.id !== action.id ? task : {
-          ...task,
-          conditions: (task.conditions || []).filter(condition => condition.id !== action.conditionId),
-        }),
+        tasks: state.tasks.map(task => task.id !== action.id ? task : removeCondition(task, action.conditionId)),
       };
 
     case 'TASK_UPDATE_RESULTS':
       return {
         ...state,
-        tasks: state.tasks.map(task => task.id !== action.id ? task : {
-          ...task,
-          results: { ...(task.results || DEFAULT_RESULTS), ...action.changes },
-        }),
+        tasks: state.tasks.map(task => task.id !== action.id ? task : setResults(task, action.changes)),
       };
 
     /* ---------- Inventory ---------- */

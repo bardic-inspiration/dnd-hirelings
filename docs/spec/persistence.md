@@ -15,7 +15,7 @@ interface GameState {
     stepBack: number;        // ticks per step back (independent of timeStep)
     bank: number;            // gold
     rateMultiplier: number;  // play speed
-    workRate: number;        // base progress per tick of every 'work' tracker
+    workRate: number;        // base progress per tick of every 'work' condition
     skillBonus: number;      // multiplier on a matched tag link's value
   };
   agents: Agent[];
@@ -34,25 +34,24 @@ interface Agent {
   activities: string[];                 // task:<id>, item:<name>=<qty>, bind:[<slot>:]item:<name>
 }
 
-interface Task {
+interface Task {                        // task-engine.md "Shapes"
   id: string; createdAt: number;
   name: string; description: string;
   requirements: string[];               // req,… and block,… tags
   attributes: string[];
-  conditions: Condition[];              // all must be met to complete
   isComplete: boolean;
-  results: {
-    gold: number;
-    items: { name: string; quantity: number }[];
-    agents: { template: Partial<Agent>; quantity: number }[];
-  };
+  operators: Operator[];                // ordered
+  vessels: { [key: string]: Vessel };   // success vessels must all be full to complete
+  effects: Effect[];                    // completion effects; results are a view of them
+  blackboard: { [key: string]: number | string | boolean };  // vessel fills and flags
+  duration: object | null;
 }
 
-interface ConditionTemplate {           // preset and builder form
+interface ConditionTemplate {           // preset and builder form; lowered on create
   name: string;
   target: number;                       // > 0
   tracker: {
-    kind: string;                       // TRACKER_REGISTRY key; 'work'
+    kind: string;                       // 'work'; any other kind lowers inert
     tagPath: string | null;             // open-mode pattern; null = any agent
     compare: { op: string; value: string } | null;
   };
@@ -74,26 +73,24 @@ type TagRegistry = { [key: string]: TagRegistry };   // keys-only tree
 
 interface EventLogEntry {
   seq: number;              // monotonic id, stable across FIFO trims
-  eventType: 'work_contribution' | 'task_complete' | 'tick';
+  eventType: 'work_contribution' | 'task_complete' | 'action' | 'tick';
   clock: number;            // ticks after the tick this row belongs to
-  agentId: string; agentName: string;        // '' on task_complete / tick
+  agentId: string; agentName: string;        // '' off work rows
   taskId: string; taskName: string;
-  conditionId: string; conditionName: string; // '' on task_complete / tick
-  delta: number;            // progress added this tick (0 otherwise)
-  progress: number;         // resulting progress (0 otherwise)
-  target: number;           // condition target, denormalized (0 otherwise)
+  conditionId: string; conditionName: string; // vessel key and name; '' off work rows
+  delta: number;            // amount deposited this tick (0 otherwise)
+  progress: number;         // resulting fill (0 otherwise)
+  target: number;           // the vessel's fullWhen bound, denormalized (0 otherwise)
   data: object;             // work: {}
-                            // task_complete: { isComplete, attributes, results,
-                            //                  spawnedAgentIds, unassignedAgentIds }
-                            // tick: { wagesTotal, wages }
+                            // task_complete: { isComplete, attributes }
+                            //   (pre-engine rows also: results, spawnedAgentIds,
+                            //    unassignedAgentIds)
+                            // action: { params, deltas, skipped? }
+                            // tick: { wagesTotal, wages, rolls? }
   actionKind: string;       // task-engine action kind; '' otherwise
   reverseData: object;      // the action's reverse recipe; {} otherwise
 }
 ```
-
-`Planned (#117):` the stored `Task` replaces `conditions` and `results` with
-`operators`, `vessels`, `effects`, `blackboard`, and `duration`
-([`task-engine.md`](task-engine.md) "Shapes").
 
 **Loading normalizes** every state, from storage or a file, through
 `normalizeState`, which:
@@ -104,8 +101,11 @@ interface EventLogEntry {
 - converts legacy `work` tags and progress buckets into conditions
   (`work=5` → any-agent, `work:skill:arcana=10` → `skill:arcana`, progress
   carried over) and prunes the `work` namespace from the registry;
-- defaults a condition's missing `compare` to `null` and a missing `eventLog`
-  to `[]`, dropping log rows that lack a `taskId` (tick rows exempt);
+- lowers every task's `conditions` and `results` into the task-engine shape
+  (`lowerTask`; [`task-engine.md`](task-engine.md) "Migration"), defaulting a
+  condition's missing `compare` to `null`;
+- defaults a missing `eventLog` to `[]`, dropping log rows that lack a
+  `taskId` (tick rows exempt);
 - reads a legacy `tagLibrary` field as the registry when `tagRegistry` is
   absent;
 - normalizes legacy tag spellings ([`tags.md`](tags.md) "Grammar");
@@ -128,16 +128,16 @@ via `useGame().dispatch`. Each has a `type`; the other fields follow.
 | | `AGENT_ADD_ACTIVITY` / `AGENT_REMOVE_ACTIVITY` | `id, tag` | Add (stamping `lastAssigned`) or remove an activity tag. |
 | | `AGENT_RETURN_ITEM` | `id, itemName` | Return a bag stack to inventory. |
 | | `AGENT_BIND_ITEM` / `AGENT_UNBIND_ITEM` | `id, itemName, slot?` | Bind one from the bag, or unbind back. |
-| Tasks | `TASK_CREATE` | `preset?, count?, locked?` | Create `count` tasks; locked-mode gate covers condition links. |
+| Tasks | `TASK_CREATE` | `preset?, count?, locked?` | Create `count` tasks, lowering preset conditions; locked-mode gate covers condition links. |
 | | `TASK_UPDATE` | `id, changes` | Patch fields. |
 | | `TASK_DELETE` | `id` | Delete and unassign. |
-| | `TASK_DUPLICATE` | `id` | Copy with fresh conditions. |
-| | `TASK_SET_COMPLETE` | `id, isComplete` | Complete (applying results) or un-complete. |
+| | `TASK_DUPLICATE` | `id` | Copy with an empty blackboard. |
+| | `TASK_SET_COMPLETE` | `id, isComplete, locked?` | Complete (`completeTask`: unassign, completion effects; unlogged) or un-complete. |
 | | `TASK_REMOVE_TAG` | `id, field, index` | Remove a requirement or attribute. |
-| | `TASK_CONDITION_ADD` | `id, template` | Append a condition; registers its link path. |
-| | `TASK_CONDITION_UPDATE` | `id, conditionId, changes` | Patch a condition. |
-| | `TASK_CONDITION_REMOVE` | `id, conditionId` | Remove a condition. |
-| | `TASK_UPDATE_RESULTS` | `id, changes` | Patch results. |
+| | `TASK_CONDITION_ADD` | `id, template` | Lower a condition into the task; registers its link path. |
+| | `TASK_CONDITION_UPDATE` | `id, conditionId, changes` | Set a vessel's name, target, or fill. |
+| | `TASK_CONDITION_REMOVE` | `id, conditionId` | Remove a vessel and its operators. |
+| | `TASK_UPDATE_RESULTS` | `id, changes` | Rewrite completion effects from the results view. |
 | Inventory | `INVENTORY_ADD` | `preset?, count?, locked?` | Add a row, then stack. |
 | | `INVENTORY_UPDATE_ITEM` | `id, changes` | Patch; identity changes re-stack. |
 | | `INVENTORY_REMOVE_ITEM` | `id` | Delete a row. |
@@ -162,7 +162,7 @@ All persistent state is in `localStorage`; every key is defined in
 
 | Key | Holds |
 |---|---|
-| `dnd-hirelings-state-v6` | The whole `GameState`, saved on every change. |
+| `dnd-hirelings-state-v7` | The whole `GameState`, saved on every change. When absent, `loadState` reads `dnd-hirelings-state-v6` once and lowers it ([`task-engine.md`](task-engine.md) "Migration"). |
 | `dnd-hirelings-palette-v1` | Active palette name (`light` or `dark`; default `dark`). Falls back once to the unversioned `dnd-hirelings-palette`. |
 | `dnd-hirelings-presets-{agents,tasks,items}-v1` | User presets per type. |
 | `dnd-hirelings-card-expansion-v1` | Per type (`agent`, `task`, `item`, `agentTags`), the ids toggled away from their default. |
@@ -171,11 +171,11 @@ All persistent state is in `localStorage`; every key is defined in
 
 **Versioning.** Every key carries a version suffix, bumped only when its
 stored format changes incompatibly. A bump ships either migration code or an
-explicit note in `STORAGE_KEYS` that older data is abandoned. Saves older than
-`-v6` are abandoned.
+explicit note in `STORAGE_KEYS` that older data is abandoned. `-v7` is the
+first migrating bump: it reads `-v6` as a fallback and lowers it. Saves older
+than `-v6` are abandoned.
 
-`Planned (#117):` `-v7`, reading `-v6` as a fallback and lowering it — the first
-migrating bump. `Planned (#116):` a key recording the last acknowledged turn
+`Planned (#116):` a key recording the last acknowledged turn
 review ([`multiplayer.md`](multiplayer.md)).
 
 ## Files

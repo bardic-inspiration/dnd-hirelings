@@ -1,8 +1,8 @@
 // Tag-path matching: a modular engine for comparing a *pattern* path against a
 // tag's segment path. Match modes live in MATCH_MODE_REGISTRY, mirroring the
-// conditions system's TRACKER_REGISTRY — new modes plug in without touching
-// callers. Built for extensibility: only the 'exact' mode is exercised today
-// (condition tag links), but all modes are wired and tested.
+// task engine's OPERATOR_REGISTRY — new modes plug in without touching
+// callers. Built for extensibility: all modes are wired and tested; gate tag
+// links (logic/operators.js) and action selectors use 'open'.
 //
 // Asymmetry rule: wildcards and escapes exist ONLY on the pattern side. Tag
 // segments are always literal text, so a tag that happens to contain an
@@ -196,9 +196,9 @@ const numericComparison = (evaluate) => (tagValue, compareValue) => {
  * Maps comparison operator to its evaluator — the extension point for value
  * comparisons. `'=='` is case-insensitive string equality; the ordered
  * operators compare numerically and fail when either side is non-numeric.
- * Available to any pattern consumer; only condition tag links wire it in the
- * first pass. Consumers choose which value resolver feeds the tag side
- * deliberately (conditions use `'display'` — see `logic/conditions.js`);
+ * Available to any pattern consumer; gate tag links and vessel `fullWhen`
+ * terms wire it in. Consumers choose which value resolver feeds the tag side
+ * deliberately (gates use `'display'` — see `logic/operators.js`);
  * the `'match'` resolver's `true` would stringify to `'true'` under `'=='`.
  *
  * @type {{ [operator: string]: (tagValue: *, compareValue: *) => boolean }}

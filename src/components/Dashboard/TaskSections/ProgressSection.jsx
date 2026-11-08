@@ -1,6 +1,7 @@
 import { useGame } from '../../../state/GameContext.jsx';
 import { useUI } from '../../../state/UIContext.jsx';
 import { defaultConditionName, formatConditionLink } from '../../../logic/conditions.js';
+import { conditionsView } from '../../../logic/taskModel.js';
 import { formatCount } from '../../../logic/format.js';
 import EditableSpan from '../../EditableSpan.jsx';
 import Tooltip from '../../Tooltip.jsx';
@@ -73,17 +74,19 @@ function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
 }
 
 /**
- * Task-card section listing the task's conditions. A task with no conditions
- * shows the standard empty state and completes after one worked tick (the
- * implied "clock advanced" condition). `+ CONDITION` opens the tag registry
- * in condition mode targeting this task; APPLY dispatches `TASK_CONDITION_ADD`.
+ * Task-card section listing the task's vessels as condition rows
+ * (`conditionsView`: fill as progress, `fullWhen` bound as target). A task
+ * with no vessels shows the standard empty state and completes after one
+ * worked tick (the implied "clock advanced" condition). `+ CONDITION` opens
+ * the tag registry in condition mode targeting this task; APPLY dispatches
+ * `TASK_CONDITION_ADD`.
  *
  * @param {{ task: Task }} props
  */
 export default function ProgressSection({ task }) {
   const { dispatch } = useGame();
   const { openTagRegistry } = useUI();
-  const conditions = task.conditions || [];
+  const conditions = conditionsView(task);
 
   const handleAdd = () => openTagRegistry({ target: { type: 'task', id: task.id }, mode: 'condition' });
 

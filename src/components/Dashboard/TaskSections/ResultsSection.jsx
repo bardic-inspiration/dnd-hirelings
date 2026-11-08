@@ -1,5 +1,6 @@
 import { useGame } from '../../../state/GameContext.jsx';
 import { formatCount } from '../../../logic/format.js';
+import { resultsView } from '../../../logic/taskModel.js';
 import EditableSpan from '../../EditableSpan.jsx';
 
 function updateResults(dispatch, task, changes) {
@@ -67,7 +68,9 @@ function AgentRow({ spawn, index, dispatch, task, results }) {
 
 export default function ResultsSection({ task }) {
   const { dispatch } = useGame();
-  const results = task.results || { gold: 0, items: [], agents: [] };
+  // Results are a view of the task's completion effects; edits lower back
+  // into them at dispatch (`TASK_UPDATE_RESULTS`).
+  const results = resultsView(task);
 
   const setGold = (v) => {
     const n = parseFloat(v);

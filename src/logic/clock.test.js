@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { lowerTask } from './taskModel.js';
 import { advanceTime, getPlayIntervalMs } from './clock.js';
 import { normalizeClockConfig } from './clockConfig.js';
 import { DEFAULT_ROLLBACK_CONFIG, normalizeRollbackConfig } from './rollback.js';
@@ -15,11 +16,12 @@ function makeState({ session, agent, task } = {}) {
       id: 'a1', name: 'A', rate: 2, attributes: ['skill:arcana=3'], activities: ['task:t1'],
       ...agent,
     }],
-    tasks: [{
+    // Authored in the v6 shape (conditions + results) and lowered, as a load does.
+    tasks: [lowerTask({
       id: 't1', name: 'T', requirements: [], attributes: [],
       conditions: [{ id: 'c1', name: 'ARCANA', target: 100, progress: 0, tracker: { kind: 'work', tagPath: 'skill:arcana' } }],
       isComplete: false, results: { gold: 0, items: [], agents: [] }, ...task,
-    }],
+    })],
     inventory: [],
     tagRegistry: {},
     eventLog: [],
@@ -43,7 +45,7 @@ describe('advanceTime', () => {
   it('deducts agent rate, accrues condition progress, and advances the clock one tick', () => {
     const { newState, flashAgentIds, taskProgressPerTick } = advanceTime(makeState());
     expect(newState.session.bank).toBe(98);          // 100 − rate 2
-    expect(newState.tasks[0].conditions[0].progress).toBe(4); // (1 + 3*1) * 1
+    expect(newState.tasks[0].blackboard.c1).toBe(4); // (1 + 3*1) * 1
     expect(newState.session.clock).toBe(1);          // one tick
     expect(flashAgentIds).toEqual([]);
     expect(taskProgressPerTick.t1.c1).toBe(4);
@@ -74,7 +76,7 @@ describe('advanceTime', () => {
     expect(rows[3].data).toEqual({ wagesTotal: 2, wages: [{ agentId: 'a1', agentName: 'A', amount: 2 }] });
     expect(newState.session.clock).toBe(2);
     expect(newState.session.bank).toBe(96);            // 100 − 2/tick × 2
-    expect(newState.tasks[0].conditions[0].progress).toBe(8);
+    expect(newState.tasks[0].blackboard.c1).toBe(8);
   });
 
   it('advances exactly `count` ticks when count overrides the step size', () => {
@@ -88,24 +90,30 @@ describe('advanceTime', () => {
     const { newState, flashAgentIds } = advanceTime(makeState({ session: { bank: 1 } }));
     expect(flashAgentIds).toEqual(['a1']);
     expect(newState.session.bank).toBe(1);
-    expect(newState.tasks[0].conditions[0].progress).toBe(0);
+    expect(newState.tasks[0].blackboard.c1).toBe(0);
     expect(newState.eventLog).toHaveLength(1); // just the tick boundary
     expect(newState.eventLog[0].data).toEqual({ wagesTotal: 0, wages: [] });
   });
 
-  it('completes a zero-condition task, applies rewards, and records the ids rollback needs', () => {
+  it('completes a zero-condition task, applies rewards, and logs each change as an action row', () => {
     const { newState } = advanceTime(makeState({
       task: { conditions: [], results: { gold: 50, items: [], agents: [{ template: { name: 'GOBLIN' }, quantity: 1 }] } },
     }));
     expect(newState.tasks[0].isComplete).toBe(true);
     expect(newState.agents[0].activities).toEqual([]);   // unassigned on completion
     expect(newState.session.bank).toBe(148);             // 100 − 2 + 50
-    const complete = newState.eventLog.find(row => row.eventType === 'task_complete');
     const spawned = newState.agents.find(agent => agent.name === 'GOBLIN');
-    expect(complete.data.spawnedAgentIds).toEqual([spawned.id]);
-    expect(complete.data.unassignedAgentIds).toEqual(['a1']);
-    // Ordering contract: work* → task_complete* → tick.
-    expect(newState.eventLog[newState.eventLog.length - 1].eventType).toBe('tick');
+    // Ordering contract: work* → task_complete* → action* → tick.
+    expect(newState.eventLog.map(row => [row.eventType, row.actionKind])).toEqual([
+      ['task_complete', ''],
+      ['action', 'agent.unassign'],
+      ['action', 'bank.adjust'],
+      ['action', 'agent.spawn'],
+      ['tick', ''],
+    ]);
+    expect(newState.eventLog[1].data.deltas).toEqual({ agentIds: ['a1'], taskId: 't1' });
+    expect(newState.eventLog[2].data).toEqual({ params: { amount: 50 }, deltas: { amount: 50 } });
+    expect(newState.eventLog[3].data.deltas).toEqual({ agentIds: [spawned.id] });
   });
 
   it('completes a task on the tick it finishes and stops paying wages afterward', () => {
@@ -119,7 +127,7 @@ describe('advanceTime', () => {
     expect(newState.session.clock).toBe(3);            // clock still advances the full step
     // Completion lands in tick 1's group; ticks 2-3 are empty tick boundaries.
     expect(newState.eventLog.map(row => row.eventType))
-      .toEqual(['work_contribution', 'task_complete', 'tick', 'tick', 'tick']);
+      .toEqual(['work_contribution', 'task_complete', 'action', 'tick', 'tick', 'tick']);
     expect(newState.eventLog.filter(row => row.eventType === 'tick').slice(1).map(row => row.data.wagesTotal))
       .toEqual([0, 0]);
   });
@@ -127,7 +135,7 @@ describe('advanceTime', () => {
   it('advances progress identically but logs nothing when logging is disabled', () => {
     const rollbackConfig = normalizeRollbackConfig({ log: { enabled: false } });
     const { newState } = advanceTime(makeState(), { rollbackConfig });
-    expect(newState.tasks[0].conditions[0].progress).toBe(4);
+    expect(newState.tasks[0].blackboard.c1).toBe(4);
     expect(newState.eventLog).toHaveLength(0);
   });
 
@@ -135,7 +143,7 @@ describe('advanceTime', () => {
     const state = makeState();
     advanceTime(state, { rollbackConfig: DEFAULT_ROLLBACK_CONFIG });
     expect(state.session.bank).toBe(100);
-    expect(state.tasks[0].conditions[0].progress).toBe(0);
+    expect(state.tasks[0].blackboard.c1).toBe(0);
     expect(state.eventLog).toHaveLength(0);
   });
 });

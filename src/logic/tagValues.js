@@ -4,7 +4,7 @@
 // value whose default varies by use case — true for matching, the leaf segment
 // string for display. Those defaults live here, in per-use-case resolver
 // functions (interchangeable attachments, mirroring MATCH_MODE_REGISTRY and
-// TRACKER_REGISTRY), never in the registry or the data schema. The registry
+// OPERATOR_REGISTRY), never in the registry or the data schema. The registry
 // walk supports below are the validation methods parsing functions call.
 
 /**

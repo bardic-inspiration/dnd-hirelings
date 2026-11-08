@@ -4,13 +4,17 @@
 // truncates the group off the log, so replaying forward regenerates fresh
 // events and the log tail always ends at a tick boundary (or is empty).
 //
+// Rows that record an action reverse through that action kind's own
+// `reverse` (logic/actions.js); rows written before the task engine fall back
+// to the matching kind's reverse.
+//
 // Rollback reverses TICK EFFECTS ONLY. Manual edits made since a tick (renamed
 // tasks, adjusted progress, bank spending) survive: inverses subtract recorded
 // deltas rather than restoring snapshots, and every inverse is best-effort —
 // missing entities are skipped and quantities clamp at zero, never blocking.
 
-import { buildTag } from './tags.js';
 import { MAX_LOG_ROWS } from './eventLog.js';
+import { reverseActionRow } from './actions.js';
 
 /**
  * Fallback rollback configuration used by pure logic functions when no
@@ -117,63 +121,46 @@ export function getRollbackHorizon(eventLog) {
 // Rounds a bank amount to whole cents, matching `advanceTime`'s wage math.
 const roundGold = (amount) => Math.round(amount * 100) / 100;
 
-// Reverses a task completion: un-completes the task and removes its rewards
-// per the switchboard, using the ids recorded in the event's `data`.
-function reverseCompletion(event, { tasks, agents, inventory, session, reverse }) {
-  const data = event.data ?? {};
-  const results = data.results ?? {};
-
+// Reverses a `task_complete` row: un-completes the task. A row written before
+// the task engine also carries the completion's rewards and id lists (its
+// changes have no `action` rows), so those reverse here through the same
+// action reverses, in the order the old engine undid them.
+function reverseCompletion(world, row, reverse) {
+  let next = world;
   if (reverse.taskCompletion) {
-    const task = tasks.find(task => task.id === event.taskId);
-    if (task) task.isComplete = false;
+    next = { ...next, tasks: next.tasks.map(task => (task.id === row.taskId ? { ...task, isComplete: false } : task)) };
   }
-
-  if (reverse.rewardGold) {
-    const gold = Number(results.gold) || 0;
-    if (gold) session.bank = Math.max(0, roundGold((session.bank ?? 0) - gold));
+  const data = row.data ?? {};
+  if (!data.results) return next;
+  const legacyRow = (actionKind, deltas) => ({ taskId: row.taskId, actionKind, data: { deltas }, reverseData: {} });
+  const gold = Number(data.results.gold) || 0;
+  if (gold) next = reverseActionRow(next, legacyRow('bank.adjust', { amount: gold }), reverse);
+  for (const reward of data.results.items ?? []) {
+    const quantity = Number(reward.quantity) || 0;
+    if (reward.name && quantity > 0) next = reverseActionRow(next, legacyRow('inventory.add', { name: reward.name, quantity }), reverse);
   }
-
-  if (reverse.rewardItems) {
-    for (const reward of results.items ?? []) {
-      const quantity = Number(reward.quantity) || 0;
-      if (!reward.name || quantity <= 0) continue;
-      const stock = inventory.find(item => item.name.toLowerCase() === reward.name.toLowerCase());
-      if (stock) stock.quantity = Math.max(0, stock.quantity - quantity);
-    }
+  if (Array.isArray(data.spawnedAgentIds) && data.spawnedAgentIds.length) {
+    next = reverseActionRow(next, legacyRow('agent.spawn', { agentIds: data.spawnedAgentIds }), reverse);
   }
-
-  let newAgents = agents;
-  if (reverse.spawnedAgents && Array.isArray(data.spawnedAgentIds) && data.spawnedAgentIds.length) {
-    const spawnedIds = new Set(data.spawnedAgentIds);
-    newAgents = newAgents.filter(agent => !spawnedIds.has(agent.id));
+  if (Array.isArray(data.unassignedAgentIds)) {
+    next = reverseActionRow(next, legacyRow('agent.unassign', { agentIds: data.unassignedAgentIds, taskId: row.taskId }), reverse);
   }
-
-  if (reverse.agentReassignment && Array.isArray(data.unassignedAgentIds)) {
-    const taskExists = tasks.some(task => task.id === event.taskId);
-    const taskTag = buildTag(['task', event.taskId]);
-    if (taskExists) {
-      for (const agentId of data.unassignedAgentIds) {
-        const agent = newAgents.find(agent => agent.id === agentId);
-        if (agent && !agent.activities.includes(taskTag)) agent.activities.push(taskTag);
-      }
-    }
-  }
-
-  return newAgents;
+  return next;
 }
 
 /**
  * Pure inverse of one `advanceTime` tick. Finds the most recent `'tick'`
  * boundary in `state.eventLog` and reverses that tick's event group:
  *
+ * - a row with an `actionKind` — through `ACTION_REGISTRY[kind].reverse`
+ *   (`reverseActionRow`), gated by the kind's `reverse.*` switch. A
+ *   `work_contribution` row without one (written before the task engine)
+ *   reverses as `vessel.deposit`: the delta comes off the vessel's fill,
+ *   clamped at 0 (never snapshot-restored, so manual edits made since survive).
+ * - `'task_complete'` — per `reverse.taskCompletion`: un-completes the task;
+ *   a pre-engine row also reverses the rewards and assignments it recorded.
  * - `'tick'` — decrements the clock by one and, per `reverse.wages`, refunds the
  *   recorded wage total (exact, since it captured the rounded bank delta).
- * - `'task_complete'` — per switchboard: un-completes the task, removes reward
- *   gold/items (clamped at 0), deletes recorded spawned agents (even if edited
- *   since), and restores recorded task assignments.
- * - `'work_contribution'` — per `reverse.workProgress`: subtracts the recorded
- *   delta from the condition's progress, clamped at 0 (never snapshot-restored,
- *   so manual progress edits made since the tick survive).
  *
  * Every inverse is best-effort: entities deleted since the tick are skipped.
  * The reverted group is truncated off the returned log.
@@ -197,37 +184,32 @@ export function rollbackTick(state, rollbackConfig = DEFAULT_ROLLBACK_CONFIG) {
   }
 
   const reverse = rollbackConfig.reverse ?? DEFAULT_ROLLBACK_CONFIG.reverse;
-  const tasks = state.tasks.map(task => ({
-    ...task,
-    conditions: (task.conditions || []).map(condition => ({ ...condition })),
-  }));
-  const inventory = state.inventory.map(item => ({ ...item }));
-  const session = { ...state.session };
-  let agents = state.agents.map(agent => ({ ...agent, activities: [...agent.activities] }));
+  let world = {
+    agents: state.agents, tasks: state.tasks, inventory: state.inventory,
+    session: state.session, tagRegistry: state.tagRegistry,
+  };
 
-  // Strict LIFO: completions and work rows (which mutated state after wages
-  // were paid) reverse first; the boundary event's wage refund and clock
-  // decrement come last, so the reward-gold clamp can't swallow the refund.
+  // Strict LIFO: action, completion, and work rows (which changed state after
+  // wages were paid) reverse first; the boundary event's wage refund and
+  // clock decrement come last, so the reward-gold clamp can't swallow the refund.
   for (let index = tickIndex - 1; index >= groupStart; index--) {
     const event = log[index];
     if (event.eventType === 'task_complete') {
-      agents = reverseCompletion(event, { tasks, agents, inventory, session, reverse });
-    } else if (event.eventType === 'work_contribution' && reverse.workProgress) {
-      const task = tasks.find(task => task.id === event.taskId);
-      const condition = task?.conditions.find(condition => condition.id === event.conditionId);
-      if (condition) condition.progress = Math.max(0, condition.progress - (Number(event.delta) || 0));
+      world = reverseCompletion(world, event, reverse);
+    } else if (event.actionKind || event.eventType === 'work_contribution') {
+      world = reverseActionRow(world, { ...event, actionKind: event.actionKind || 'vessel.deposit' }, reverse);
     }
   }
 
   const boundary = log[tickIndex];
-  session.clock = Math.max(0, (parseFloat(session.clock) || 0) - 1);
+  const session = { ...world.session, clock: Math.max(0, (parseFloat(world.session.clock) || 0) - 1) };
   if (reverse.wages) {
     const wagesTotal = Number(boundary.data?.wagesTotal) || 0;
     if (wagesTotal) session.bank = roundGold((session.bank ?? 0) + wagesTotal);
   }
 
   return {
-    newState: { ...state, agents, tasks, inventory, session, eventLog: log.slice(0, groupStart) },
+    newState: { ...state, ...world, session, eventLog: log.slice(0, groupStart) },
   };
 }
 

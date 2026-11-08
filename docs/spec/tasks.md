@@ -4,9 +4,10 @@ How tasks gate agents, accrue progress through conditions, and complete into
 results. Part of [`SPEC.md`](../../SPEC.md); the tick that drives them is in
 [`clock.md`](clock.md).
 
-`Planned (#117):` conditions and results are replaced by the operator /
-vessel / action engine in [`task-engine.md`](task-engine.md); this file
-describes the system until that plan lands.
+Conditions and results are the authoring forms of the task engine
+([`task-engine.md`](task-engine.md)): a task stores operators, vessels,
+completion effects, and a blackboard, and the card shows conditions and
+results as views of them.
 
 ## Requirements
 
@@ -42,16 +43,18 @@ its agents.
 
 ## Conditions
 
-A task's progress lives in `task.conditions` — structured objects, not tags.
-Each condition has a `target`, a `progress`, and a `tracker`; the task
-completes only when **every** condition's `progress ≥ target`. Conditions
-track independently: overshooting one never covers a deficit in another.
+A condition is a progress subcategory — structured, not a tag — with a
+`target`, a `progress`, and a `tracker`. A task stores each one lowered: a
+gate on its tag link, a contribute, and a vessel keyed by the condition's id,
+whose fill is the progress ([`task-engine.md`](task-engine.md) "Migration").
+`conditionsView(task)` reads them back for the card. The task completes only
+when **every** condition's `progress ≥ target`. Conditions track
+independently: overshooting one never covers a deficit in another.
 
-Per-tick accrual dispatches through `TRACKER_REGISTRY` by `tracker.kind`; the
-clock loop never special-cases a kind. The one kind, **`work`**, links to
-agents through `tracker.tagPath` (an `open`-mode pattern) and an optional
-`tracker.compare` term ([`tags.md`](tags.md) "Pattern matching"). For each
-eligible agent, each tick:
+The one tracker kind, **`work`**, links to agents through `tracker.tagPath`
+(an `open`-mode pattern) and an optional `tracker.compare` term
+([`tags.md`](tags.md) "Pattern matching"); another kind lowers to an inert
+operator and never accrues. For each eligible agent, each tick:
 
 | Link | Contribution |
 |---|---|
@@ -72,7 +75,8 @@ the target, so bare equality is spelled `==`: `skill:arcana>=3=30` is
 and registers nothing.
 
 **Editing.** A condition's progress and target are click-to-edit on the
-card. Hand-edited progress is not logged and is not reversed by rollback.
+card (`TASK_CONDITION_UPDATE` sets the vessel's fill or its `fullWhen` bound).
+Hand-edited progress is not logged and is not reversed by rollback.
 
 ## Completion
 
@@ -88,24 +92,28 @@ and by the card's ✓ button (`TASK_SET_COMPLETE`):
 - An agent that contributed to nothing on its task flashes.
 
 On completion the task is marked complete, its agents are unassigned, and
-its results apply.
+its completion effects — its results among them — apply
+([`task-engine.md`](task-engine.md) "The tick").
 
 ## Results
 
-`task.results` holds the rewards a completion pays out:
+A task's results are the rewards a completion pays out, read from its
+completion effects (`resultsView`) and edited back into them
+(`TASK_UPDATE_RESULTS`):
 
-- **`gold`** — added to the bank.
+- **`gold`** — added to the bank (`bank.adjust`).
 - **`items`** — `{ name, quantity }[]`, added to inventory by case-insensitive
-  name (a missing item is created blank).
+  name, a missing item created blank (`inventory.add`).
 - **`agents`** — `{ template, quantity }[]`, spawning `quantity` new agents
-  from each template. Spawned agents are not checked against locked mode
-  ([`SPEC.md`](../../SPEC.md) "Open questions").
+  from each template (`agent.spawn`). Their template tags pass the
+  locked-mode gate ([`tags.md`](tags.md) "The tag registry").
 
-Unchecking ✓ marks the task incomplete; it does not reverse its results.
+Unchecking ✓ marks the task incomplete and zeroes its progress; it does not
+reverse its results.
 Rollback reverses a completion that happened during a tick
 ([`clock.md`](clock.md) "Rollback").
 
 ## Duplicating
 
-`TASK_DUPLICATE` deep-copies a task with fresh condition ids, zero progress,
-and `isComplete: false`.
+`TASK_DUPLICATE` deep-copies a task with an empty blackboard (zero progress)
+and `isComplete: false`. Vessel keys are per task, so the copy keeps them.
