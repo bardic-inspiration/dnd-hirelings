@@ -11,6 +11,7 @@ import { matchTagPath, matchTagValue } from './tagMatching.js';
 import { resolveTagValue } from './tagValues.js';
 import { evaluateCheck } from './expressions.js';
 import { rollDice, rollSeedKey } from './rng.js';
+import { isVesselFull } from './taskModel.js';
 
 /**
  * @typedef {object} RollRecord
@@ -128,6 +129,30 @@ function gate(op, flow, ctx) {
   return flow;
 }
 
+// Transforms `flow.value` by `+`, `*` (the default), or an expression over `{flow}`.
+function scale(op, flow, ctx) {
+  if (typeof op.combine === 'string' && op.combine !== '*' && op.combine !== '+') {
+    const base = op.expr !== undefined ? { ...flow, value: evaluate(op.expr, op, flow, ctx) } : flow;
+    return { ...base, value: evaluate(op.combine, op, base, ctx) };
+  }
+  const factor = evaluate(op.expr ?? (op.combine === '+' ? '0' : '1'), op, flow, ctx);
+  const value = op.combine === '+' ? flow.value + factor : flow.value * factor;
+  return { ...flow, value };
+}
+
+// Evaluates `expr` through the seeded check evaluator and writes the result to `flow.value`.
+function roll(op, flow, ctx) {
+  return { ...flow, value: evaluate(op.expr ?? '', op, flow, ctx) };
+}
+
+// Writes `target` on the blackboard (`flag.set` as an operator); inert when `target` is absent.
+function write(op, flow, ctx) {
+  if (!op.target) return flow;
+  const value = op.expr !== undefined ? evaluate(op.expr, op, flow, ctx) : flow.value;
+  ctx.write(op.target, value);
+  return flow;
+}
+
 // Deposits `expr` (default 1) into the target vessel: positive, finite amounts only.
 function contribute(op, flow, ctx) {
   if (!op.target) return flow;
@@ -138,15 +163,18 @@ function contribute(op, flow, ctx) {
 
 /**
  * Maps an operator kind to its per-agent step `(op, flow, ctx) => flow`. A
- * step is only called for an admitted flow. Unknown kinds (including the
- * inert `write` that lowering emits for an unknown tracker) pass the flow
- * through.
+ * step is only called for an admitted flow. Unknown kinds (and a `write`
+ * without a `target`, which lowering emits for an unknown tracker) pass the
+ * flow through.
  *
  * @type {Object<string, (op: object, flow: Flow, ctx: object) => Flow>}
  */
 export const OPERATOR_REGISTRY = {
   gate,
+  scale,
   contribute,
+  roll,
+  write,
   effect: (op, flow) => flow,
 };
 
@@ -211,6 +239,12 @@ export function runTaskOperators(task, engaged, { session, registry, clock }) {
   const rollCounters = new Map();
   const blackboard = task.blackboard ?? {};
 
+  if (!engaged.length || (task.duration && task.vessels?.duration && isVesselFull(task, 'duration'))) {
+    return { deposits, outcomes, fired, thresholds, rolls: [], contributors };
+  }
+
+  const hasWorkContribute = (task.operators ?? []).some(op => op.kind === 'contribute' && op.id !== 'duration');
+
   const contexts = engaged.map(({ agent, attributes }) => ({
     task, agent, attributes, session, registry, blackboard, clock,
     nextRollIndex: (operatorId) => {
@@ -235,8 +269,17 @@ export function runTaskOperators(task, engaged, { session, registry, clock }) {
     const step = OPERATOR_REGISTRY[op.kind];
     if (!step) return;
     const reached = flows.map(flow => flow.admitted);
+    let written = null;
 
-    if (op.kind === 'contribute' && countedPassers !== null) {
+    if (op.kind === 'contribute' && op.id === 'duration') {
+      if (op.target) {
+        const amount = evaluate(op.expr ?? '1', op, createFlow(), contexts[0]);
+        if (Number.isFinite(amount) && amount > 0) {
+          deposits.push({ agentId: '', opIndex, vessel: op.target, amount });
+          if (!hasWorkContribute) engaged.forEach(({ agent }) => contributors.add(agent.id));
+        }
+      }
+    } else if (op.kind === 'contribute' && countedPassers !== null) {
       if (op.target && countedPassers.length) {
         deposits.push({ agentId: '', opIndex, vessel: op.target, amount: countedPassers.length });
         countedPassers.forEach(id => contributors.add(id));
@@ -250,9 +293,16 @@ export function runTaskOperators(task, engaged, { session, registry, clock }) {
             deposits.push({ agentId: engaged[index].agent.id, opIndex, vessel, amount });
             contributors.add(engaged[index].agent.id);
           },
+          write: (key, value) => {
+            written = { key, value };
+          },
         };
         return step(op, flow, ctx);
       });
+    }
+
+    if (written !== null) {
+      fired.push({ operatorId: op.id, on: 'pass', actions: [{ kind: 'flag.set', params: written }] });
     }
 
     if (op.kind === 'gate') {

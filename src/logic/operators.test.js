@@ -240,6 +240,71 @@ describe('effects', () => {
   });
 });
 
+describe('roll, scale, and write operators', () => {
+  it('roll evaluates expr into flow.value and appends RollRecords with per-context rollIndex', () => {
+    const task = {
+      operators: [
+        { id: 'r1', kind: 'roll', expr: 'd6 + d6' },
+        { id: 'p', kind: 'contribute', target: 'v', expr: '{flow}' },
+      ],
+    };
+    const result = run(task, [[], []]);
+    expect(result.rolls.map(({ operatorId, agentId, rollIndex, notation }) => [operatorId, agentId, rollIndex, notation])).toEqual([
+      ['r1', 'a1', 0, '1d6'], ['r1', 'a1', 1, '1d6'],
+      ['r1', 'a2', 0, '1d6'], ['r1', 'a2', 1, '1d6'],
+    ]);
+    const a1Sum = result.rolls[0].result + result.rolls[1].result;
+    const a2Sum = result.rolls[2].result + result.rolls[3].result;
+    expect(result.deposits.map(deposit => [deposit.agentId, deposit.amount])).toEqual([['a1', a1Sum], ['a2', a2Sum]]);
+  });
+
+  it('scale transforms flow.value by +, *, or an expression over {flow}, and never re-admits rejected flow', () => {
+    const plusAndTimes = {
+      operators: [
+        { id: 'seed', kind: 'scale', combine: '+', expr: '3' },
+        { id: 'mult', kind: 'scale', combine: '*', expr: '{skill:arcana}' },
+        { id: 'expr', kind: 'scale', combine: '{flow} * 2 + 1' },
+        { id: 'p', kind: 'contribute', target: 'v', expr: '{flow}' },
+      ],
+    };
+    // flow starts 0 -> +3 = 3 -> *4 = 12 -> 12*2+1 = 25
+    expect(total(run(plusAndTimes, [['skill:arcana=4']]))).toBe(25);
+
+    const rejected = {
+      operators: [
+        { id: 'g', kind: 'gate', read: 'skill:arcana' },
+        { id: 's', kind: 'scale', combine: '+', expr: '10' },
+        { id: 'p', kind: 'contribute', target: 'v', expr: '{flow}' },
+      ],
+    };
+    expect(run(rejected, [[]]).deposits).toEqual([]);
+  });
+
+  it('write emits a flag.set action for its target when admitted, and stays inert for lowered unknown trackers', () => {
+    const task = {
+      operators: [
+        { id: 'seed', kind: 'scale', combine: '+', expr: '7' },
+        { id: 'w1', kind: 'write', target: 'stage', expr: '{flow} + 1' },
+        { id: 'w2', kind: 'write', target: 'echo' },
+        { id: 'inert', kind: 'write', payload: { kind: 'tally' } },
+      ],
+    };
+    const result = run(task, [[]]);
+    expect(result.fired).toEqual([
+      { operatorId: 'w1', on: 'pass', actions: [{ kind: 'flag.set', params: { key: 'stage', value: 8 } }] },
+      { operatorId: 'w2', on: 'pass', actions: [{ kind: 'flag.set', params: { key: 'echo', value: 7 } }] },
+    ]);
+
+    const gatedOut = {
+      operators: [
+        { id: 'g', kind: 'gate', read: 'skill:arcana' },
+        { id: 'w', kind: 'write', target: 'stage', expr: '1' },
+      ],
+    };
+    expect(run(gatedOut, [[]]).fired).toEqual([]);
+  });
+});
+
 describe('unknown operators', () => {
   it('pass the flow through untouched', () => {
     const task = { operators: [{ id: 'x', kind: 'teleport' }, { id: 'p', kind: 'contribute', target: 'v' }] };

@@ -59,12 +59,18 @@ export const LIBRARY_CONFIGS = {
       name:         requireName(raw),
       description:  str(raw?.description),
       requirements: tags(raw?.requirements),
-      // Presets store condition templates (no id/progress). Legacy preset files
-      // carry `work` tag arrays instead; migrate them on load.
+      // Presets store condition templates (no id/progress) or the full task
+      // engine shape (operators, vessels, effects, duration, results). Legacy
+      // preset files carry `work` tag arrays instead; migrate them on load.
       conditions:   Array.isArray(raw?.conditions)
         ? raw.conditions.map(normalizeConditionTemplate)
         : migrateLegacyWorkTemplates(tags(raw?.work)),
       attributes:   tags(raw?.attributes),
+      ...(Array.isArray(raw?.operators) ? { operators: raw.operators } : {}),
+      ...(raw?.vessels && typeof raw.vessels === 'object' && !Array.isArray(raw.vessels) ? { vessels: raw.vessels } : {}),
+      ...(Array.isArray(raw?.effects) ? { effects: raw.effects } : {}),
+      ...(raw?.duration && typeof raw.duration === 'object' && !Array.isArray(raw.duration) ? { duration: raw.duration } : {}),
+      ...(raw?.results && typeof raw.results === 'object' && !Array.isArray(raw.results) ? { results: raw.results } : {}),
     }),
     rowIcon: () => '',
     Preview: TaskPreview,

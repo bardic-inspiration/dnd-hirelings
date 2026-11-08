@@ -15,6 +15,9 @@ import { CLOCK_SCHEMA } from './clockConfig.js';
 import { ROLLBACK_SCHEMA } from './rollback.js';
 import { TAGS_SCHEMA } from './tagsConfig.js';
 import { RULES_SCHEMA } from './rulesConfig.js';
+import { TASKS_SCHEMA } from './taskModel.js';
+
+export { TASKS_SCHEMA };
 
 /**
  * Schema for the SESSION section (state-bound): the game-speed numbers the old
@@ -60,6 +63,17 @@ export const CONFIG_FILES = [
       commit: (dispatch, key, value) => dispatch({ type: 'SESSION_UPDATE', payload: { [key]: value } }),
       effects: { rateMultiplier: 'restartPlay' },
       defaults: { rateMultiplier: 1, workRate: 1, skillBonus: 1 },
+    },
+  },
+  {
+    id: 'tasks',
+    label: 'TASKS',
+    kind: 'state',
+    schema: TASKS_SCHEMA,
+    binding: {
+      select: (state) => state.tasks,
+      commit: (dispatch, path, value) => dispatch({ type: 'TASK_CONFIG_COMMIT', path, value }),
+      defaults: {},
     },
   },
   {

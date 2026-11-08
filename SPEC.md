@@ -166,7 +166,7 @@ rules").
 | [`docs/spec/ui.md`](docs/spec/ui.md) | Layout, the agent card, selection, the Tag Registry modal, text display, modals, styling. |
 | [`docs/spec/persistence.md`](docs/spec/persistence.md) | State shape, storage keys, save and file formats, the action vocabulary. |
 | [`docs/spec/assets.md`](docs/spec/assets.md) | Images and fonts: layout, formats, manifests, loading. |
-| [`docs/spec/task-engine.md`](docs/spec/task-engine.md) | Operators, vessels, actions, the blackboard, the expression grammar, seeded randomness. `Planned (#117):` time windows and the authoring surface. |
+| [`docs/spec/task-engine.md`](docs/spec/task-engine.md) | Operators, vessels, actions, the blackboard, the expression grammar, seeded randomness, time windows, and the authoring surface. |
 | [`docs/spec/multiplayer.md`](docs/spec/multiplayer.md) | `Planned (#116):` GM/player mode and async turn review. |
 
 ## Open questions

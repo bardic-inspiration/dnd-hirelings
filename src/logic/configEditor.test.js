@@ -185,6 +185,40 @@ describe('value kinds', () => {
     expect(VALUE_KINDS.boolean.suggest('t')).toEqual(['true']);
     expect(VALUE_KINDS.boolean.suggest('')).toEqual(['false', 'true']);
   });
+
+  it('soft-checks task operator expr and vessel fullWhen scalars', async () => {
+    const { configFileById } = await import('./configRegistry.js');
+    expect(VALUE_KINDS.expr.check('d20 + {skill:stealth}')).toBeNull();
+    expect(VALUE_KINDS.expr.check('1 +')).toMatch(/unexpected end/);
+    expect(VALUE_KINDS.fullWhen.check('>= 4')).toBeNull();
+    expect(VALUE_KINDS.fullWhen.check('== 1')).toBeNull();
+    expect(VALUE_KINDS.fullWhen.check('!= 2')).toMatch(/expected comparison/);
+    expect(VALUE_KINDS.fullWhen.check('>= 1 +')).toMatch(/unexpected end/);
+
+    const tasksEntry = configFileById('tasks');
+    expect(tasksEntry).toMatchObject({ id: 'tasks', kind: 'state' });
+    const warnings = checkConfigDoc([
+      {
+        id: 't1',
+        name: 'FIND VICTOR AND ZELLEN',
+        duration: { kind: 'fixed', ticks: 4 },
+        operators: [
+          { id: 'stealth', kind: 'gate', quantifier: 'all', expr: 'd20 + {skill:stealth}', compare: { op: '>=', value: '11' } },
+          { id: 'bad', kind: 'contribute', target: 'found', expr: '1 +' },
+        ],
+        vessels: {
+          found: { fullWhen: '>= 4' },
+          broken: { fullWhen: '!= 2' },
+        },
+        effects: [],
+        blackboard: {},
+      },
+    ], tasksEntry.schema);
+    expect(warnings.get('0:operators:1:expr')).toMatch(/unexpected end/);
+    expect(warnings.get('0:vessels:broken:fullWhen')).toMatch(/expected comparison/);
+    expect(warnings.has('0:operators:0:expr')).toBe(false);
+    expect(warnings.has('0:vessels:found:fullWhen')).toBe(false);
+  });
 });
 
 describe('coerceScalarInput', () => {

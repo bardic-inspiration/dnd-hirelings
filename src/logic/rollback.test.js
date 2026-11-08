@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { lowerTask } from './taskModel.js';
 import { advanceTime } from './clock.js';
 import {
-  rollbackTick, rollbackTime, getRollbackHorizon, normalizeRollbackConfig, DEFAULT_ROLLBACK_CONFIG,
+  rollbackTick, rollbackTime, getRollbackHorizon, normalizeRollbackConfig, DEFAULT_ROLLBACK_CONFIG, ROLLBACK_SCHEMA,
 } from './rollback.js';
+import { checkConfigDoc } from './configEditor.js';
 
 // Same minimal world as clock.test.js: one agent working one single-condition task.
 function makeState({ session, agent, task } = {}) {
@@ -35,6 +36,21 @@ describe('normalizeRollbackConfig', () => {
     expect(normalizeRollbackConfig(undefined)).toEqual(JSON.parse(JSON.stringify(DEFAULT_ROLLBACK_CONFIG)));
     expect(normalizeRollbackConfig({ reverse: { wages: false }, log: { maxRows: -1 } }))
       .toMatchObject({ reverse: { wages: false, workProgress: true }, log: { maxRows: DEFAULT_ROLLBACK_CONFIG.log.maxRows } });
+  });
+
+  it('preserves per-action-kind switches in reverse alongside legacy category keys', () => {
+    const cfg = normalizeRollbackConfig({ reverse: { 'bank.adjust': false, 'tag.apply': false, 'flag.set': true } });
+    expect(cfg.reverse['bank.adjust']).toBe(false);
+    expect(cfg.reverse['tag.apply']).toBe(false);
+    expect(cfg.reverse['flag.set']).toBe(true);
+    expect(cfg.reverse.rewardGold).toBe(true);
+  });
+
+  it('accepts arbitrary action-kind keys under ROLLBACK_SCHEMA.keys.reverse without warning', () => {
+    const doc = { enabled: true, reverse: { rewardGold: true, 'bank.adjust': false, 'tag.apply': false }, log: { enabled: true, maxRows: 100 } };
+    expect(checkConfigDoc(doc, ROLLBACK_SCHEMA).size).toBe(0);
+    const bad = { reverse: { 'bank.adjust': 'nope' } };
+    expect(checkConfigDoc(bad, ROLLBACK_SCHEMA).get('reverse:bank.adjust')).toBe('true or false');
   });
 });
 

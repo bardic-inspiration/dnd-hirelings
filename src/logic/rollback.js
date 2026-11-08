@@ -56,7 +56,6 @@ export const ROLLBACK_SCHEMA = {
     enabled: booleanScalar('ROLLBACK'),
     reverse: {
       kind: 'map',
-      closed: true,
       keys: {
         workProgress:      booleanScalar('WORK PROGRESS'),
         wages:             booleanScalar('WAGES'),
@@ -66,6 +65,7 @@ export const ROLLBACK_SCHEMA = {
         spawnedAgents:     booleanScalar('SPAWNED AGENTS'),
         agentReassignment: booleanScalar('REASSIGNMENT'),
       },
+      anyKey: booleanScalar('ACTION KIND'),
     },
     log: {
       kind: 'map',
@@ -91,6 +91,7 @@ export function normalizeRollbackConfig(doc) {
   const reverseIn = source.reverse && typeof source.reverse === 'object' ? source.reverse : {};
   const logIn = source.log && typeof source.log === 'object' ? source.log : {};
   const reverse = {};
+  for (const [key, value] of Object.entries(reverseIn)) reverse[key] = value !== false;
   for (const key of REVERSE_KEYS) reverse[key] = reverseIn[key] !== false;
   const maxRows = Number(logIn.maxRows);
   return {

@@ -128,8 +128,9 @@ via `useGame().dispatch`. Each has a `type`; the other fields follow.
 | | `AGENT_ADD_ACTIVITY` / `AGENT_REMOVE_ACTIVITY` | `id, tag` | Add (stamping `lastAssigned`) or remove an activity tag. |
 | | `AGENT_RETURN_ITEM` | `id, itemName` | Return a bag stack to inventory. |
 | | `AGENT_BIND_ITEM` / `AGENT_UNBIND_ITEM` | `id, itemName, slot?` | Bind one from the bag, or unbind back. |
-| Tasks | `TASK_CREATE` | `preset?, count?, locked?` | Create `count` tasks, lowering preset conditions; locked-mode gate covers condition links. |
+| Tasks | `TASK_CREATE` | `preset?, count?, locked?` | Create `count` tasks, lowering preset conditions or full-shape fields; locked-mode gate covers condition and gate links. |
 | | `TASK_UPDATE` | `id, changes` | Patch fields. |
+| | `TASK_CONFIG_COMMIT` | `path, value` | Set a scalar at `state.tasks[...path]` and re-lower the edited task. |
 | | `TASK_DELETE` | `id` | Delete and unassign. |
 | | `TASK_DUPLICATE` | `id` | Copy with an empty blackboard. |
 | | `TASK_SET_COMPLETE` | `id, isComplete, locked?` | Complete (`completeTask`: unassign, completion effects; unlogged) or un-complete. |

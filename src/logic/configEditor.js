@@ -18,6 +18,8 @@ import yaml from 'js-yaml';
 import { parseTag, tagSyntaxWarning } from './tags.js';
 import { pathExists } from './tagRegistry.js';
 import { parseExpression } from './expressions.js';
+import { parseFullWhen } from './taskModel.js';
+import { VALUE_COMPARE_REGISTRY } from './tagMatching.js';
 import { downloadFile } from './download.js';
 import { AGENT_FIELD_SOURCE_KEYS } from './UI.js';
 
@@ -164,6 +166,22 @@ export const VALUE_KINDS = {
       return parseExpression(text.slice(1, -1)).error;
     },
   },
+  // Task operator expression (no outer brackets): soft-checks against the
+  // expression grammar.
+  expr: {
+    suggest: () => [],
+    check: (value) => parseExpression(String(value ?? '')).error,
+  },
+  // Vessel threshold (`fullWhen`): comparison operator from
+  // VALUE_COMPARE_REGISTRY followed by a valid expression or bound.
+  fullWhen: {
+    suggest: (prefix) => prefixMatches(Object.keys(VALUE_COMPARE_REGISTRY).map(op => `${op} `), prefix),
+    check: (value) => {
+      const term = parseFullWhen(String(value ?? ''));
+      if (!term) return `expected comparison "<op> <bound>" (${Object.keys(VALUE_COMPARE_REGISTRY).join(', ')})`;
+      return parseExpression(term.value).error;
+    },
+  },
 };
 
 /**
@@ -286,6 +304,8 @@ export function checkConfigDoc(doc, schema, context = {}) {
       const childSchema = schemaChild(schemaNode, keyOrIndex);
       if (!childSchema) {
         if (schemaNode?.kind === 'map' && schemaNode.closed) warnings.set(pathStr, 'unknown key');
+      } else if (value === null && childSchema.nullable) {
+        // Nullable node cleared to null — valid.
       } else if (childSchema.kind === 'map' && !isMapping(value)) {
         warnings.set(pathStr, 'expected a mapping');
       } else if ((childSchema.kind === 'list' || childSchema.kind === 'tuple') && !Array.isArray(value)) {
@@ -295,10 +315,8 @@ export function checkConfigDoc(doc, schema, context = {}) {
       } else if (childSchema.kind === 'scalar' && (isMapping(value) || Array.isArray(value))) {
         warnings.set(pathStr, 'expected a single value');
       } else if (childSchema.kind === 'scalar') {
-        if (!(value === null && childSchema.nullable)) {
-          const warning = VALUE_KINDS[childSchema.value]?.check(value, childSchema, context) ?? null;
-          if (warning) warnings.set(pathStr, warning);
-        }
+        const warning = VALUE_KINDS[childSchema.value]?.check(value, childSchema, context) ?? null;
+        if (warning) warnings.set(pathStr, warning);
       }
       if (isMapping(value) || Array.isArray(value)) walk(value, childSchema, childPath);
     }

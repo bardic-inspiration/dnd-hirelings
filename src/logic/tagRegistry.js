@@ -298,6 +298,11 @@ export function collectPresetTags(entityType, preset) {
     for (const condition of preset.conditions ?? []) {
       if (condition?.tracker?.tagPath) sources.push(condition.tracker.tagPath);
     }
+    for (const op of preset.operators ?? []) {
+      if (op?.kind === 'gate' && typeof op.read === 'string' && op.read && op.read !== 'flow' && !op.read.startsWith('flag:')) {
+        sources.push(op.read);
+      }
+    }
   }
   for (const tag of sources) {
     if (typeof tag !== 'string' || !tag) continue;

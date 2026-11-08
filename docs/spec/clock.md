@@ -151,6 +151,6 @@ Replaying forward afterwards regenerates fresh rows with continuing `seq`.
 
 A disabled switch leaves that effect in place when the clock winds back.
 
-Other action kinds always reverse. `Planned (#117):` the switchboard accepts
-per-action-kind flags ([`task-engine.md`](task-engine.md) "Event log and
-rollback").
+The `reverse` map also accepts any action kind as a boolean switch, taking
+precedence over its legacy category; other action kinds default to reversing
+([`task-engine.md`](task-engine.md) "Event log and rollback").
