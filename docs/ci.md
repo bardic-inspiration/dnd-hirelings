@@ -3,6 +3,7 @@
 What CI does for this repo, whatever the language.
 [`ci.yml`](../.github/workflows/ci.yml) runs the gate,
 [`pr-title.yml`](../.github/workflows/pr-title.yml) guards the commit record,
+[`pages.yml`](../.github/workflows/pages.yml) deploys for remote testing,
 and [`dependabot.yml`](../.github/dependabot.yml) keeps the Actions they use
 up to date.
 
@@ -88,7 +89,42 @@ required checks to match.
   `continue-on-error`, excluding files — needs its own issue saying why. It
   never rides along in an unrelated PR.
 
+## Deploys
+
+`pages.yml` publishes the app to GitHub Pages so it can be tried from any
+browser — the maintainer's table, a phone, a reviewer — without a local
+checkout:
+
+| Source | Served at |
+|---|---|
+| `main` (every push) | `https://bardic-inspiration.github.io/dnd-hirelings/` |
+| An open PR from this repo (every push) | `https://bardic-inspiration.github.io/dnd-hirelings/pr-preview/pr-<N>/` |
+
+- **How:** the workflow builds with `BASE_PATH` set to the target's path
+  ([`spec/assets.md`](spec/assets.md) "App paths") and
+  [`pages-publish.sh`](../.github/scripts/pages-publish.sh) commits the build
+  into the `gh-pages` branch, which Pages serves (repo Settings → Pages →
+  "Deploy from a branch", `gh-pages`, `/`). A `main` deploy replaces
+  everything but `pr-preview/`; a PR deploy replaces only its folder; closing
+  the PR deletes it. Concurrent pushes to `gh-pages` retry from a fresh fetch.
+- **Finding a preview:** the PR's "View deployment" button (the `preview`
+  environment), or the run's notice. It goes live about a minute after the
+  run, once GitHub's own pages build finishes.
+- **Not a gate.** A failed deploy is worth fixing but never blocks a merge;
+  `gate` and `pr-title` stay the only required checks.
+- **Permissions:** `contents: write`, the least that can push `gh-pages`.
+  The workflow runs on `pull_request`, never `pull_request_target`, so it only
+  ever builds code that already has write access: PRs from forks, and
+  Dependabot's, get a read-only token and are skipped rather than failed.
+- **Shared browser storage.** Every deploy is the same origin
+  (`bardic-inspiration.github.io`), so `main` and all previews read and write
+  the same `localStorage`. A preview that changes a stored format changes it
+  for the others too; export a session first if it matters.
+- **Limits:** Pages builds from a branch are soft-limited to 10 an hour, and
+  the site to 1 GB. Unchanged files cost nothing in `gh-pages`, since git
+  stores identical content once.
+
 ## Not covered yet
 
-Candidates for later modules: release and deploy workflows, code and secret
-scanning, and coverage thresholds.
+Candidates for later modules: release workflows, code and secret scanning,
+and coverage thresholds.
