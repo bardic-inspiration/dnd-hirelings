@@ -3,6 +3,7 @@ import Modal from './Modal.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { ITEM_URLS, isValidImageFile } from '../../constants/items.js';
 import { useAssetGroup } from '../../hooks/useAssetGroup.js';
+import { publicUrl } from '../../constants/paths.js';
 
 export default function ItemIconsModal() {
   const { itemIconsProps, closeItemIcons } = useUI();
@@ -93,7 +94,7 @@ function IconFrame({ url, ready, onSelect }) {
     <div
       className={`portrait-frame${cls}${loadingCls}`}
       onClick={handleClick}
-      style={ready ? { backgroundImage: `url("${url}")` } : undefined}
+      style={ready ? { backgroundImage: `url("${publicUrl(url)}")` } : undefined}
     />
   );
 }

@@ -36,6 +36,10 @@ function imageManifestPlugin({ name, virtualId, dir, basePath }) {
 }
 
 export default defineConfig(({ mode }) => ({
+  // The URL path the site is served under, e.g. `/dnd-hirelings/` on GitHub
+  // Pages. Unset (dev, tests, the CI gate) means the site root. Runtime code
+  // resolves app paths against it through `publicUrl` (src/constants/paths.js).
+  base: process.env.BASE_PATH || '/',
   // Pure-function unit tests only (logic/constants tiers) — no DOM environment.
   test: { environment: 'node' },
   plugins: [

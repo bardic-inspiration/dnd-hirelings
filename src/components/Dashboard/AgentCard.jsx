@@ -15,6 +15,7 @@ import TagLabel from '../TagLabel.jsx';
 import TruncatedText from '../TruncatedText.jsx';
 import Tooltip from '../Tooltip.jsx';
 import { flashAgentCard } from '../../logic/dom.js';
+import { publicUrl } from '../../constants/paths.js';
 
 // Task activity chips show the resolved task name (plain text); every other
 // tag renders through TagLabel's chip variant. Both truncate to the card's
@@ -257,7 +258,7 @@ export default function AgentCard({ agent }) {
           <Tooltip content="Click to set image">
             <div
               className="agent-icon"
-              style={agent.icon ? { backgroundImage: `url("${agent.icon}")` } : {}}
+              style={agent.icon ? { backgroundImage: `url("${publicUrl(agent.icon)}")` } : {}}
               onClick={handleIconClick}
             >
               {!agent.icon && 'NO IMAGE'}

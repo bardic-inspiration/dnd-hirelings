@@ -4,6 +4,7 @@ import { useCharBudget } from '../../../hooks/useCharBudget.js';
 import EditableSpan from '../../EditableSpan.jsx';
 import TagLabel from '../../TagLabel.jsx';
 import Tooltip from '../../Tooltip.jsx';
+import { publicUrl } from '../../../constants/paths.js';
 
 // Editable agent preview. Mirrors AgentCard's markup/CSS but binds to a draft
 // preset via onChange instead of dispatching board actions. Attribute "active"
@@ -23,7 +24,7 @@ export default function AgentPreview({ draft, onChange }) {
       <Tooltip content="Click to set image">
         <div
           className="agent-icon"
-          style={draft.icon ? { backgroundImage: `url("${draft.icon}")` } : {}}
+          style={draft.icon ? { backgroundImage: `url("${publicUrl(draft.icon)}")` } : {}}
           onClick={() => openPortraits(url => onChange({ icon: url }))}
         >
           {!draft.icon && 'NO IMAGE'}
