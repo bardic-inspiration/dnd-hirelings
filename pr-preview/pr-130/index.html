@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Guild Manager</title>
+    <script>
+      (function () {
+        var palettes = {
+          light: { bg:'#f4f4f1', fg:'#1e1e22', border:'#c0c0bc', dim:'#888884', dimmer:'#eaeae8', highlight:'#2060d0', highlightBg:'rgba(32,96,208,0.07)',   warn:'#d42020', accent:'#9a6b1e', backgroundImage:'/assets/UI/background_light.webp' },
+          dark:  { bg:'#0d0b14', fg:'#d2cce8', border:'#28203e', dim:'#504865', dimmer:'#141020', highlight:'#9a7ae8', highlightBg:'rgba(154,122,232,0.09)', warn:'#ff6090', accent:'#c9a24e', backgroundImage:'/assets/UI/background_arcane.webp' },
+        };
+        var name = localStorage.getItem('dnd-hirelings-palette-v1') || localStorage.getItem('dnd-hirelings-palette') || 'dark';
+        var p = palettes[name] || palettes.dark;
+        var r = document.documentElement;
+        r.style.setProperty('--bg',           p.bg);
+        r.style.setProperty('--fg',           p.fg);
+        r.style.setProperty('--border',       p.border);
+        r.style.setProperty('--dim',          p.dim);
+        r.style.setProperty('--dimmer',       p.dimmer);
+        r.style.setProperty('--highlight',    p.highlight);
+        r.style.setProperty('--highlight-bg', p.highlightBg);
+        r.style.setProperty('--warn',         p.warn);
+        r.style.setProperty('--accent',       p.accent);
+        if (p.backgroundImage) {
+          r.style.setProperty('--bg-image', "url('" + p.backgroundImage + "')");
+          var link = document.createElement('link');
+          link.rel = 'preload';
+          link.as = 'image';
+          link.href = p.backgroundImage;
+          document.head.appendChild(link);
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-DTSfUp3b.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-icRAlJB7.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

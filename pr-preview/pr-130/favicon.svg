@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Guild Manager">
+  <!-- Guild emblem: a shield with an inset gem. Colors adapt to the browser's
+       light/dark UI so the mark stays legible in either tab bar. -->
+  <style>
+    .shield { fill: #0d0b14; stroke: #c9a24e; }
+    .gem    { fill: #c9a24e; }
+    @media (prefers-color-scheme: light) {
+      .shield { fill: #f4f4f1; stroke: #9a6b1e; }
+      .gem    { fill: #9a6b1e; }
+    }
+  </style>
+  <path class="shield" stroke-width="2" stroke-linejoin="round"
+        d="M16 3 4 7v9c0 6.5 5 11 12 13 7-2 12-6.5 12-13V7L16 3Z"/>
+  <path class="gem" d="M16 10l5 5-5 8-5-8 5-5Z"/>
+</svg>
