@@ -1,0 +1,103 @@
+# Pages — deploys the app to GitHub Pages for remote testing. docs/ci.md
+# "Deploys" says what it does, and why.
+#
+# main is served at the site root; each open PR from this repo is served at
+# pr-preview/pr-N/ and removed when the PR closes. Pages serves the gh-pages
+# branch, which only .github/scripts/pages-publish.sh writes. Deploys are not
+# merge gates: `gate` (ci.yml) is.
+#
+# PR-controlled values reach scripts only through env (docs/ci.md "What CI
+# must do"). Fork and Dependabot PRs get a read-only token, so they get no
+# preview rather than a red check.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+  workflow_dispatch:
+
+permissions:
+  contents: write # push to gh-pages
+
+concurrency:
+  # One run per PR (or per branch): a newer push, or closing the PR,
+  # supersedes a deploy still in flight. Runs for different PRs proceed in
+  # parallel; the publish script retries when their pushes race.
+  group: pages-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: >-
+      github.event.action != 'closed' &&
+      (github.event_name != 'pull_request' ||
+       (github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.user.login != 'dependabot[bot]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'preview' || 'pages' }}
+      url: ${{ steps.target.outputs.url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Choose the target
+        id: target
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          dest=""
+          if [ -n "$PR_NUMBER" ]; then dest="pr-preview/pr-$PR_NUMBER"; fi
+          base="/$REPO_NAME/${dest:+$dest/}"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          {
+            echo "dest=$dest"
+            echo "base=$base"
+            echo "url=https://$owner.github.io$base"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          BASE_PATH: ${{ steps.target.outputs.base }}
+        run: npm run build
+
+      - name: Publish
+        env:
+          DEST: ${{ steps.target.outputs.dest }}
+          URL: ${{ steps.target.outputs.url }}
+        run: |
+          .github/scripts/pages-publish.sh "$DEST" dist
+          echo "::notice title=Pages::Deployed to $URL (live once GitHub's pages build finishes, about a minute)."
+
+  remove-preview:
+    if: >-
+      github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The PR's merge ref can be gone once it closes; the script lives on
+      # the default branch either way.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Remove the preview
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: .github/scripts/pages-publish.sh "pr-preview/pr-$PR_NUMBER"

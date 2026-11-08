@@ -17,6 +17,11 @@ npm run check
 
 `npm run dev` serves the app at `http://localhost:5173`.
 
+No checkout needed to try it: `main` is live at
+<https://bardic-inspiration.github.io/dnd-hirelings/>, and every open PR has
+a preview linked from its "View deployment" button
+([`docs/ci.md`](docs/ci.md) "Deploys").
+
 ## The short version
 
 - **One concern per PR**, on a branch from `main`. Link its issue, or state

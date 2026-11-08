@@ -149,6 +149,7 @@ This loop doesn't apply at all ([`docs/workflow.md`](docs/workflow.md)
 | Fix autofixable lint | `npm run fix` |
 | Run one test, or a few | `npx vitest run <path>…` |
 | Run the project | `npm run dev` (then `http://localhost:5173`) |
+| Try a PR remotely | its preview, `https://bardic-inspiration.github.io/dnd-hirelings/pr-preview/pr-<N>/` ([`docs/ci.md`](docs/ci.md) "Deploys") |
 
 `check` runs everything the gate requires — lint, tests, build — and never
 modifies files. There is no formatter, by design

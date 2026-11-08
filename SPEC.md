@@ -95,7 +95,9 @@ green.
 
 ## Architecture
 
-A client-side single-page app (React, Vite) with no backend. Four tiers
+A client-side single-page app (React, Vite) with no backend, deployed as a
+static site to GitHub Pages — `main` at the site root and each open PR at
+`pr-preview/pr-<N>/` ([`docs/ci.md`](docs/ci.md) "Deploys"). Four tiers
 depend in one direction — components → hooks → state → logic:
 
 | Tier | Path | Owns |
