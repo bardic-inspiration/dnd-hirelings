@@ -87,17 +87,27 @@ export function isActionAllowed(mode, action) {
 }
 
 /**
+ * Checks whether the baton indicates it is currently the party's turn.
+ *
+ * @param {object} baton Current baton document `{ turnOwner, ... }`.
+ * @returns {boolean}
+ */
+function isPartyTurn(baton) {
+  return Boolean(baton) && typeof baton === 'object' && baton.turnOwner === 'party';
+}
+
+/**
  * Derives the client's active permission mode from its assigned role, the session
  * baton, and whether this client currently holds the pen (write lock).
  *
  * Rules:
  * - Role `gm` is always in `gm` mode.
- * - Non-GM roles are in `player` mode only when the party holds the baton AND this
+ * - Any other role is in `player` mode when the party holds the baton AND this
  *   client holds the write lock.
  * - Otherwise (between turns, observing, or unheld), mode is `spectator`.
  *
  * @param {string} role Client role from URL (`gm` or `party`).
- * @param {string|object} baton Current baton state or turn owner string.
+ * @param {object} baton Current baton document `{ turnOwner, ... }`.
  * @param {boolean} holdsWriteLock Whether this client holds the active pen token.
  * @returns {'gm'|'player'|'spectator'} The derived permission mode.
  */
@@ -105,11 +115,8 @@ export function deriveMode(role, baton, holdsWriteLock) {
   if (role === 'gm') {
     return 'gm';
   }
-  if (role === 'party') {
-    const isPartyBaton = baton === 'party' || (Boolean(baton) && typeof baton === 'object' && baton.turnOwner === 'party');
-    if (isPartyBaton && Boolean(holdsWriteLock)) {
-      return 'player';
-    }
+  if (isPartyTurn(baton) && Boolean(holdsWriteLock)) {
+    return 'player';
   }
   return 'spectator';
 }

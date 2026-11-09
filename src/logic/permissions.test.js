@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import reducerSource from '../state/reducer.js?raw';
 import {
   PLAYER_ALLOWED_ACTIONS,
   PLAYER_SESSION_KEYS,
@@ -44,6 +45,19 @@ describe('multiplayer permissions', () => {
       expect(SPECTATOR_ALLOWED_ACTIONS.size).toBe(1);
       expect(SPECTATOR_ALLOWED_ACTIONS.has('DYN_RECONCILE')).toBe(true);
     });
+
+    it('verifies every allowed action is actively handled by the reducer', () => {
+      const reducerActionTypes = new Set(
+        [...reducerSource.matchAll(/case '([A-Z_]+)':/g)].map((match) => match[1]),
+      );
+
+      for (const actionType of PLAYER_ALLOWED_ACTIONS) {
+        expect(reducerActionTypes.has(actionType)).toBe(true);
+      }
+      for (const actionType of SPECTATOR_ALLOWED_ACTIONS) {
+        expect(reducerActionTypes.has(actionType)).toBe(true);
+      }
+    });
   });
 
   describe('isActionAllowed', () => {
@@ -59,15 +73,16 @@ describe('multiplayer permissions', () => {
           'AGENT_CREATE',
           'AGENT_UPDATE',
           'AGENT_DELETE',
+          'AGENT_DUPLICATE',
           'TASK_CREATE',
           'TASK_UPDATE',
           'TASK_DELETE',
           'TASK_CONDITION_UPDATE',
           'TASK_SET_COMPLETE',
-          'CONFIG_UPDATE',
-          'TAG_REGISTER',
-          'PRESET_LOAD',
-          'RESET_STATE',
+          'INVENTORY_ADD',
+          'TAG_APPLY',
+          'TAGREG_REPLACE',
+          'RESET',
         ];
         for (const actionType of gmOnlyActions) {
           expect(isActionAllowed('gm', { type: actionType })).toBe(true);
@@ -129,10 +144,12 @@ describe('multiplayer permissions', () => {
         const disallowed = [
           'AGENT_CREATE',
           'AGENT_UPDATE',
+          'AGENT_DELETE',
           'TASK_CONDITION_UPDATE',
           'TASK_SET_COMPLETE',
           'TASK_CREATE',
-          'CONFIG_UPDATE',
+          'INVENTORY_ADD',
+          'RESET',
         ];
         for (const actionType of disallowed) {
           expect(isActionAllowed('player', { type: actionType })).toBe(false);
@@ -182,34 +199,32 @@ describe('multiplayer permissions', () => {
 
   describe('deriveMode', () => {
     it('returns gm when role is gm regardless of baton and lock state', () => {
-      expect(deriveMode('gm', 'gm', false)).toBe('gm');
-      expect(deriveMode('gm', 'party', true)).toBe('gm');
-      expect(deriveMode('gm', 'party', false)).toBe('gm');
+      expect(deriveMode('gm', { turnOwner: 'gm' }, false)).toBe('gm');
       expect(deriveMode('gm', { turnOwner: 'party' }, true)).toBe('gm');
+      expect(deriveMode('gm', { turnOwner: 'party' }, false)).toBe('gm');
       expect(deriveMode('gm', null, false)).toBe('gm');
     });
 
-    it('returns player when role is party, baton is party, and holdsWriteLock is true', () => {
-      expect(deriveMode('party', 'party', true)).toBe('player');
+    it('returns player when non-gm, baton is party, and holdsWriteLock is true', () => {
       expect(deriveMode('party', { turnOwner: 'party' }, true)).toBe('player');
+      expect(deriveMode('other', { turnOwner: 'party' }, true)).toBe('player');
     });
 
-    it('returns spectator when role is party, baton is party, but pen is not held', () => {
-      expect(deriveMode('party', 'party', false)).toBe('spectator');
+    it('returns spectator when baton is party but pen is not held', () => {
       expect(deriveMode('party', { turnOwner: 'party' }, false)).toBe('spectator');
+      expect(deriveMode('other', { turnOwner: 'party' }, false)).toBe('spectator');
     });
 
-    it('returns spectator when role is party but baton is with gm', () => {
-      expect(deriveMode('party', 'gm', false)).toBe('spectator');
-      expect(deriveMode('party', 'gm', true)).toBe('spectator');
+    it('returns spectator when baton is with gm', () => {
       expect(deriveMode('party', { turnOwner: 'gm' }, false)).toBe('spectator');
       expect(deriveMode('party', { turnOwner: 'gm' }, true)).toBe('spectator');
     });
 
-    it('returns spectator for unknown or missing role', () => {
-      expect(deriveMode('spectator', 'party', true)).toBe('spectator');
-      expect(deriveMode(null, 'party', true)).toBe('spectator');
-      expect(deriveMode(undefined, 'party', true)).toBe('spectator');
+    it('returns spectator when baton is null or malformed', () => {
+      expect(deriveMode('party', null, true)).toBe('spectator');
+      expect(deriveMode('party', undefined, true)).toBe('spectator');
+      expect(deriveMode('party', {}, true)).toBe('spectator');
+      expect(deriveMode('party', 'party', true)).toBe('spectator');
     });
   });
 

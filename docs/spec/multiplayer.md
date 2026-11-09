@@ -19,19 +19,19 @@ modeled. Two independent axes sit over the existing machinery:
 | | `gm` | `player` | `spectator` |
 |---|---|---|---|
 | `live` | The GM's turn | The party's turn (pen holder) | The party between turns, or a non-holder |
-| `recorded` | — | — | **The review viewer** |
+| `recorded` | `Planned (#116):` — | — | **The review viewer** |
 
-The review viewer is not a separate screen: it is the live dashboard mounted
-in a sandboxed `GameProvider` seeded from a snapshot, with clock source
-`recorded` and mode `spectator`. The logic tier and the component tree cannot
-tell local play, spectating, and review apart.
+`Planned (#116):` The review viewer is not a separate screen: it is the live
+dashboard mounted in a sandboxed `GameProvider` seeded from a snapshot, with
+clock source `recorded` and mode `spectator`. The logic tier and the component
+tree cannot tell local play, spectating, and review apart.
 
 **Offline stays the default.** With no `session` URL parameter the app is
 exactly the single-player app: `localStorage` persistence, ungated dispatch,
 no polling, no mode panel.
 
-**Joining** is by URL: `?session=<id>&role=gm|party`. Roles are
-honor-system: the trust model prevents accidents, not attacks. Nothing about
+`Planned (#116):` **Joining** is by URL: `?session=<id>&role=gm|party`. Roles
+are honor-system: the trust model prevents accidents, not attacks. Nothing about
 roles is stored; there are no accounts.
 
 ## Permissions
@@ -55,12 +55,13 @@ roles is stored; there are no accounts.
   GM-only because the YEAR / DAY spans bypass ticks, the log, and snapshots.
 - **`deriveMode(role, baton, holdsWriteLock)`**: `gm` for the GM; otherwise
   `spectator` unless the baton is the party's **and** this client holds the
-  pen, then `player`. Mode is derived on every render, never stored.
+  pen, then `player`. `Planned (#116):` Mode is derived on every render, never
+  stored.
 - **`gateDispatch(rawDispatch, getMode)`** silently drops a disallowed
-  action. Every UI affordance checks the same predicate, so pre-check and
-  backstop cannot disagree. The gate is the single enforcement point:
-  `useGame().dispatch` is the only dispatch consumers get, and `submitOrder`
-  and config bindings take dispatch as a parameter.
+  action. `Planned (#116):` Every UI affordance checks the same predicate, so
+  pre-check and backstop cannot disagree. The gate is the single enforcement
+  point: `useGame().dispatch` is the only dispatch consumers get, and
+  `submitOrder` and config bindings take dispatch as a parameter.
 
 ## Networked session
 
