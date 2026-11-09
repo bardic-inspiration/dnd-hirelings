@@ -79,7 +79,10 @@ React state would re-render the board every frame.
 
 The loop reads its step functions and bounds from a clock source — `live`
 (today's behavior) or `recorded` (replaying a committed turn)
-([`multiplayer.md`](multiplayer.md) "Clock sources").
+([`multiplayer.md`](multiplayer.md) "Clock sources"). The `sourceContext`
+contract provides `{ index, onIndexChange?, snapshots, endState, eventLog }`
+for recorded playback, with state replacement isolated inside the review
+viewer's sandboxed `GameProvider`.
 
 ## Event log
 

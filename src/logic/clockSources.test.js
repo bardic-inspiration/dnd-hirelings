@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   CLOCK_SOURCE_REGISTRY,
   getClockSource,
   logPrefix,
   stateAt,
+  createPlayClockDriver,
 } from './clockSources.js';
 
 describe('clockSources', () => {
@@ -145,7 +146,7 @@ describe('clockSources', () => {
   describe('recorded source stepForward, stepBack, and getBounds', () => {
     const recorded = CLOCK_SOURCE_REGISTRY.recorded;
 
-    it('steps forward from index 0 to 1 and returns newState with nextIndex', () => {
+    it('steps forward from index 0 to 1 and returns uniform result with action and nextIndex', () => {
       const result = recorded.stepForward(sampleSnapshots[0], {
         sourceContext: sampleCtx,
         index: 0,
@@ -153,7 +154,21 @@ describe('clockSources', () => {
       });
       expect(result).not.toBeNull();
       expect(result.nextIndex).toBe(1);
+      expect(result.atMax).toBe(false);
+      expect(result.action).toEqual({ type: 'APPLY_TICK', newState: result.newState });
       expect(result.newState.session.clock).toBe(101);
+    });
+
+    it('marks atMax: true when stepping forward reaches max index', () => {
+      const result = recorded.stepForward(sampleSnapshots[1], {
+        sourceContext: sampleCtx,
+        index: 1,
+        count: 1,
+      });
+      expect(result).not.toBeNull();
+      expect(result.nextIndex).toBe(2);
+      expect(result.atMax).toBe(true);
+      expect(result.newState).toBe(sampleEndState);
     });
 
     it('returns null at the forward bound when index >= max', () => {
@@ -166,7 +181,7 @@ describe('clockSources', () => {
       expect(result).toBeNull();
     });
 
-    it('steps back from index 2 to 1 and returns newState with nextIndex', () => {
+    it('steps back from index 2 to 1 and returns uniform result with action and nextIndex', () => {
       const result = recorded.stepBack(sampleEndState, {
         sourceContext: sampleCtx,
         index: 2,
@@ -174,6 +189,7 @@ describe('clockSources', () => {
       });
       expect(result).not.toBeNull();
       expect(result.nextIndex).toBe(1);
+      expect(result.action).toEqual({ type: 'APPLY_ROLLBACK', newState: result.newState });
       expect(result.newState.session.clock).toBe(101);
     });
 
@@ -228,6 +244,185 @@ describe('clockSources', () => {
       expect(boundsEmpty.canStepForward).toBe(true);
       expect(boundsEmpty.canPlay).toBe(true);
       expect(boundsEmpty.canStepBack).toBe(false);
+    });
+
+    it('returns uniform action shape on stepForward and stepBack', () => {
+      const baseState = {
+        session: { clock: 0, bank: 10, timeStep: 1, stepBack: 1, rateMultiplier: 1, workRate: 1, skillBonus: 1 },
+        agents: [],
+        tasks: [],
+        inventory: [],
+        tagRegistry: {},
+        eventLog: [],
+      };
+      const fwd = live.stepForward(baseState);
+      expect(fwd.action).toEqual({ type: 'APPLY_TICK', newState: fwd.newState });
+      expect(fwd.newState.session.clock).toBe(1);
+
+      const back = live.stepBack(fwd.newState);
+      expect(back.action).toEqual({ type: 'APPLY_ROLLBACK', newState: back.newState });
+      expect(back.resetProgress).toBe(true);
+    });
+  });
+
+  describe('createPlayClockDriver', () => {
+    function setupDriver(overrides = {}) {
+      let state = sampleSnapshots[0];
+      const dispatched = [];
+      const intervalsScheduled = [];
+      const intervalsCanceled = [];
+      const rafsScheduled = [];
+      const rafsCanceled = [];
+      let playingState = false;
+
+      const driver = createPlayClockDriver({
+        source: 'recorded',
+        sourceContext: { ...sampleCtx, index: 0 },
+        getState: () => state,
+        dispatch: (action) => {
+          dispatched.push(action);
+          state = action.newState;
+        },
+        scheduleInterval: (fn, ms) => {
+          const handle = { id: intervalsScheduled.length + 1, fn, ms };
+          intervalsScheduled.push(handle);
+          return handle;
+        },
+        cancelInterval: (handle) => {
+          intervalsCanceled.push(handle);
+        },
+        scheduleRaf: (fn) => {
+          const handle = { id: rafsScheduled.length + 1, fn };
+          rafsScheduled.push(handle);
+          return handle;
+        },
+        cancelRaf: (handle) => {
+          rafsCanceled.push(handle);
+        },
+        onPlayingChange: (nextPlaying) => {
+          playingState = nextPlaying;
+        },
+        ...overrides,
+      });
+
+      return {
+        driver,
+        getState: () => state,
+        dispatched,
+        intervalsScheduled,
+        intervalsCanceled,
+        rafsScheduled,
+        rafsCanceled,
+        isPlaying: () => playingState,
+      };
+    }
+
+    it('refuses to start when canPlay is false (e.g. recorded source at max)', () => {
+      const maxIndex = sampleSnapshots.length - 1;
+      const { driver, intervalsScheduled, isPlaying } = setupDriver({
+        sourceContext: { ...sampleCtx, index: maxIndex },
+      });
+
+      const started = driver.start();
+      expect(started).toBe(false);
+      expect(driver.isPlaying()).toBe(false);
+      expect(isPlaying()).toBe(false);
+      expect(intervalsScheduled).toHaveLength(0);
+    });
+
+    it('auto-stops immediately when a tick lands on max without lagging by one interval', () => {
+      const maxIndex = sampleSnapshots.length - 1; // 2
+      const onIndexChange = vi.fn();
+      const { driver, intervalsScheduled, intervalsCanceled, isPlaying, dispatched } = setupDriver({
+        sourceContext: { ...sampleCtx, index: 1, onIndexChange },
+      });
+
+      // Start playing from index 1
+      const started = driver.start();
+      expect(started).toBe(true);
+      expect(driver.isPlaying()).toBe(true);
+      expect(intervalsScheduled).toHaveLength(1);
+
+      // Interval fires tick(): advances from 1 to 2 (max)
+      intervalsScheduled[0].fn();
+
+      expect(driver.getIndex()).toBe(maxIndex);
+      expect(onIndexChange).toHaveBeenCalledWith(maxIndex);
+      expect(dispatched).toHaveLength(1);
+      expect(dispatched[0].type).toBe('APPLY_TICK');
+
+      // Auto-stop triggered immediately on this tick
+      expect(driver.isPlaying()).toBe(false);
+      expect(isPlaying()).toBe(false);
+      expect(intervalsCanceled).toHaveLength(1);
+      expect(intervalsCanceled[0]).toBe(intervalsScheduled[0]);
+    });
+
+    it('syncs internal index and clears progress rates when syncIndex is called', () => {
+      const { driver } = setupDriver({
+        sourceContext: { ...sampleCtx, index: 0 },
+      });
+
+      expect(driver.getIndex()).toBe(0);
+      expect(driver.getBounds().canStepBack).toBe(false);
+
+      driver.syncIndex(2);
+      expect(driver.getIndex()).toBe(2);
+      expect(driver.getBounds().canStepBack).toBe(true);
+      expect(driver.getBounds().canStepForward).toBe(false);
+      expect(driver.getBounds().canPlay).toBe(false);
+    });
+
+    it('does not schedule RAF loop when source does not interpolate', () => {
+      // Recorded source (interpolates: false)
+      const recorded = setupDriver({ source: 'recorded' });
+      recorded.driver.start();
+      expect(recorded.intervalsScheduled).toHaveLength(1);
+      expect(recorded.rafsScheduled).toHaveLength(0);
+
+      // Live source (interpolates: true)
+      const live = setupDriver({
+        source: 'live',
+        getState: () => ({ session: { clock: 0 }, eventLog: [] }),
+      });
+      live.driver.start();
+      expect(live.intervalsScheduled).toHaveLength(1);
+      expect(live.rafsScheduled).toHaveLength(1);
+    });
+
+    it('switches source cleanly, stopping running interval and resetting index and tickInfo', () => {
+      const { driver, intervalsScheduled, intervalsCanceled, isPlaying } = setupDriver({
+        source: 'live',
+        getState: () => ({ session: { clock: 0 }, eventLog: [] }),
+      });
+
+      driver.start();
+      expect(driver.isPlaying()).toBe(true);
+      expect(intervalsScheduled).toHaveLength(1);
+
+      // Switch to recorded at index 1
+      driver.switchSource('recorded', { ...sampleCtx, index: 1 });
+
+      expect(driver.isPlaying()).toBe(false);
+      expect(isPlaying()).toBe(false);
+      expect(intervalsCanceled).toHaveLength(1);
+      expect(driver.getIndex()).toBe(1);
+      expect(driver.getTickInfo().lastTickWallTime).toBe(0);
+    });
+
+    it('notifies onIndexChange on stepBack and advance', () => {
+      const onIndexChange = vi.fn();
+      const { driver, dispatched } = setupDriver({
+        sourceContext: { ...sampleCtx, index: 1, onIndexChange },
+      });
+
+      driver.advance();
+      expect(onIndexChange).toHaveBeenCalledWith(2);
+      expect(dispatched[0].type).toBe('APPLY_TICK');
+
+      driver.retreat();
+      expect(onIndexChange).toHaveBeenCalledWith(1);
+      expect(dispatched[1].type).toBe('APPLY_ROLLBACK');
     });
   });
 });
