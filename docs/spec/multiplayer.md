@@ -1,8 +1,8 @@
 # Multiplayer
 
-**`Planned (#116):`** this whole area. One GM and a party of one or more
-players take turns on one shared board, possibly online at once, and the GM
-reviews each party turn. Part of [`SPEC.md`](../../SPEC.md).
+One GM and a party of one or more players take turns on one shared board,
+possibly online at once, and the GM reviews each party turn. Part of
+[`SPEC.md`](../../SPEC.md).
 
 ## The model
 
@@ -12,26 +12,26 @@ modeled. Two independent axes sit over the existing machinery:
 - **Permission mode** — a pure predicate applied to every dispatched action:
   `gm` (everything), `player` (the turn surface), `spectator` (nothing but
   derived reconciliation).
-- **Clock source** — where the play clock's steps come from: `live` (today's
-  `advanceTime` / `rollbackTime`) or `recorded` (an index into a committed
-  turn's per-tick snapshots).
+- **Clock source** — `Planned (#116):` where the play clock's steps come from:
+  `live` (today's `advanceTime` / `rollbackTime`) or `recorded` (an index into
+  a committed turn's per-tick snapshots).
 
 | | `gm` | `player` | `spectator` |
 |---|---|---|---|
 | `live` | The GM's turn | The party's turn (pen holder) | The party between turns, or a non-holder |
-| `recorded` | — | — | **The review viewer** |
+| `recorded` | `Planned (#116):` — | — | **The review viewer** |
 
-The review viewer is not a separate screen: it is the live dashboard mounted
-in a sandboxed `GameProvider` seeded from a snapshot, with clock source
-`recorded` and mode `spectator`. The logic tier and the component tree cannot
-tell local play, spectating, and review apart.
+`Planned (#116):` The review viewer is not a separate screen: it is the live
+dashboard mounted in a sandboxed `GameProvider` seeded from a snapshot, with
+clock source `recorded` and mode `spectator`. The logic tier and the component
+tree cannot tell local play, spectating, and review apart.
 
 **Offline stays the default.** With no `session` URL parameter the app is
 exactly the single-player app: `localStorage` persistence, ungated dispatch,
 no polling, no mode panel.
 
-**Joining** is by URL: `?session=<id>&role=gm|party`. Roles are
-honor-system: the trust model prevents accidents, not attacks. Nothing about
+`Planned (#116):` **Joining** is by URL: `?session=<id>&role=gm|party`. Roles
+are honor-system: the trust model prevents accidents, not attacks. Nothing about
 roles is stored; there are no accounts.
 
 ## Permissions
@@ -55,14 +55,17 @@ roles is stored; there are no accounts.
   GM-only because the YEAR / DAY spans bypass ticks, the log, and snapshots.
 - **`deriveMode(role, baton, holdsWriteLock)`**: `gm` for the GM; otherwise
   `spectator` unless the baton is the party's **and** this client holds the
-  pen, then `player`. Mode is derived on every render, never stored.
+  pen, then `player`. `Planned (#116):` Mode is derived on every render, never
+  stored.
 - **`gateDispatch(rawDispatch, getMode)`** silently drops a disallowed
-  action. Every UI affordance checks the same predicate, so pre-check and
-  backstop cannot disagree. The gate is the single enforcement point:
-  `useGame().dispatch` is the only dispatch consumers get, and `submitOrder`
-  and config bindings take dispatch as a parameter.
+  action. `Planned (#116):` Every UI affordance checks the same predicate, so
+  pre-check and backstop cannot disagree. The gate is the single enforcement
+  point: `useGame().dispatch` is the only dispatch consumers get, and
+  `submitOrder` and config bindings take dispatch as a parameter.
 
 ## Networked session
+
+`Planned (#116):` this section.
 
 `src/state/NetSessionContext.jsx`, mounted above `GameProvider` only when the
 URL carries `session` and `role`. `useNetSession()` exposes `enabled`, `role`,
@@ -84,6 +87,8 @@ Transport is plain `fetch` over the routes below (`src/logic/netSession.js`).
 
 ## Snapshots
 
+`Planned (#116):` this section.
+
 While networked, the party client records the turn:
 
 - **On claim**, the snapshot list resets to `[currentState]`, so index 0 is
@@ -101,6 +106,8 @@ rollback, so after a mid-turn rollback an intermediate snapshot lacks edits
 made after it. A cut at the end resolves to `endState`.
 
 ## Server
+
+`Planned (#116):` this section.
 
 `server/index.js`: `node:http` and JSON files, no dependencies, run with
 `npm run server`, reached through Vite's `/api` proxy to `localhost:3001`. One
@@ -138,6 +145,8 @@ A stale commit is rejected, never merged: the party re-pulls and replays.
 
 ## Clock sources
 
+`Planned (#116):` this section.
+
 `CLOCK_SOURCE_REGISTRY` (`src/logic/clockSources.js`); an unknown source falls
 back to `live`.
 
@@ -159,6 +168,8 @@ Play in `recorded` steps the index at the normal interval.
 
 ## Review viewer
 
+`Planned (#116):` this section.
+
 `ReviewModal` is a full-screen modal holding a **second `GameProvider`**
 (`initialState` = the turn start, `persist: false`, mode pinned to
 `spectator`) with the top bar's clock controls on the `recorded` source. The
@@ -171,6 +182,8 @@ state, and posts it. Only a prefix of a turn can be kept; the tail is
 discarded.
 
 ## Mode sub-panel
+
+`Planned (#116):` this section.
 
 Networked only, a panel in the top bar (`ModePanel`). Its controls make
 network calls, never reducer actions.
@@ -198,6 +211,8 @@ network calls, never reducer actions.
   mid-turn.
 
 ## Turn states
+
+`Planned (#116):` this section.
 
 | Status | Baton | Party client | GM |
 |---|---|---|---|
