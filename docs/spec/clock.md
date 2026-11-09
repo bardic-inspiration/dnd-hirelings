@@ -77,8 +77,8 @@ React state would re-render the board every frame.
   player types. It restarts 100 ms after blur. New editable fields that should
   pause the clock must match that selector.
 
-`Planned (#116):` the loop reads its step functions and bounds from a clock
-source — `live` (today's behavior) or `recorded` (replaying a committed turn)
+The loop reads its step functions and bounds from a clock source — `live`
+(today's behavior) or `recorded` (replaying a committed turn)
 ([`multiplayer.md`](multiplayer.md) "Clock sources").
 
 ## Event log

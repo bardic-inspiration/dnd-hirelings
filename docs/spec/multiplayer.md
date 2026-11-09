@@ -12,7 +12,7 @@ modeled. Two independent axes sit over the existing machinery:
 - **Permission mode** — a pure predicate applied to every dispatched action:
   `gm` (everything), `player` (the turn surface), `spectator` (nothing but
   derived reconciliation).
-- **Clock source** — `Planned (#116):` where the play clock's steps come from:
+- **Clock source** — where the play clock's steps come from:
   `live` (today's `advanceTime` / `rollbackTime`) or `recorded` (an index into
   a committed turn's per-tick snapshots).
 
@@ -144,8 +144,6 @@ All routes are under `/api/session/:id`; the caller's role comes from a
 A stale commit is rejected, never merged: the party re-pulls and replays.
 
 ## Clock sources
-
-`Planned (#116):` this section.
 
 `CLOCK_SOURCE_REGISTRY` (`src/logic/clockSources.js`); an unknown source falls
 back to `live`.
