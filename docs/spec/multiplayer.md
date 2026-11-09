@@ -12,7 +12,7 @@ modeled. Two independent axes sit over the existing machinery:
 - **Permission mode** — a pure predicate applied to every dispatched action:
   `gm` (everything), `player` (the turn surface), `spectator` (nothing but
   derived reconciliation).
-- **Clock source** — `Planned (#116):` where the play clock's steps come from:
+- **Clock source** — where the play clock's steps come from:
   `live` (today's `advanceTime` / `rollbackTime`) or `recorded` (an index into
   a committed turn's per-tick snapshots).
 
@@ -145,8 +145,6 @@ A stale commit is rejected, never merged: the party re-pulls and replays.
 
 ## Clock sources
 
-`Planned (#116):` this section.
-
 `CLOCK_SOURCE_REGISTRY` (`src/logic/clockSources.js`); an unknown source falls
 back to `live`.
 
@@ -160,11 +158,25 @@ back to `live`.
 or `endState` at the last index. `logPrefix(i)` cuts the log slice at the
 i-th tick boundary. Steps return `null` at the bounds.
 
+`sourceContext` contract: `{ index, onIndexChange?, snapshots, endState, eventLog }`
+(or `{ index, onIndexChange?, commit: { snapshots, endState, eventLog } }`).
+Index reading is narrowed to `sourceContext.index` and notifications fire
+exclusively through `onIndexChange(nextIndex)`.
+
 `usePlayClock({ source = 'live', sourceContext })` routes its steps through
 the source and starts the frame interpolator only when the source
 interpolates. Controls dim at the source's `bounds` — step back at the
 rollback horizon as today, and step forward and play at a recording's end.
-Play in `recorded` steps the index at the normal interval.
+Play in `recorded` steps the index at the normal interval, automatically
+stopping immediately when reaching the maximum bound.
+
+**State isolation:** Recorded steps dispatch `APPLY_TICK` / `APPLY_ROLLBACK`
+with the reconstructed historical `newState`, replacing state in the
+enclosing `GameProvider`. In review mode, this is isolated from live play
+because the review viewer mounts inside a separate sandboxed `GameProvider`
+(`initialState` seeded from the turn start, `persist: false`, mode pinned to
+`spectator`), so historical scrubbing cannot mutate or overwrite the
+player's live state or localStorage.
 
 ## Review viewer
 
