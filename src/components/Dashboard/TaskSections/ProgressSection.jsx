@@ -4,6 +4,7 @@ import { defaultConditionName, formatConditionLink } from '../../../logic/condit
 import { conditionsView } from '../../../logic/taskModel.js';
 import { formatCount } from '../../../logic/format.js';
 import EditableSpan from '../../EditableSpan.jsx';
+import { useCan } from '../../../hooks/useCan.js';
 import Tooltip from '../../Tooltip.jsx';
 
 /**
@@ -14,9 +15,12 @@ import Tooltip from '../../Tooltip.jsx';
  * in `updateClockDisplayDOM` can interpolate them between ticks.
  *
  * @param {{ taskId: string, condition: Condition,
- *           onUpdate: (changes: object) => void, onRemove: () => void }} props
+ *           onUpdate?: (changes: object) => void, onRemove?: () => void }} props
+ *   Without `onUpdate` the row is read-only; without `onRemove` it has no
+ *   remove control (the client's mode doesn't allow them, `useCan`).
  */
 function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
+  const editable = Boolean(onUpdate);
   const done = condition.progress >= condition.target;
   const pct  = condition.target > 0 ? Math.min(100, (condition.progress / condition.target) * 100) : 0;
 
@@ -38,6 +42,7 @@ function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
         <EditableSpan
           className="condition-item-name"
           value={condition.name}
+          disabled={!editable}
           onCommit={commitName}
         />
       </Tooltip>
@@ -56,6 +61,7 @@ function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
             data-task-id={taskId}
             data-condition-id={condition.id}
             value={String(Math.floor(Math.min(condition.progress, condition.target)))}
+            disabled={!editable}
             format={formatCount}
             onCommit={commitProgress}
           />
@@ -63,11 +69,12 @@ function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
           <EditableSpan
             className="condition-item-target"
             value={String(condition.target)}
+            disabled={!editable}
             format={formatCount}
             onCommit={commitTarget}
           />
         </span>
-        <span className="x" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
+        {onRemove && <span className="x" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>}
       </div>
     </div>
   );
@@ -86,6 +93,7 @@ function ConditionRow({ taskId, condition, onUpdate, onRemove }) {
 export default function ProgressSection({ task }) {
   const { dispatch } = useGame();
   const { openTagRegistry } = useUI();
+  const can = useCan();
   const conditions = conditionsView(task);
 
   const handleAdd = () => openTagRegistry({ target: { type: 'task', id: task.id }, mode: 'condition' });
@@ -104,12 +112,12 @@ export default function ProgressSection({ task }) {
             key={condition.id}
             taskId={task.id}
             condition={condition}
-            onUpdate={(changes) => dispatch({ type: 'TASK_CONDITION_UPDATE', id: task.id, conditionId: condition.id, changes })}
-            onRemove={() => dispatch({ type: 'TASK_CONDITION_REMOVE', id: task.id, conditionId: condition.id })}
+            onUpdate={!can('TASK_CONDITION_UPDATE') ? undefined : (changes) => dispatch({ type: 'TASK_CONDITION_UPDATE', id: task.id, conditionId: condition.id, changes })}
+            onRemove={!can('TASK_CONDITION_REMOVE') ? undefined : () => dispatch({ type: 'TASK_CONDITION_REMOVE', id: task.id, conditionId: condition.id })}
           />
         ))}
       </div>
-      <button className="tag-add" onClick={e => { e.stopPropagation(); handleAdd(); }}>+ CONDITION</button>
+      {can('TASK_CONDITION_ADD') && <button className="tag-add" onClick={e => { e.stopPropagation(); handleAdd(); }}>+ CONDITION</button>}
     </div>
   );
 }

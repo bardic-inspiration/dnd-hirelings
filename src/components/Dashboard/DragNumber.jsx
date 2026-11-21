@@ -8,8 +8,9 @@ const PX_PER_UNIT = 12;
 // A numeric field that can be edited by clicking (type a value) or adjusted by
 // dragging vertically (up = increase, down = decrease) by `step` per PX_PER_UNIT.
 // Unlike usePressHoldDrag (drag-only), a plain click falls through to the inline
-// editor, so pointerdown is not prevent-defaulted.
-export default function DragNumber({ value, onChange, onCommit, className, step = 1, min, format }) {
+// editor, so pointerdown is not prevent-defaulted. `disabled` makes it read-only:
+// no drag, no edit.
+export default function DragNumber({ value, onChange, onCommit, className, step = 1, min, format, disabled = false }) {
   const startY    = useRef(0);
   const lastDelta = useRef(0);
   const dragging  = useRef(false);
@@ -17,7 +18,7 @@ export default function DragNumber({ value, onChange, onCommit, className, step 
   valueRef.current = value;
 
   const onPointerDown = (e) => {
-    if (e.button !== 0) return;
+    if (disabled || e.button !== 0) return;
     startY.current   = e.clientY;
     lastDelta.current = 0;
     dragging.current = false;
@@ -61,13 +62,13 @@ export default function DragNumber({ value, onChange, onCommit, className, step 
   };
 
   return (
-    <Tooltip content="Click to edit. Drag up/down to adjust.">
+    <Tooltip content="Click to edit. Drag up/down to adjust." disabled={disabled}>
       <span
         className="drag-number"
         onPointerDown={onPointerDown}
         onClickCapture={onClickCapture}
       >
-        <EditableSpan className={className} value={String(value)} onCommit={onCommit} format={format} />
+        <EditableSpan className={className} value={String(value)} onCommit={onCommit} format={format} disabled={disabled} />
       </span>
     </Tooltip>
   );

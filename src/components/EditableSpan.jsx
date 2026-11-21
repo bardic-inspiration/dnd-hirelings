@@ -30,9 +30,11 @@ import { truncateEnd } from '../logic/truncation.js';
  *   internal select-all-on-focus; lets a `Tooltip` wrapper hook focus without clobbering it
  * @param {(e: FocusEvent) => void} [props.onBlur] - Composed with (runs before) the
  *   internal commit-on-blur
+ * @param {boolean} [props.disabled=false] - Read-only: the span is not editable (e.g. the
+ *   client's mode doesn't allow the edit's action, `useCan`)
  * Remaining props (e.g. `data-*` attributes) are forwarded onto the span.
  */
-export default function EditableSpan({ value, onCommit, className, placeholder, format = (text) => text, maxChars = Infinity, singleLine = false, innerRef, onFocus, onBlur, ...rest }) {
+export default function EditableSpan({ value, onCommit, className, placeholder, format = (text) => text, maxChars = Infinity, singleLine = false, innerRef, onFocus, onBlur, disabled = false, ...rest }) {
   const ref = useRef(null);
   const originalRef = useRef(value || '');
 
@@ -95,7 +97,7 @@ export default function EditableSpan({ value, onCommit, className, placeholder, 
   return (
     <span
       ref={setRef}
-      contentEditable
+      contentEditable={!disabled}
       suppressContentEditableWarning
       spellCheck={false}
       className={className}

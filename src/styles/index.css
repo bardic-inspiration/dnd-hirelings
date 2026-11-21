@@ -282,6 +282,42 @@ body {
 }
 
 /* ============================================================
+   MODE PANEL  (networked only — docs/spec/multiplayer.md)
+   ============================================================ */
+.mode-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mode-switch {
+  display: inline-flex;
+  align-items: center;
+  border: var(--line) solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 2px;
+}
+.mode-switch-cell {
+  padding: 0 6px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  border-radius: var(--radius-xs);
+}
+.mode-switch-cell--filled {
+  background: var(--highlight);
+  color: var(--bg);
+}
+.mode-panel-status {
+  font-size: var(--fs-xs);
+  color: var(--dim);
+  white-space: nowrap;
+}
+.mode-panel-error { color: var(--warn); cursor: help; }
+
+/* ============================================================
    DASHBOARD LAYOUT  3 : 1
    ============================================================ */
 #dashboard {
@@ -659,6 +695,8 @@ body {
   transition: border-color 0.1s, color 0.1s;
 }
 .tag-add:hover { border-color: var(--highlight); color: var(--highlight); }
+.tag-add:disabled { opacity: 0.4; cursor: default; }
+.tag-add:disabled:hover { border-color: var(--border); color: var(--dim); }
 
 /* ============================================================
    TASK PANE
@@ -2118,6 +2156,8 @@ body {
   transition: color 0.1s;
 }
 .delete-btn:hover { color: var(--fg); }
+.delete-btn:disabled { opacity: 0.4; cursor: default; }
+.delete-btn:disabled:hover { color: var(--dim); }
 
 .empty {
   color: var(--dim);

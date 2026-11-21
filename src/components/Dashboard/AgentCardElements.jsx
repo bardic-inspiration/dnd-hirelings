@@ -2,6 +2,7 @@ import { useGame } from '../../state/GameContext.jsx';
 import { resolveTagSource } from '../../logic/UI.js';
 import { formatCount, formatCountFit } from '../../logic/format.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
+import { useCan } from '../../hooks/useCan.js';
 import EditableSpan from '../EditableSpan.jsx';
 
 // Standard configurable card elements. Each one takes a `source` string from
@@ -77,6 +78,7 @@ export function StatBox({ source, context }) {
  */
 export function StatBar({ current, max, context, fillVariant }) {
   const { dispatch } = useGame();
+  const canEdit = useCan()('AGENT_UPDATE');
   const currentRes = resolveTagSource(current, context);
   const maxRes = resolveTagSource(max, context);
   const valid = currentRes.valid && maxRes.valid;
@@ -87,7 +89,7 @@ export function StatBar({ current, max, context, fillVariant }) {
       {valid && (
         <>
           <div className={`vital-bar-fill vital-bar-fill--${fillVariant}`} style={{ width: `${ratio * 100}%` }} />
-          {currentRes.set
+          {currentRes.set && canEdit
             ? <EditableSpan
                 className="vital-bar-label"
                 value={String(currentRes.value)}
@@ -114,11 +116,12 @@ export function StatBar({ current, max, context, fillVariant }) {
  */
 export function StatField({ source, context }) {
   const { dispatch } = useGame();
+  const canEdit = useCan()('AGENT_UPDATE');
   const resolution = resolveTagSource(source, context);
   return (
     <div className={stateClass('stat-field', resolution)} title={source}>
       <span className="stat-field-label">{resolution.label}</span>
-      {resolution.valid && (resolution.set
+      {resolution.valid && (resolution.set && canEdit
         ? <EditableSpan
             className="value"
             value={String(resolution.value)}
@@ -130,6 +133,7 @@ export function StatField({ source, context }) {
         <EditableSpan
           className="unit"
           value={context.agent[resolution.unitField]}
+          disabled={!canEdit}
           onCommit={unit => dispatch({ type: 'AGENT_UPDATE', id: context.agent.id, changes: { [resolution.unitField]: unit } })}
         />
       )}
