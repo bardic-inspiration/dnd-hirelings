@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { lowerTask } from './taskModel.js';
 import { advanceTime } from './clock.js';
 import {
-  rollbackTick, rollbackTime, getRollbackHorizon, normalizeRollbackConfig, DEFAULT_ROLLBACK_CONFIG, ROLLBACK_SCHEMA,
+  rollbackTick, rollbackTime, getRollbackHorizon, normalizeRollbackConfig,
+  forceTurnLogging, DEFAULT_ROLLBACK_CONFIG, ROLLBACK_SCHEMA,
 } from './rollback.js';
 import { checkConfigDoc } from './configEditor.js';
 
@@ -216,5 +217,20 @@ describe('rollbackTime', () => {
   it('defaults count to session.stepBack', () => {
     const after = advanceTime(makeState({ session: { timeStep: 3, stepBack: 2 } })).newState;
     expect(rollbackTime(after).newState.session.clock).toBe(1); // reversed 2 ticks
+  });
+});
+
+describe('forceTurnLogging', () => {
+  const off = normalizeRollbackConfig({ log: { enabled: false, maxRows: 7 } });
+
+  it('reads logging as enabled while the client is player, whatever the overlay says', () => {
+    const forced = forceTurnLogging(off, 'player');
+    expect(forced.log).toEqual({ enabled: true, maxRows: 7 });
+    expect(off.log.enabled).toBe(false);
+  });
+
+  it('leaves the config untouched in every other mode', () => {
+    expect(forceTurnLogging(off, 'gm')).toBe(off);
+    expect(forceTurnLogging(off, 'spectator')).toBe(off);
   });
 });

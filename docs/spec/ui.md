@@ -34,7 +34,10 @@ text display, modals, and theming. Part of [`SPEC.md`](../../SPEC.md).
 Networked, the top bar adds the mode sub-panel between the palette switch
 and the session panel ([`multiplayer.md`](multiplayer.md) "Mode sub-panel"),
 and every control whose action the client's mode doesn't allow is disabled,
-read-only, or hidden ([`multiplayer.md`](multiplayer.md) "Permissions").
+read-only, or hidden ([`multiplayer.md`](multiplayer.md) "Permissions"). A
+party client shows the review-result banner under the top bar, and the GM's
+review viewer covers the page ([`multiplayer.md`](multiplayer.md) "Review
+viewer").
 
 ## Cards
 

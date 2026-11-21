@@ -426,3 +426,63 @@ describe('clockSources', () => {
     });
   });
 });
+
+describe('recorded source seek (scrubbing)', () => {
+  const snapshots = [
+    { session: { clock: 0 } },
+    { session: { clock: 1 } },
+    { session: { clock: 2 } },
+  ];
+  const endState = { session: { clock: 2, note: 'end' }, tagRegistry: {}, eventLog: [] };
+  const ctx = { snapshots, endState, eventLog: [] };
+
+  it('jumps to any index, as a tick forward or a rollback back', () => {
+    const forward = CLOCK_SOURCE_REGISTRY.recorded.seek(null, { sourceContext: ctx, index: 0, target: 2 });
+    expect(forward.nextIndex).toBe(2);
+    expect(forward.action).toEqual({ type: 'APPLY_TICK', newState: endState });
+
+    const back = CLOCK_SOURCE_REGISTRY.recorded.seek(null, { sourceContext: ctx, index: 2, target: 1 });
+    expect(back.nextIndex).toBe(1);
+    expect(back.action.type).toBe('APPLY_ROLLBACK');
+    expect(back.newState.session.clock).toBe(1);
+  });
+
+  it('clamps the target to 0 … max and returns null when the playhead would not move', () => {
+    expect(CLOCK_SOURCE_REGISTRY.recorded.seek(null, { sourceContext: ctx, index: 0, target: 9 }).nextIndex).toBe(2);
+    expect(CLOCK_SOURCE_REGISTRY.recorded.seek(null, { sourceContext: ctx, index: 0, target: -3 })).toBeNull();
+  });
+
+  it('has no seek on the live source', () => {
+    expect(CLOCK_SOURCE_REGISTRY.live.seek).toBeUndefined();
+  });
+
+  it('driver.seek moves the playhead, notifies onIndexChange, and stops play', () => {
+    let state = snapshots[0];
+    const onIndexChange = vi.fn();
+    const dispatched = [];
+    const driver = createPlayClockDriver({
+      source: 'recorded',
+      sourceContext: { ...ctx, index: 0, onIndexChange },
+      getState: () => state,
+      dispatch: (action) => { dispatched.push(action); state = action.newState; },
+      scheduleInterval: () => ({}),
+      cancelInterval: () => {},
+      scheduleRaf: null,
+    });
+    driver.start();
+    expect(driver.isPlaying()).toBe(true);
+    driver.seek(1);
+    expect(driver.isPlaying()).toBe(false);
+    expect(driver.getIndex()).toBe(1);
+    expect(onIndexChange).toHaveBeenCalledWith(1);
+    expect(dispatched).toHaveLength(1);
+    expect(state.session.clock).toBe(1);
+  });
+
+  it('driver.seek is a no-op on a source without seek', () => {
+    const dispatch = vi.fn();
+    const driver = createPlayClockDriver({ source: 'live', getState: () => ({ session: {} }), dispatch });
+    expect(driver.seek(3)).toBeNull();
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+});

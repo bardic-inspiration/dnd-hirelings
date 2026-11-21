@@ -119,6 +119,7 @@ export function stateAt(ctx, index) {
  *
  * - `live`: Runs live simulation via `advanceTime` and `rollbackTime`. Interpolates UI progress.
  * - `recorded`: Steps through committed snapshots via `stateAt`. Does not interpolate.
+ *   Also `seek`s straight to an index (scrubbing).
  *
  * @type {Record<string, object>}
  */
@@ -226,6 +227,30 @@ export const CLOCK_SOURCE_REGISTRY = {
       return {
         newState,
         action: { type: 'APPLY_ROLLBACK', newState },
+        nextIndex,
+      };
+    },
+
+    /**
+     * Jumps the playhead straight to `target` (clamped to `0 … max`) — the
+     * review viewer's scrubber. Dispatches as a tick when moving forward and
+     * as a rollback when moving back. Returns null when the playhead would
+     * not move. Sources without `seek` (live) can't be scrubbed.
+     *
+     * @param {object} state Current GameState.
+     * @param {{ sourceContext?: object, index?: number, target: number }} options
+     * @returns {{ newState: object, action: object, nextIndex: number }|null}
+     */
+    seek(state, { sourceContext, index, target } = {}) {
+      const ctx = sourceContext;
+      const max = getRecordedMax(ctx);
+      const currentIndex = getRecordedIndex(ctx, index);
+      const nextIndex = Math.max(0, Math.min(max, Math.round(Number(target) || 0)));
+      if (nextIndex === currentIndex) return null;
+      const newState = stateAt(ctx, nextIndex);
+      return {
+        newState,
+        action: { type: nextIndex > currentIndex ? 'APPLY_TICK' : 'APPLY_ROLLBACK', newState },
         nextIndex,
       };
     },
@@ -434,6 +459,17 @@ export function createPlayClockDriver({
     startInterval();
   }
 
+  function seek(target) {
+    if (!activeSource.seek) return null;
+    stop();
+    const result = activeSource.seek(getState(), {
+      sourceContext: activeContext,
+      index: currentIndex,
+      target,
+    });
+    return applyStepResult(result, false);
+  }
+
   function syncIndex(newIndex) {
     if (typeof newIndex === 'number') {
       currentIndex = newIndex;
@@ -460,6 +496,7 @@ export function createPlayClockDriver({
     stepForward,
     stepBack,
     resync,
+    seek,
     getBounds,
     syncIndex,
     switchSource,

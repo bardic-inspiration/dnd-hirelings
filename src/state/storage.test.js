@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { loadState, normalizeState, STORAGE_KEYS, DEFAULT_STATE } from './storage.js';
+import { loadState, normalizeState, STORAGE_KEYS, DEFAULT_STATE, loadReviewAck, saveReviewAck } from './storage.js';
 
 const v6Task = {
   id: 't1', name: 'T', requirements: [], attributes: [], isComplete: false, createdAt: 1,
@@ -51,5 +51,33 @@ describe('loadState', () => {
 
   it('returns the default state when neither exists', () => {
     expect(loadState()).toBe(DEFAULT_STATE);
+  });
+});
+
+describe('review acknowledgment', () => {
+  let store;
+  beforeEach(() => {
+    store = {};
+    vi.stubGlobal('localStorage', {
+      getItem: (key) => store[key] ?? null,
+      setItem: (key, value) => { store[key] = String(value); },
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('stores the last acknowledged review rev per session id', () => {
+    expect(loadReviewAck('T1')).toBeNull();
+    saveReviewAck('T1', 4);
+    saveReviewAck('T2', 9);
+    expect(loadReviewAck('T1')).toBe(4);
+    expect(loadReviewAck('T2')).toBe(9);
+    expect(STORAGE_KEYS.REVIEW_ACK).toBe('dnd-hirelings-review-ack-v1');
+  });
+
+  it('reads a corrupt or non-numeric entry as unacknowledged', () => {
+    store[STORAGE_KEYS.REVIEW_ACK] = '{not json';
+    expect(loadReviewAck('T1')).toBeNull();
+    store[STORAGE_KEYS.REVIEW_ACK] = JSON.stringify({ T1: 'x' });
+    expect(loadReviewAck('T1')).toBeNull();
   });
 });

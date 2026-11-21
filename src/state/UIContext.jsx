@@ -31,6 +31,8 @@ const MODAL_PERSISTENCE = {
   tagRegistry: true,
   portraits: false,
   itemIcons: false,
+  // The review viewer holds a pending commit fetched on open; it never persists.
+  review: false,
 };
 
 // Props round-trip through localStorage only when they're plain data; a modal
@@ -110,6 +112,7 @@ export function UIProvider({ children }) {
   const [libraryProps, openLibraryModal, closeLibrary]     = useModal('library');
   const [tagRegistryProps, openTagRegistry, closeTagRegistry] = useModal('tagRegistry');
   const [confirmProps, openConfirmModal, closeConfirm]     = useModal('confirm');
+  const [reviewProps, openReview, closeReview]             = useModal('review');
 
   // Persist card expansion on every change (mirrors GameProvider's saveState effect).
   useEffect(() => {
@@ -163,6 +166,7 @@ export function UIProvider({ children }) {
       libraryProps, openLibrary, closeLibrary,
       tagRegistryProps, openTagRegistry, closeTagRegistry,
       confirmProps, openConfirm, closeConfirm,
+      reviewProps, openReview, closeReview,
       pendingApply, setPendingApply,
     }}>
       {children}

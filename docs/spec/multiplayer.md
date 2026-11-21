@@ -19,9 +19,9 @@ modeled. Two independent axes sit over the existing machinery:
 | | `gm` | `player` | `spectator` |
 |---|---|---|---|
 | `live` | The GM's turn | The party's turn (pen holder) | The party between turns, or a non-holder |
-| `recorded` | `Planned (#116):` — | — | **The review viewer** |
+| `recorded` | — | — | **The review viewer** |
 
-`Planned (#116):` The review viewer is not a separate screen: it is the live
+The review viewer is not a separate screen: it is the live
 dashboard mounted in a sandboxed `GameProvider` seeded from a snapshot, with
 clock source `recorded` and mode `spectator`. The logic tier and the component
 tree cannot tell local play, spectating, and review apart.
@@ -68,11 +68,14 @@ roles is stored; there are no accounts.
 
 `src/state/NetSessionContext.jsx`, mounted above `GameProvider` only when the
 URL carries `session` and `role`; it renders that `GameProvider` itself.
-`useNetSession()` exposes `enabled`, `role`, `baton`, `headRev`,
-`lastReview`, `holdsWriteLock`, `mode`, `error`, and `claimPen()`,
-`commitTurn()`, `setBaton(turnOwner)`, `finalize(cutIndex, message)`,
-`refresh()` — each call resolving `true` on success, or `false` with `error`
-set. Offline (no provider) it returns `enabled: false` and mode `gm`.
+`useNetSession()` exposes `enabled`, `sessionId`, `role`, `baton`,
+`headRev`, `lastReview`, `holdsWriteLock`, `mode`, `error`, and
+`claimPen()`, `commitTurn()`, `setBaton(turnOwner)`,
+`finalize(cutIndex, message)`, `refresh()` — each call resolving `true` on
+success, or `false` with `error` set — and `loadPending()`, resolving the
+pending commit or `null`. Offline (no provider) it returns `enabled: false`
+and mode `gm`. `PinnedModeProvider` re-provides the session with its `mode`
+overridden, so `useCan()` beneath it reads that mode.
 Transport is plain `fetch` over the routes below (`src/logic/netSession.js`);
 error statuses resolve rather than throw.
 
@@ -168,24 +171,30 @@ and `clockAtEnd` are `session.clock` of the new head and of the commit's
 `CLOCK_SOURCE_REGISTRY` (`src/logic/clockSources.js`); an unknown source falls
 back to `live`.
 
-| Source | Step forward / back | Bounds | Interpolates |
-|---|---|---|---|
-| `live` | `advanceTime` / `rollbackTime` | Back: the rollback horizon; forward: unbounded | Yes |
-| `recorded` | `stateAt(ctx, index ± count)` | `0 … max` | No |
+| Source | Step forward / back | Seek | Bounds | Interpolates |
+|---|---|---|---|---|
+| `live` | `advanceTime` / `rollbackTime` | — | Back: the rollback horizon; forward: unbounded | Yes |
+| `recorded` | `stateAt(ctx, index ± count)` | `stateAt(ctx, target)` | `0 … max` | No |
 
 `stateAt` clamps the index and rebuilds a full state from the commit:
 `{ ...snapshots[i], tagRegistry: endState.tagRegistry, eventLog: logPrefix(i) }`,
 or `endState` at the last index. `logPrefix(i)` cuts the log slice at the
-i-th tick boundary. Steps return `null` at the bounds.
+i-th tick boundary. Steps return `null` at the bounds. A seek jumps straight
+to a clamped index, dispatching as `APPLY_TICK` forward and `APPLY_ROLLBACK`
+back, and returns `null` when the playhead wouldn't move; a source without
+`seek` can't be scrubbed.
 
 `sourceContext` contract: `{ index, onIndexChange?, snapshots, endState, eventLog }`
 (or `{ index, onIndexChange?, commit: { snapshots, endState, eventLog } }`).
 Index reading is narrowed to `sourceContext.index` and notifications fire
 exclusively through `onIndexChange(nextIndex)`.
 
-`usePlayClock({ source = 'live', sourceContext })` routes its steps through
-the source and starts the frame interpolator only when the source
-interpolates. Controls dim at the source's `bounds` — step back at the
+`usePlayClock({ source = 'live', sourceContext, playState })` routes its
+steps through the source, exposes `seek(index)`, and starts the frame
+interpolator only when the source interpolates. `sourceContext` must keep its
+identity for the recording's lifetime — a new one resets the playhead.
+`playState` (`{ playing, setPlaying }`) replaces the UI context's playing
+flag, so a second clock never drives the live top bar. Controls dim at the source's `bounds` — step back at the
 rollback horizon as today, and step forward and play at a recording's end.
 Play in `recorded` steps the index at the normal interval, automatically
 stopping immediately when reaching the maximum bound.
@@ -200,18 +209,25 @@ player's live state or localStorage.
 
 ## Review viewer
 
-`Planned (#116):` this section.
+`ReviewModal` (`src/components/Review/`) is a full-screen modal holding a
+**second `GameProvider`** (`initialState` = `stateAt(commit, 0)`, the turn
+start; `persist: false`) under `PinnedModeProvider` with mode `spectator`,
+around the live `Dashboard`. On open it stops the live clock and fetches the
+pending commit (`loadPending()`). Its header carries the top bar's clock
+controls (`ClockControls`) on the `recorded` source, with its own playing
+flag, and a scrubber that seeks to any index; the GM scrubs without touching
+their live state. Its open state never persists, and it closes itself when
+the baton leaves `pending-review`. It renders under the GM's own UI config.
 
-`ReviewModal` is a full-screen modal holding a **second `GameProvider`**
-(`initialState` = the turn start, `persist: false`, mode pinned to
-`spectator`) with the top bar's clock controls on the `recorded` source. The
-GM scrubs it without touching their live state. Its open state never
-persists. It renders under the GM's own UI config.
+The sandbox's dispatch is ungated — nothing in it persists or reaches the
+server, and the recorded clock's steps must land — while the pinned
+`spectator` mode makes every affordance in it read-only.
 
 **Finalize** is a distinct GM control, never implied by navigation: it takes
-the playhead as `cutIndex`, confirms with an optional message, rebuilds that
-state, and posts it. Only a prefix of a turn can be kept; the tail is
-discarded.
+the playhead as `cutIndex`, confirms with a prompt saying what is kept and
+discarded (`finalizePrompt`, `src/logic/review.js`) and taking an optional
+message, rebuilds that state (`cutState`), and posts it. Only a prefix of a
+turn can be kept; the tail is discarded.
 
 ## Mode sub-panel
 
@@ -224,9 +240,8 @@ the pen mid-play stops it too.
   PLAYER, OBS — showing this client's derived mode. It is separate from the
   GM's turn control.
 - **GM turn control**, by status: `gm-editing` → **hand to party**;
-  `party-turn` → **take back**; `pending-review` → **review**.
-  `Planned (#116):` **review** opens the review viewer; until it exists the
-  control shows disabled.
+  `party-turn` → **take back**; `pending-review` → **review**, which stops
+  the live clock and opens the review viewer.
 - **Party slot**, by baton and pen:
 
   | Situation | Control | Status |
@@ -237,14 +252,17 @@ the pen mid-play stops it too.
   | Party's baton, you hold it | **commit / end turn** | "you're playing" |
   | Party's baton, someone else holds it | — | "a party member is playing" |
 
-- `Planned (#116):` **Review result:** when a pull brings a `lastReview`
-  newer than the one this browser acknowledged (stored per browser), the
-  party sees an alert with the GM's message, if any, and an always-shown
-  notice of what was kept — "Days X–Y were not kept", or "your whole turn was
-  kept". Dismissing acknowledges.
-- `Planned (#116):` **Forced logging:** while this client is `player`,
-  rollback logging reads as enabled whatever the overlay says, so a turn's
-  log can't be switched off mid-turn.
+- **Review result:** when a pull brings a `lastReview` newer than the one
+  this browser acknowledged (`hasUnseenReview`; stored per browser and
+  session, [`persistence.md`](persistence.md)), the party sees a banner
+  under the top bar (`ReviewBanner`) with the GM's message, if any, and an
+  always-shown notice of what was kept (`reviewNotice`): "Days Y1 D10–Y1 D12
+  were not kept" — the clock readings `clockAtCut + 1 … clockAtEnd` — or
+  "Your whole turn was kept." Dismissing acknowledges.
+- **Forced logging:** while this client is `player`, rollback logging
+  (`log.enabled`) reads as enabled whatever the overlay says
+  (`forceTurnLogging`, applied in `useRollbackConfig`), so a turn's log can't
+  be switched off mid-turn.
 
 ## Turn states
 
@@ -252,7 +270,7 @@ the pen mid-play stops it too.
 |---|---|---|---|
 | `gm-editing` | `gm` | `live` + `spectator` | Edits; **hand to party** |
 | `party-turn` | `party` | Holder: `live` + `player`, then **commit**; others: `spectator` | **Take back** |
-| `pending-review` | `gm` | `live` + `spectator`, "awaiting review" | **Review** → finalize (`Planned (#116)`) |
+| `pending-review` | `gm` | `live` + `spectator`, "awaiting review" | **Review** → finalize |
 
 Hand-off → commit → finalize → repeat. The GM may override any state. The pen
 has no lease or heartbeat; an absent holder is handled by take-back.
