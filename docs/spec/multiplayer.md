@@ -30,7 +30,7 @@ tree cannot tell local play, spectating, and review apart.
 exactly the single-player app: `localStorage` persistence, ungated dispatch,
 no polling, no mode panel.
 
-`Planned (#116):` **Joining** is by URL: `?session=<id>&role=gm|party`. Roles
+**Joining** is by URL: `?session=<id>&role=gm|party`. Roles
 are honor-system: the trust model prevents accidents, not attacks. Nothing about
 roles is stored; there are no accounts.
 
@@ -55,8 +55,7 @@ roles is stored; there are no accounts.
   GM-only because the YEAR / DAY spans bypass ticks, the log, and snapshots.
 - **`deriveMode(role, baton, holdsWriteLock)`**: `gm` for the GM; otherwise
   `spectator` unless the baton is the party's **and** this client holds the
-  pen, then `player`. `Planned (#116):` Mode is derived on every render, never
-  stored.
+  pen, then `player`. Mode is derived on every render, never stored.
 - **`gateDispatch(rawDispatch, getMode)`** silently drops a disallowed
   action. `Planned (#116):` Every UI affordance checks the same predicate, so
   pre-check and backstop cannot disagree. The gate is the single enforcement
@@ -65,20 +64,25 @@ roles is stored; there are no accounts.
 
 ## Networked session
 
-`Planned (#116):` this section.
-
 `src/state/NetSessionContext.jsx`, mounted above `GameProvider` only when the
-URL carries `session` and `role`. `useNetSession()` exposes `enabled`, `role`,
-`baton`, `holdsWriteLock`, `mode`, and `claimPen()`, `commitTurn()`,
-`setBaton(turnOwner)`, `finalize(cutIndex, message)`, `refresh()`.
-Transport is plain `fetch` over the routes below (`src/logic/netSession.js`).
+URL carries `session` and `role`; it renders that `GameProvider` itself.
+`useNetSession()` exposes `enabled`, `role`, `baton`, `headRev`,
+`lastReview`, `holdsWriteLock`, `mode`, `error`, and `claimPen()`,
+`commitTurn()`, `setBaton(turnOwner)`, `finalize(cutIndex, message)`,
+`refresh()` — each call resolving `true` on success, or `false` with `error`
+set. Offline (no provider) it returns `enabled: false` and mode `gm`.
+Transport is plain `fetch` over the routes below (`src/logic/netSession.js`);
+error statuses resolve rather than throw.
 
 - **Join:** fetch the session and load its head with `REPLACE_STATE`. A GM
   joining a session that doesn't exist creates it from the GM's local state.
 - **Baton poll:** every 3 s (`BATON_POLL_MS`), fetch the baton; when
   `turnOwner`, `status`, or `holder` changes, pull the whole session.
 - **The pen:** `claimPen()` returns a holder token kept in memory only, so a
-  refresh mid-turn abandons the pen; the GM takes it back.
+  refresh mid-turn abandons the pen; the GM takes it back. A claim re-pulls
+  the head it is based on, so the turn starts from `headRev`. A pull never
+  replaces the board of the client the server still names as holder; one
+  that no longer names it drops the token.
 - **`GameProvider`** gains `initialState` (seed instead of loading storage)
   and `persist` (`false` skips saving, so a second provider never overwrites
   the live save). Networked, its `dispatch` is gated and wrapped by the
@@ -87,14 +91,18 @@ Transport is plain `fetch` over the routes below (`src/logic/netSession.js`).
 
 ## Snapshots
 
-`Planned (#116):` this section.
-
 While networked, the party client records the turn:
 
 - **On claim**, the snapshot list resets to `[currentState]`, so index 0 is
   the turn start and a cut at 0 rejects the whole turn.
 - **On `APPLY_TICK`**, push the tick's new state; **on `APPLY_ROLLBACK`**,
-  pop one snapshot per reversed tick.
+  pop one snapshot per reversed tick, never below index 0. Ticks are counted
+  from `session.clock`. A step spanning several ticks (`timeStep` > 1) pushes
+  one snapshot per tick, so index `i` is always the `i`-th tick boundary; it
+  only exposes its end state, so the intermediate snapshots are rebuilt by
+  rolling that state back a tick at a time (best-effort, `INV-7`).
+- Recording happens behind the gate, so only actions the mode allows are
+  recorded (`createNetDispatch`).
 - **Commit** (`buildCommit({ base, snapshots, eventLog, endState })`): `base`
   is the head revision pulled; snapshots omit `eventLog` and `tagRegistry`
   (the registry can't change in a party turn — every create and registry
@@ -105,9 +113,12 @@ A cut is tick-boundary-honest, not edit-inclusive: manual edits survive
 rollback, so after a mid-turn rollback an intermediate snapshot lacks edits
 made after it. A cut at the end resolves to `endState`.
 
-## Server
+The head a GM finalizes is `cutState(commit, cutIndex)`: the board from
+`stateAt`, with the end state's full event log cut to match — the turn's
+ticks after the cut are dropped — so the head keeps the log from before the
+turn.
 
-`Planned (#116):` this section.
+## Server
 
 `server/index.js`: `node:http` and JSON files, no dependencies, run with
 `npm run server`, reached through Vite's `/api` proxy to `localhost:3001`. One
@@ -138,10 +149,17 @@ All routes are under `/api/session/:id`; the caller's role comes from a
 | `POST` | `/claim` | party | Mint and return a holder token if the pen is free; `409` if taken; `403` unless it's the party's turn. |
 | `POST` | `/commit` | party | Commit document + holder. `403` if not the holder; `409` if `base ≠ headRev`. Stores it, sets `pending-review`, clears the holder. |
 | `GET` | `/pending` | GM | The pending commit; `404` if none. |
-| `POST` | `/finalize` | GM | `{ cutIndex, message?, head }`: sets the head (built by the GM client), bumps `headRev`, records `lastReview`, clears the commit, sets `gm-editing`. |
+| `POST` | `/finalize` | GM | `{ cutIndex, message?, head }`: sets the head (built by the GM client), bumps `headRev`, records `lastReview`, clears the commit, sets `gm-editing`; `404` if no commit is pending. |
 | `POST` | `/baton` | GM | `{ turnOwner, head? }`. Handing to the party must include the GM's state, which becomes the head. Taking back frees the pen and discards any pending commit. |
 
 A stale commit is rejected, never merged: the party re-pulls and replays.
+
+A caller with the wrong role gets `403`; a malformed body or a session id
+outside `[A-Za-z0-9_-]{1,64}` gets `400`. Requests on one session are
+serialized, so of two simultaneous claims exactly one wins. `lastReview`'s
+`tickCount` is the turn's tick count (`snapshots.length − 1`); `clockAtCut`
+and `clockAtEnd` are `session.clock` of the new head and of the commit's
+`endState`.
 
 ## Clock sources
 

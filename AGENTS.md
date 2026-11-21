@@ -95,6 +95,7 @@ rules are in [`docs/documentation.md`](docs/documentation.md) "Code".
 │   ├── components/    # UI
 │   ├── constants/     # static data, build-time config loaders
 │   └── styles/        # the single stylesheet
+├── server/            # optional session server for networked play (node:http)
 ├── public/
 │   ├── config/        # runtime YAML config
 │   ├── presets/       # bundled presets
@@ -149,6 +150,7 @@ This loop doesn't apply at all ([`docs/workflow.md`](docs/workflow.md)
 | Fix autofixable lint | `npm run fix` |
 | Run one test, or a few | `npx vitest run <path>…` |
 | Run the project | `npm run dev` (then `http://localhost:5173`) |
+| Run the session server | `npm run server` (networked play: `?session=<id>&role=gm\|party`) |
 | Try a PR remotely | its preview, `https://bardic-inspiration.github.io/dnd-hirelings/pr-preview/pr-<N>/` ([`docs/ci.md`](docs/ci.md) "Deploys") |
 
 `check` runs everything the gate requires — lint, tests, build — and never

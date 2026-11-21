@@ -27,8 +27,9 @@ development and agent-assisted engineering.
 
 - **AI agents.** "Agents" are NPC characters, never LLM agents.
 - **A backend, accounts, or cloud saves.** State lives in the browser and moves
-  between browsers as files. `Planned (#116):` an optional localhost session
-  server for turn-based GM/party play ([`multiplayer.md`](docs/spec/multiplayer.md)).
+  between browsers as files. The one exception is an optional localhost
+  session server for turn-based GM/party play
+  ([`multiplayer.md`](docs/spec/multiplayer.md)); offline stays the default.
 - **Live multi-user co-editing**, at any stage.
 - **A game system hard-coded in source.** Rules are data: the D&D-style
   reference ruleset ships as config, not code.
@@ -110,7 +111,9 @@ depend in one direction — components → hooks → state → logic:
 Supporting directories: `src/constants/` (static data and build-time config
 loaders), `src/styles/index.css` (the single stylesheet), `public/config/`
 (runtime config), `public/presets/` (bundled presets), `config/` (build-time
-config), `public/assets/` ([`assets.md`](docs/spec/assets.md)).
+config), `public/assets/` ([`assets.md`](docs/spec/assets.md)), and `server/`
+(the optional session server for networked play,
+[`multiplayer.md`](docs/spec/multiplayer.md) "Server").
 
 **Data flow.** A component dispatches an action; the reducer computes new
 state with logic-tier functions; `GameProvider` persists every new state to
@@ -169,7 +172,7 @@ rules").
 | [`docs/spec/persistence.md`](docs/spec/persistence.md) | State shape, storage keys, save and file formats, the action vocabulary. |
 | [`docs/spec/assets.md`](docs/spec/assets.md) | Images and fonts: layout, formats, manifests, loading. |
 | [`docs/spec/task-engine.md`](docs/spec/task-engine.md) | Operators, vessels, actions, the blackboard, the expression grammar, seeded randomness, time windows, and the authoring surface. |
-| [`docs/spec/multiplayer.md`](docs/spec/multiplayer.md) | `Planned (#116):` GM/player mode and async turn review. |
+| [`docs/spec/multiplayer.md`](docs/spec/multiplayer.md) | GM/player mode: permissions, the networked session, snapshots, the session server, clock sources. `Planned (#116):` the review viewer and the mode sub-panel. |
 
 ## Open questions
 
