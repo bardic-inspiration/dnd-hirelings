@@ -1,0 +1,24 @@
+# Clock configuration. The simulation's base time unit is the tick (one tick =
+# one day); the calendar below is a UI-only mapping from elapsed ticks to a
+# year/day label. See docs/spec/clock.md.
+
+# How many days make up a display year.
+calendar:
+  daysPerYear: 364
+
+# Bounds on the per-step size (ticks/days) adjusted by hold-dragging the step
+# buttons; shared by the forward and backward step increments.
+timeStep:
+  min: 1
+  max: 364
+
+# Bounds on the play-speed multiplier adjusted by hold-dragging the play button.
+rateMultiplier:
+  min: 0.1
+  max: 100
+
+# Wall-clock pacing: real milliseconds per tick, floored at a minimum interval
+# between ticks (~60fps).
+realTime:
+  msPerTick: 1000
+  minTickIntervalMs: 16
