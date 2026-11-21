@@ -2,12 +2,15 @@ import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { activeTaskCount } from '../../logic/agents.js';
 import { useTagsConfig } from '../../hooks/useTagsConfig.js';
+import { useCan } from '../../hooks/useCan.js';
 import Tooltip from '../Tooltip.jsx';
 import AgentCard from './AgentCard.jsx';
 
 export default function AgentList() {
   const { state, dispatch } = useGame();
   const { locked } = useTagsConfig();
+  // The library and right-click add both create entities.
+  const canAdd = useCan()('AGENT_CREATE');
   const { openLibrary, isExpanded } = useUI();
   const { agents, tasks } = state;
 
@@ -44,13 +47,15 @@ export default function AgentList() {
         <div className="card-grid" id="idle-agents">
           {!idle.length && <div className="empty">—</div>}
           {idleExpanded.map(a => <AgentCard key={a.id} agent={a} />)}
-          <Tooltip content="Click for the library. Right click to add.">
-            <button
-              className="add-card add-agent"
-              onClick={e => { e.stopPropagation(); openLibrary('agent'); }}
-              onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'AGENT_CREATE', locked }); }}
-            >+ AGENT</button>
-          </Tooltip>
+          {canAdd && (
+            <Tooltip content="Click for the library. Right click to add.">
+              <button
+                className="add-card add-agent"
+                onClick={e => { e.stopPropagation(); openLibrary('agent'); }}
+                onContextMenu={e => { e.preventDefault(); e.stopPropagation(); dispatch({ type: 'AGENT_CREATE', locked }); }}
+              >+ AGENT</button>
+            </Tooltip>
+          )}
         </div>
         {idleCollapsed.length > 0 && (
           <div className="card-grid card-grid--collapsed">

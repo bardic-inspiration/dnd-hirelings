@@ -1,13 +1,14 @@
 import { useGame } from '../../../state/GameContext.jsx';
 import { formatCount } from '../../../logic/format.js';
 import { resultsView } from '../../../logic/taskModel.js';
+import { useCan } from '../../../hooks/useCan.js';
 import EditableSpan from '../../EditableSpan.jsx';
 
 function updateResults(dispatch, task, changes) {
   dispatch({ type: 'TASK_UPDATE_RESULTS', id: task.id, changes });
 }
 
-function ItemRow({ item, index, dispatch, task, results }) {
+function ItemRow({ item, index, dispatch, task, results, editable }) {
   const setName = (v) => {
     const items = [...results.items];
     items[index] = { ...items[index], name: v };
@@ -27,16 +28,16 @@ function ItemRow({ item, index, dispatch, task, results }) {
     <div className="tag-list-item">
       <span className="tag-content">
         <strong>ITEM:</strong>{' '}
-        <EditableSpan value={item.name} placeholder="item" onCommit={setName} />
+        <EditableSpan value={item.name} placeholder="item" onCommit={setName} disabled={!editable} />
         {' ×'}
-        <EditableSpan value={String(item.quantity)} format={formatCount} onCommit={setQty} />
+        <EditableSpan value={String(item.quantity)} format={formatCount} onCommit={setQty} disabled={!editable} />
       </span>
-      <span className="x" onClick={e => { e.stopPropagation(); remove(); }}>×</span>
+      {editable && <span className="x" onClick={e => { e.stopPropagation(); remove(); }}>×</span>}
     </div>
   );
 }
 
-function AgentRow({ spawn, index, dispatch, task, results }) {
+function AgentRow({ spawn, index, dispatch, task, results, editable }) {
   const tmpl = spawn.template || {};
   const setName = (v) => {
     const agents = [...results.agents];
@@ -57,11 +58,11 @@ function AgentRow({ spawn, index, dispatch, task, results }) {
     <div className="tag-list-item">
       <span className="tag-content">
         <strong>HIRELING:</strong>{' '}
-        <EditableSpan value={tmpl.name || ''} placeholder="hireling" onCommit={setName} />
+        <EditableSpan value={tmpl.name || ''} placeholder="hireling" onCommit={setName} disabled={!editable} />
         {' ×'}
-        <EditableSpan value={String(spawn.quantity ?? 1)} format={formatCount} onCommit={setQty} />
+        <EditableSpan value={String(spawn.quantity ?? 1)} format={formatCount} onCommit={setQty} disabled={!editable} />
       </span>
-      <span className="x" onClick={e => { e.stopPropagation(); remove(); }}>×</span>
+      {editable && <span className="x" onClick={e => { e.stopPropagation(); remove(); }}>×</span>}
     </div>
   );
 }
@@ -71,6 +72,7 @@ export default function ResultsSection({ task }) {
   // Results are a view of the task's completion effects; edits lower back
   // into them at dispatch (`TASK_UPDATE_RESULTS`).
   const results = resultsView(task);
+  const editable = useCan()('TASK_UPDATE_RESULTS');
 
   const setGold = (v) => {
     const n = parseFloat(v);
@@ -97,20 +99,22 @@ export default function ResultsSection({ task }) {
         <div className="tag-list-item">
           <span className="tag-content">
             <strong>GOLD</strong>{' ='}
-            <EditableSpan value={String(results.gold ?? 0)} format={formatCount} onCommit={setGold} />
+            <EditableSpan value={String(results.gold ?? 0)} format={formatCount} onCommit={setGold} disabled={!editable} />
           </span>
         </div>
         {results.items.map((item, index) => (
-          <ItemRow key={`item-${index}`} item={item} index={index} dispatch={dispatch} task={task} results={results} />
+          <ItemRow key={`item-${index}`} item={item} index={index} dispatch={dispatch} task={task} results={results} editable={editable} />
         ))}
         {results.agents.map((spawn, index) => (
-          <AgentRow key={`agent-${index}`} spawn={spawn} index={index} dispatch={dispatch} task={task} results={results} />
+          <AgentRow key={`agent-${index}`} spawn={spawn} index={index} dispatch={dispatch} task={task} results={results} editable={editable} />
         ))}
       </div>
-      <div className="action-row">
-        <button className="tag-add" onClick={addItem}>+ ITEM</button>
-        <button className="tag-add" onClick={addAgent}>+ HIRELING</button>
-      </div>
+      {editable && (
+        <div className="action-row">
+          <button className="tag-add" onClick={addItem}>+ ITEM</button>
+          <button className="tag-add" onClick={addAgent}>+ HIRELING</button>
+        </div>
+      )}
     </div>
   );
 }

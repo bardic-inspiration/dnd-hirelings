@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
+import { useCan } from '../../hooks/useCan.js';
 
 // Interval (ms) between each character reveal/hide step in the marquee sweep
 const CHAR_STEP_MS = 38;
@@ -9,6 +10,7 @@ const FADE_MS = 160;
 export default function PageTitle() {
   const { state, dispatch } = useGame();
   const title = state.session.title ?? 'GUILD MANAGER';
+  const canEdit = useCan()({ type: 'SESSION_UPDATE', payload: { title } });
 
   const spanRef = useRef(null);
   const [editing, setEditing] = useState(false);
@@ -103,7 +105,7 @@ export default function PageTitle() {
       <span
         ref={spanRef}
         id="page-title-text"
-        contentEditable
+        contentEditable={canEdit}
         suppressContentEditableWarning
         spellCheck={false}
         className={editing ? 'page-title-text--editing' : ''}

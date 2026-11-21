@@ -9,6 +9,7 @@ import { truncateEnd } from '../../logic/truncation.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
 import { useUIConfig } from '../../hooks/useUIConfig.js';
 import { useRulesConfig } from '../../hooks/useRulesConfig.js';
+import { useCan } from '../../hooks/useCan.js';
 import { CardMedallion, StatBox, StatBar, StatField, StatValue } from './AgentCardElements.jsx';
 import EditableSpan from '../EditableSpan.jsx';
 import TagLabel from '../TagLabel.jsx';
@@ -24,7 +25,8 @@ import { publicUrl } from '../../constants/paths.js';
 // chips omit them (their label is a task name, not an editable tag).
 // A dyn chip passes its `DynResult`: the payload it renders IS the
 // materialized total (logic/dynamicTags.js); the chip takes the warn state
-// when the evaluation was flagged or the marker has no rule.
+// when the evaluation was flagged or the marker has no rule. Without
+// `onRemove` (the mode doesn't allow it) the chip has no remove control.
 function TagChip({ tagStr, active, maxChars, onRemove, onValueCommit, onReplace, dyn }) {
   const parsed = parseTag(tagStr);
   const { state } = useGame();
@@ -37,9 +39,11 @@ function TagChip({ tagStr, active, maxChars, onRemove, onValueCommit, onReplace,
       {task
         ? <TruncatedText text={task.name} maxChars={maxChars} />
         : <TagLabel tag={tagStr} maxChars={maxChars} onValueCommit={onValueCommit} onReplace={onReplace} />}
-      <Tooltip content="Remove">
-        <span className="x" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
-      </Tooltip>
+      {onRemove && (
+        <Tooltip content="Remove">
+          <span className="x" onClick={e => { e.stopPropagation(); onRemove(); }}>×</span>
+        </Tooltip>
+      )}
     </span>
   );
 }
@@ -60,6 +64,10 @@ export default function AgentCard({ agent }) {
   const { selectedTaskId, selectedItemId, setSelectedItemId, openTagRegistry, openPortraits,
           isExpanded, toggleExpanded, openConfirm } = useUI();
 
+  const can = useCan();
+  const canEdit = can('AGENT_UPDATE');
+  const canGive = can('ITEM_PLACE');
+
   const [giveQtyOpen, setGiveQtyOpen] = useState(false);
   const [giveQty, setGiveQty]       = useState(1);
 
@@ -71,8 +79,8 @@ export default function AgentCard({ agent }) {
   // A selected item turns every card into a give-target; that mode takes priority
   // over task-assignment highlighting (you can't select a task and item at once).
   const assignClass = selectedItem
-    ? ' agent-card--give-target'
-    : selectedTask
+    ? (canGive ? ' agent-card--give-target' : '')
+    : selectedTask && can('AGENT_ADD_ACTIVITY')
       ? (validateAssignment(agent, selectedTask) ? ' agent-card--assignable' : ' agent-card--not-assignable')
       : '';
 
@@ -126,7 +134,7 @@ export default function AgentCard({ agent }) {
   // selection persists so you can give to several agents, clearing only once the
   // stack is depleted (mirrors the sell flow in BankPanel).
   const giveSelected = (quantity) => {
-    if (!selectedItem) return;
+    if (!selectedItem || !canGive) return;
     const given = Math.min(Math.max(1, quantity), selectedItem.quantity);
     dispatch({ type: 'ITEM_PLACE', target: { type: 'agent', id: agent.id }, itemId: selectedItem.id, quantity: given });
     setGiveQtyOpen(false);
@@ -138,6 +146,7 @@ export default function AgentCard({ agent }) {
   // into the matching inventory row by name, so select that row by name lookup.
   const allocateItem = (e, name) => {
     e.stopPropagation();
+    if (!can('AGENT_RETURN_ITEM')) return;
     dispatch({ type: 'AGENT_RETURN_ITEM', id: agent.id, itemName: name });
     const existing = state.inventory.find(item => item.name.trim().toLowerCase() === name.trim().toLowerCase());
     if (existing) setSelectedItemId(existing.id);
@@ -149,6 +158,7 @@ export default function AgentCard({ agent }) {
   const bindItem = (e, name) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!can('AGENT_BIND_ITEM')) return;
     const slot = firstFreeSlot(cardConfig.slots, boundItems);
     dispatch({ type: 'AGENT_BIND_ITEM', id: agent.id, itemName: name, slot });
   };
@@ -156,12 +166,14 @@ export default function AgentCard({ agent }) {
   const unbindItem = (e, slot, name) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!can('AGENT_UNBIND_ITEM')) return;
     dispatch({ type: 'AGENT_UNBIND_ITEM', id: agent.id, slot, itemName: name });
   };
 
   const handleCardClick = () => {
     // Give mode (an inventory item is selected) takes priority: left-click gives 1.
     if (selectedItem) { giveSelected(1); return; }
+    if (!can('AGENT_ADD_ACTIVITY')) return;
     const result = tryAssignTask(agent, selectedTaskId, state.tasks);
     if (result === 'invalid') {
       flashAgentCard(agent.id);
@@ -173,7 +185,7 @@ export default function AgentCard({ agent }) {
   // In give mode, right-click opens an inline quantity input instead of the
   // browser context menu; otherwise the context menu is left untouched.
   const handleCardContextMenu = (e) => {
-    if (!selectedItem) return;
+    if (!selectedItem || !canGive) return;
     e.preventDefault();
     setGiveQty(1);
     setGiveQtyOpen(true);
@@ -181,6 +193,7 @@ export default function AgentCard({ agent }) {
 
   const handleIconClick = (e) => {
     e.stopPropagation();
+    if (!canEdit) return;
     openPortraits((url) => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { icon: url } }));
   };
 
@@ -199,14 +212,15 @@ export default function AgentCard({ agent }) {
   // reconciler, never hand-edited, so dyn chips get no value editor.
   const attrEditProps = (tag, index) => {
     const { segments, modifier } = parseTag(tag);
+    const canReplace = can('AGENT_REMOVE_ATTRIBUTE') && can('TAG_APPLY');
     return {
-      onValueCommit: modifier === 'dyn' ? undefined : (value) => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: {
+      onValueCommit: modifier === 'dyn' || !canEdit ? undefined : (value) => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: {
         attributes: agent.attributes.map((current, i) => i === index ? buildTag(segments, value, modifier) : current),
       } }),
-      onReplace: () => openTagRegistry({ onApply: (newTag) => {
+      onReplace: canReplace ? () => openTagRegistry({ onApply: (newTag) => {
         dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index });
         dispatch({ type: 'TAG_APPLY', target: { type: 'agent', id: agent.id }, tag: newTag });
-      } }),
+      } }) : undefined,
     };
   };
 
@@ -239,6 +253,7 @@ export default function AgentCard({ agent }) {
             singleLine
             maxChars={nameMaxChars}
             innerRef={nameRef}
+            disabled={!canEdit}
             onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { name: v || 'NEW HIRELING' } })}
           />
         </Tooltip>
@@ -255,7 +270,7 @@ export default function AgentCard({ agent }) {
       {!isCollapsed && (
         <>
           {/* 2. Portrait */}
-          <Tooltip content="Click to set image">
+          <Tooltip content="Click to set image" disabled={!canEdit}>
             <div
               className="agent-icon"
               style={agent.icon ? { backgroundImage: `url("${publicUrl(agent.icon)}")` } : {}}
@@ -312,6 +327,7 @@ export default function AgentCard({ agent }) {
             className="agent-desc"
             value={agent.description}
             placeholder="description"
+            disabled={!canEdit}
             onCommit={v => dispatch({ type: 'AGENT_UPDATE', id: agent.id, changes: { description: v } })}
           />
 
@@ -341,16 +357,18 @@ export default function AgentCard({ agent }) {
                       active={isAttributeActive(tag, agent, state.tasks)}
                       maxChars={maxChars}
                       dyn={parsed.modifier === 'dyn' ? dynamics.get(parsed.segments.join(':').toLowerCase()) : undefined}
-                      onRemove={() => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index })}
+                      onRemove={can('AGENT_REMOVE_ATTRIBUTE') ? () => dispatch({ type: 'AGENT_REMOVE_ATTRIBUTE', id: agent.id, index }) : undefined}
                       {...attrEditProps(tag, index)}
                     />
                   ))}
-                <Tooltip content="Add attribute">
-                  <button className="tag-add" onClick={e => {
-                    e.stopPropagation();
-                    openTagRegistry({ target: { type: 'agent', id: agent.id } });
-                  }}>+</button>
-                </Tooltip>
+                {can('TAG_APPLY') && (
+                  <Tooltip content="Add attribute">
+                    <button className="tag-add" onClick={e => {
+                      e.stopPropagation();
+                      openTagRegistry({ target: { type: 'agent', id: agent.id } });
+                    }}>+</button>
+                  </Tooltip>
+                )}
               </div>
             )}
           </div>
@@ -426,7 +444,7 @@ export default function AgentCard({ agent }) {
                     tagStr={tag}
                     active={isCurrent}
                     maxChars={maxChars}
-                    onRemove={() => dispatch({ type: 'AGENT_REMOVE_ACTIVITY', id: agent.id, tag })}
+                    onRemove={can('AGENT_REMOVE_ACTIVITY') ? () => dispatch({ type: 'AGENT_REMOVE_ACTIVITY', id: agent.id, tag }) : undefined}
                   />
                 );
               })}
@@ -436,9 +454,9 @@ export default function AgentCard({ agent }) {
           {/* 12. Copy | Delete */}
           <div className="tag-section action-row">
             <Tooltip content="Duplicate hireling">
-              <button className="delete-btn" onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_DUPLICATE', id: agent.id }); }}>⎘ COPY</button>
+              <button className="delete-btn" disabled={!can('AGENT_DUPLICATE')} onClick={e => { e.stopPropagation(); dispatch({ type: 'AGENT_DUPLICATE', id: agent.id }); }}>⎘ COPY</button>
             </Tooltip>
-            <button className="delete-btn" onClick={e => {
+            <button className="delete-btn" disabled={!can('AGENT_DELETE')} onClick={e => {
               e.stopPropagation();
               openConfirm({ message: `Delete hireling "${agent.name}"?`, danger: true, onConfirm: () => dispatch({ type: 'AGENT_DELETE', id: agent.id }) });
             }}>× DELETE</button>

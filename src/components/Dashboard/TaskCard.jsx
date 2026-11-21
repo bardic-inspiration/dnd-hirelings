@@ -4,6 +4,7 @@ import { agentsAssignedTo } from '../../logic/agents.js';
 import { conditionsView, resetVessels } from '../../logic/taskModel.js';
 import { useTagsConfig } from '../../hooks/useTagsConfig.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
+import { useCan } from '../../hooks/useCan.js';
 import EditableSpan from '../EditableSpan.jsx';
 import Tooltip from '../Tooltip.jsx';
 import ProgressSection from './TaskSections/ProgressSection.jsx';
@@ -38,6 +39,7 @@ function AttributesSection({ task }) {
   const { openTagRegistry } = useUI();
   const attrs = task.attributes || [];
   const { ref, maxChars } = useCharBudget('tag-row');
+  const canAdd = useCan()('TAG_APPLY');
 
   const handleAdd = () => openTagRegistry({ target: { type: 'task', id: task.id } });
 
@@ -50,7 +52,7 @@ function AttributesSection({ task }) {
           <TagRow key={index} taskId={task.id} tagStr={tag} index={index} field="attributes" maxChars={maxChars} />
         ))}
       </div>
-      <button className="tag-add" onClick={e => { e.stopPropagation(); handleAdd(); }}>+ TAG</button>
+      {canAdd && <button className="tag-add" onClick={e => { e.stopPropagation(); handleAdd(); }}>+ TAG</button>}
     </div>
   );
 }
@@ -59,6 +61,9 @@ export default function TaskCard({ task }) {
   const { state, dispatch } = useGame();
   const { selectedTaskId, setSelectedTaskId, isExpanded, toggleExpanded, openConfirm } = useUI();
   const { locked } = useTagsConfig();
+  const can = useCan();
+  const canEdit = can('TASK_UPDATE');
+  const canToggleComplete = task.isComplete ? canEdit : can('TASK_SET_COMPLETE');
 
   const selected = selectedTaskId === task.id;
   const expanded = isExpanded('task', task.id);
@@ -92,6 +97,7 @@ export default function TaskCard({ task }) {
         <EditableSpan
           className="task-name"
           value={task.name}
+          disabled={!canEdit}
           onCommit={v => dispatch({ type: 'TASK_UPDATE', id: task.id, changes: { name: v || 'NEW TASK' } })}
         />
         <Tooltip content="Expand / collapse">
@@ -108,6 +114,7 @@ export default function TaskCard({ task }) {
         <EditableSpan
           className="task-desc"
           value={task.description}
+          disabled={!canEdit}
           onCommit={v => dispatch({ type: 'TASK_UPDATE', id: task.id, changes: { description: v } })}
         />
         <ProgressSection task={task} />
@@ -128,12 +135,13 @@ export default function TaskCard({ task }) {
           <Tooltip content={task.isComplete ? 'Reset task' : 'Mark complete'}>
             <button
               className="tag-add"
+              disabled={!canToggleComplete}
               onClick={handleComplete}
             >{task.isComplete ? '↻' : '✓'}</button>
           </Tooltip>
           <span>{task.isComplete ? 'COMPLETE' : 'INCOMPLETE'}</span>
-          <button className="delete-btn" onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_DUPLICATE', id: task.id }); }}>⎘ COPY</button>
-          <button className="delete-btn" onClick={e => {
+          <button className="delete-btn" disabled={!can('TASK_DUPLICATE')} onClick={e => { e.stopPropagation(); dispatch({ type: 'TASK_DUPLICATE', id: task.id }); }}>⎘ COPY</button>
+          <button className="delete-btn" disabled={!can('TASK_DELETE')} onClick={e => {
             e.stopPropagation();
             openConfirm({ message: `Delete task "${task.name}"?`, danger: true, onConfirm: () => dispatch({ type: 'TASK_DELETE', id: task.id }) });
           }}>× DELETE</button>

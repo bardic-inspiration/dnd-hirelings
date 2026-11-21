@@ -3,6 +3,7 @@ import { useUI } from '../../state/UIContext.jsx';
 import { parseTag, buildTag } from '../../logic/tags.js';
 import { formatCount } from '../../logic/format.js';
 import { useCharBudget } from '../../hooks/useCharBudget.js';
+import { useCan } from '../../hooks/useCan.js';
 import EditableSpan from '../EditableSpan.jsx';
 import TagLabel from '../TagLabel.jsx';
 import Tooltip from '../Tooltip.jsx';
@@ -15,6 +16,9 @@ export default function ItemRow({ item }) {
           isExpanded, toggleExpanded, openConfirm } = useUI();
   const expanded = isExpanded('item', item.id);
   const { ref: tagListRef, maxChars } = useCharBudget('tag-chip');
+  const can = useCan();
+  const canEdit = can('INVENTORY_UPDATE_ITEM');
+  const canRemoveAttr = can('INVENTORY_REMOVE_ATTRIBUTE');
 
   const selected = selectedItemId === item.id;
   const update = (changes) => dispatch({ type: 'INVENTORY_UPDATE_ITEM', id: item.id, changes });
@@ -23,6 +27,7 @@ export default function ItemRow({ item }) {
 
   const handleIconClick = (e) => {
     e.stopPropagation();
+    if (!canEdit) return;
     openItemIcons((url) => update({ icon: url }));
   };
 
@@ -47,10 +52,10 @@ export default function ItemRow({ item }) {
   const attrEditProps = (tag, index) => {
     const { segments, modifier } = parseTag(tag);
     return {
-      onValueCommit: (value) => dispatch({ type: 'INVENTORY_UPDATE_ITEM', id: item.id, changes: {
+      onValueCommit: !canEdit ? undefined : (value) => dispatch({ type: 'INVENTORY_UPDATE_ITEM', id: item.id, changes: {
         attributes: item.attributes.map((current, i) => i === index ? buildTag(segments, value, modifier) : current),
       } }),
-      onReplace: () => openTagRegistry({ onApply: (newTag) => {
+      onReplace: !(canRemoveAttr && can('TAG_APPLY')) ? undefined : () => openTagRegistry({ onApply: (newTag) => {
         dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index });
         dispatch({ type: 'TAG_APPLY', target: { type: 'item', id: item.id }, tag: newTag });
       } }),
@@ -64,7 +69,7 @@ export default function ItemRow({ item }) {
       onClick={handleRowClick}
     >
       <div className="item-head">
-        <Tooltip content="Click to set icon">
+        <Tooltip content="Click to set icon" disabled={!canEdit}>
           <div
             className="item-icon"
             style={item.icon ? { backgroundImage: `url("${publicUrl(item.icon)}")` } : {}}
@@ -74,6 +79,7 @@ export default function ItemRow({ item }) {
         <EditableSpan
           className="item-name"
           value={item.name}
+          disabled={!canEdit}
           onCommit={v => update({ name: v || 'ITEM' })}
         />
         <DragNumber
@@ -81,6 +87,7 @@ export default function ItemRow({ item }) {
           value={item.quantity}
           min={0}
           format={formatCount}
+          disabled={!canEdit}
           onChange={n => update({ quantity: n })}
           onCommit={handleQty}
         />
@@ -89,6 +96,7 @@ export default function ItemRow({ item }) {
             value={item.value}
             min={0}
             format={formatCount}
+            disabled={!canEdit}
             onChange={n => update({ value: n })}
             onCommit={handleValue}
           /> GP
@@ -99,15 +107,17 @@ export default function ItemRow({ item }) {
             onClick={e => { e.stopPropagation(); toggleExpanded('item', item.id); }}
           >{expanded ? '−' : '+'}</span>
         </Tooltip>
-        <Tooltip content="Delete item">
-          <span
-            className="x"
-            onClick={e => {
-              e.stopPropagation();
-              openConfirm({ message: `Delete item "${item.name}"?`, danger: true, onConfirm: () => dispatch({ type: 'INVENTORY_REMOVE_ITEM', id: item.id }) });
-            }}
-          >×</span>
-        </Tooltip>
+        {can('INVENTORY_REMOVE_ITEM') && (
+          <Tooltip content="Delete item">
+            <span
+              className="x"
+              onClick={e => {
+                e.stopPropagation();
+                openConfirm({ message: `Delete item "${item.name}"?`, danger: true, onConfirm: () => dispatch({ type: 'INVENTORY_REMOVE_ITEM', id: item.id }) });
+              }}
+            >×</span>
+          </Tooltip>
+        )}
       </div>
 
       <div className="item-body">
@@ -116,6 +126,7 @@ export default function ItemRow({ item }) {
           className="item-desc"
           value={item.description}
           placeholder="description"
+          disabled={!canEdit}
           onCommit={v => update({ description: v })}
         />
         <div className="tag-label">ATTRIBUTES</div>
@@ -124,14 +135,18 @@ export default function ItemRow({ item }) {
           {item.attributes.map((tag, index) => (
             <span key={index} className="tag">
               <TagLabel tag={tag} maxChars={maxChars} {...attrEditProps(tag, index)} />
-              <Tooltip content="Remove">
-                <span className="x" onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index }); }}>×</span>
-              </Tooltip>
+              {canRemoveAttr && (
+                <Tooltip content="Remove">
+                  <span className="x" onClick={e => { e.stopPropagation(); dispatch({ type: 'INVENTORY_REMOVE_ATTRIBUTE', id: item.id, index }); }}>×</span>
+                </Tooltip>
+              )}
             </span>
           ))}
-          <Tooltip content="Add attribute">
-            <button className="tag-add" onClick={handleAddAttr}>+</button>
-          </Tooltip>
+          {can('TAG_APPLY') && (
+            <Tooltip content="Add attribute">
+              <button className="tag-add" onClick={handleAddAttr}>+</button>
+            </Tooltip>
+          )}
         </div>
       </div>
     </div>

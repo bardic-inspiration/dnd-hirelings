@@ -31,8 +31,10 @@ text display, modals, and theming. Part of [`SPEC.md`](../../SPEC.md).
 - **Dashboard:** the agent list, the task list, and the inventory with the
   bank panel, each with its `+` button ([`library.md`](library.md)).
 
-`Planned (#116):` a mode sub-panel in the top bar when networked
-([`multiplayer.md`](multiplayer.md) "Mode sub-panel").
+Networked, the top bar adds the mode sub-panel between the palette switch
+and the session panel ([`multiplayer.md`](multiplayer.md) "Mode sub-panel"),
+and every control whose action the client's mode doesn't allow is disabled,
+read-only, or hidden ([`multiplayer.md`](multiplayer.md) "Permissions").
 
 ## Cards
 

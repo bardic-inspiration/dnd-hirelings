@@ -1,6 +1,7 @@
 import { useGame } from '../../../state/GameContext.jsx';
 import { useUI } from '../../../state/UIContext.jsx';
 import { parseTag, buildTag } from '../../../logic/tags.js';
+import { useCan } from '../../../hooks/useCan.js';
 import TagLabel from '../../TagLabel.jsx';
 
 /**
@@ -25,6 +26,8 @@ export default function TagRow({ taskId, tagStr, index, field, maxChars }) {
   const { state, dispatch } = useGame();
   const { openTagRegistry } = useUI();
   const { segments, modifier } = parseTag(tagStr);
+  const can = useCan();
+  const canRemove = can('TASK_REMOVE_TAG');
 
   const remove = () => dispatch({ type: 'TASK_REMOVE_TAG', id: taskId, field, index });
   // Rewrite the value in place (order preserved); the path is unchanged so it
@@ -42,14 +45,16 @@ export default function TagRow({ taskId, tagStr, index, field, maxChars }) {
           tag={tagStr}
           maxChars={maxChars}
           variant="row"
-          onValueCommit={commitValue}
-          onReplace={() => openTagRegistry({ onApply: (newTag) => { remove(); dispatch({ type: 'TAG_APPLY', target: { type: 'task', id: taskId }, tag: newTag }); } })}
+          onValueCommit={can('TASK_UPDATE') ? commitValue : undefined}
+          onReplace={!(canRemove && can('TAG_APPLY')) ? undefined : () => openTagRegistry({ onApply: (newTag) => { remove(); dispatch({ type: 'TAG_APPLY', target: { type: 'task', id: taskId }, tag: newTag }); } })}
         />
       </span>
-      <span
-        className="x"
-        onClick={e => { e.stopPropagation(); remove(); }}
-      >×</span>
+      {canRemove && (
+        <span
+          className="x"
+          onClick={e => { e.stopPropagation(); remove(); }}
+        >×</span>
+      )}
     </div>
   );
 }

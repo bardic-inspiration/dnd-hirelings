@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGame } from '../../state/GameContext.jsx';
 import { useUI } from '../../state/UIContext.jsx';
 import { PALETTES } from '../../constants/palettes.js';
@@ -9,8 +9,10 @@ import { saveStateToFile, loadStateFromFile } from '../../logic/session.js';
 import { saveEventLogToFile } from '../../logic/eventLog.js';
 import { useClockConfig } from '../../hooks/useClockConfig.js';
 import { useRollbackConfig } from '../../hooks/useRollbackConfig.js';
+import { useCan } from '../../hooks/useCan.js';
 import EditableSpan from '../EditableSpan.jsx';
 import HoldButton from './HoldButton.jsx';
+import ModePanel from './ModePanel.jsx';
 import Tooltip from '../Tooltip.jsx';
 
 export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds }) {
@@ -21,6 +23,20 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds }
   const clockConfig = useClockConfig();
   const rollbackConfig = useRollbackConfig();
   const { calendar, timeStep, rateMultiplier } = clockConfig;
+
+  // Affordance gating: each control checks the dispatch gate's own predicate
+  // for the action it would dispatch (docs/spec/multiplayer.md "Permissions").
+  const can = useCan();
+  const canSession = (key) => can({ type: 'SESSION_UPDATE', payload: { [key]: null } });
+  const canTick = can('APPLY_TICK');
+  const canRollback = can('APPLY_ROLLBACK');
+  const canEditClock = canSession('clock');
+
+  // Losing the pen (commit, take-back) mid-play stops the clock, so no tick is
+  // dispatched only to be dropped by the gate.
+  useEffect(() => {
+    if (!canTick && playing) onStop();
+  }, [canTick, playing, onStop]);
 
   const { year, day } = formatClockParts(session.clock, calendar);
   const horizon = getRollbackHorizon(state.eventLog);
@@ -93,6 +109,7 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds }
           id="clock-year"
           className="value bright mono"
           value={String(year)}
+          disabled={!canEditClock}
           onCommit={v => setClock(parseInt(v) || 1, day)}
         />
         <span className="label">DAY</span>
@@ -100,6 +117,7 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds }
           id="clock-day"
           className="value bright mono"
           value={String(day)}
+          disabled={!canEditClock}
           onCommit={v => setClock(year, parseInt(v) || 1)}
         />
         {rollbackConfig.enabled && horizonParts && (
@@ -116,8 +134,8 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds }
         <HoldButton
           className={`ctrl ctrl--combo${playing ? ' ctrl--active' : ''}`}
           onClick={onPlay}
-          onAdjust={adjustRate}
-          disabled={bounds?.canPlay === false}
+          onAdjust={canSession('rateMultiplier') ? adjustRate : undefined}
+          disabled={bounds?.canPlay === false || !canTick}
           title="Click to play. Hold and drag up/down to adjust rate."
         >
           <span className="combo-glyph">▶</span>
@@ -133,8 +151,8 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds }
           <HoldButton
             className="ctrl ctrl--combo"
             onClick={onStepBack}
-            onAdjust={adjustStepBack}
-            disabled={bounds ? !bounds.canStepBack : !horizon.canStepBack}
+            onAdjust={canSession('stepBack') ? adjustStepBack : undefined}
+            disabled={(bounds ? !bounds.canStepBack : !horizon.canStepBack) || !canRollback}
             title="Click to step back by the shown number of days. Hold and drag up/down to adjust the step-back distance."
           >
             <span className="combo-glyph">|◀</span>
@@ -144,8 +162,8 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds }
         <HoldButton
           className="ctrl ctrl--combo"
           onClick={onAdvance}
-          onAdjust={adjustStep}
-          disabled={bounds?.canStepForward === false}
+          onAdjust={canSession('timeStep') ? adjustStep : undefined}
+          disabled={bounds?.canStepForward === false || !canTick}
           title="Click to step forward. Hold and drag up/down to adjust step."
         >
           <span className="combo-glyph">▶|</span>
@@ -164,19 +182,26 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds }
         </button>
       </Tooltip>
 
+      {/* Mode sub-panel (networked only) */}
+      <ModePanel onStop={onStop} />
+
       {/* Session controls */}
       <div className="inset-panel session-controls right">
         <span className="value bright mono">{session.id}</span>
-        <button className="ctrl" onClick={handleNew}>NEW</button>
+        <button className="ctrl" onClick={handleNew} disabled={!can('RESET')}>NEW</button>
         <button className="ctrl" onClick={handleSave}>SAVE</button>
-        <label className="ctrl" style={{ cursor: 'pointer' }}>
-          LOAD
-          <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleLoad} />
-        </label>
+        {can('REPLACE_STATE')
+          ? (
+            <label className="ctrl" style={{ cursor: 'pointer' }}>
+              LOAD
+              <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleLoad} />
+            </label>
+          )
+          : <button className="ctrl" disabled>LOAD</button>}
         <Tooltip content="Export the per-day progress event log as CSV">
           <button className="ctrl" onClick={handleSaveLog}>LOG</button>
         </Tooltip>
-        <button className="ctrl" onClick={() => openTagRegistry()}>TAG REGISTRY</button>
+        <button className="ctrl" onClick={() => openTagRegistry()} disabled={!can('TAG_APPLY')}>TAG REGISTRY</button>
         <button className="ctrl" onClick={openConfig}>CONFIG</button>
       </div>
     </nav>

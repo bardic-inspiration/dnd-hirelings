@@ -57,8 +57,10 @@ roles is stored; there are no accounts.
   `spectator` unless the baton is the party's **and** this client holds the
   pen, then `player`. Mode is derived on every render, never stored.
 - **`gateDispatch(rawDispatch, getMode)`** silently drops a disallowed
-  action. `Planned (#116):` Every UI affordance checks the same predicate, so
-  pre-check and backstop cannot disagree. The gate is the single enforcement
+  action. Every UI affordance checks the same predicate (`useCan()`), so
+  pre-check and backstop cannot disagree: a control whose action the mode
+  doesn't allow is disabled, read-only, or not rendered. Offline the mode is
+  `gm`, so nothing is gated. The gate is the single enforcement
   point: `useGame().dispatch` is the only dispatch consumers get, and
   `submitOrder` and config bindings take dispatch as a parameter.
 
@@ -213,42 +215,44 @@ discarded.
 
 ## Mode sub-panel
 
-`Planned (#116):` this section.
-
-Networked only, a panel in the top bar (`ModePanel`). Its controls make
-network calls, never reducer actions.
+Networked only, a panel in the top bar (`ModePanel`; its view logic is
+`src/logic/modePanel.js`). Its controls make network calls, never reducer
+actions. Handing off and committing stop the play clock first, and losing
+the pen mid-play stops it too.
 
 - **Mode indicator** (both roles): a read-only three-cell switch — GM,
   PLAYER, OBS — showing this client's derived mode. It is separate from the
   GM's turn control.
 - **GM turn control**, by status: `gm-editing` → **hand to party**;
   `party-turn` → **take back**; `pending-review` → **review**.
+  `Planned (#116):` **review** opens the review viewer; until it exists the
+  control shows disabled.
 - **Party slot**, by baton and pen:
 
   | Situation | Control | Status |
   |---|---|---|
   | GM's baton | — | "GM's turn" |
+  | GM's baton, turn pending review | — | "awaiting review" |
   | Party's baton, pen free | **claim pen** | "party's turn — open" |
   | Party's baton, you hold it | **commit / end turn** | "you're playing" |
   | Party's baton, someone else holds it | — | "a party member is playing" |
 
-- **Review result:** when a pull brings a `lastReview` newer than the one this
-  browser acknowledged (stored per browser), the party sees an alert with the
-  GM's message, if any, and an always-shown notice of what was kept — "Days
-  X–Y were not kept", or "your whole turn was kept". Dismissing acknowledges.
-- **Forced logging:** while this client is `player`, rollback logging reads as
-  enabled whatever the overlay says, so a turn's log can't be switched off
-  mid-turn.
+- `Planned (#116):` **Review result:** when a pull brings a `lastReview`
+  newer than the one this browser acknowledged (stored per browser), the
+  party sees an alert with the GM's message, if any, and an always-shown
+  notice of what was kept — "Days X–Y were not kept", or "your whole turn was
+  kept". Dismissing acknowledges.
+- `Planned (#116):` **Forced logging:** while this client is `player`,
+  rollback logging reads as enabled whatever the overlay says, so a turn's
+  log can't be switched off mid-turn.
 
 ## Turn states
-
-`Planned (#116):` this section.
 
 | Status | Baton | Party client | GM |
 |---|---|---|---|
 | `gm-editing` | `gm` | `live` + `spectator` | Edits; **hand to party** |
 | `party-turn` | `party` | Holder: `live` + `player`, then **commit**; others: `spectator` | **Take back** |
-| `pending-review` | `gm` | `live` + `spectator`, "awaiting review" | **Review** → finalize |
+| `pending-review` | `gm` | `live` + `spectator`, "awaiting review" | **Review** → finalize (`Planned (#116)`) |
 
 Hand-off → commit → finalize → repeat. The GM may override any state. The pen
 has no lease or heartbeat; an absent holder is handled by take-back.
