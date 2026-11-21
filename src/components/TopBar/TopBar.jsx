@@ -11,7 +11,7 @@ import { useClockConfig } from '../../hooks/useClockConfig.js';
 import { useRollbackConfig } from '../../hooks/useRollbackConfig.js';
 import { useCan } from '../../hooks/useCan.js';
 import EditableSpan from '../EditableSpan.jsx';
-import HoldButton from './HoldButton.jsx';
+import ClockControls from './ClockControls.jsx';
 import ModePanel from './ModePanel.jsx';
 import Tooltip from '../Tooltip.jsx';
 
@@ -130,46 +130,23 @@ export default function TopBar({ onPlay, onStop, onAdvance, onStepBack, bounds }
       </div>
 
       {/* Clock controls */}
-      <div className="clock-controls">
-        <HoldButton
-          className={`ctrl ctrl--combo${playing ? ' ctrl--active' : ''}`}
-          onClick={onPlay}
-          onAdjust={canSession('rateMultiplier') ? adjustRate : undefined}
-          disabled={bounds?.canPlay === false || !canTick}
-          title="Click to play. Hold and drag up/down to adjust rate."
-        >
-          <span className="combo-glyph">▶</span>
-          <span className="combo-value mono">{session.rateMultiplier}</span>
-        </HoldButton>
-        <Tooltip content="Pause">
-          <button
-            className={`ctrl${!playing ? ' ctrl--active' : ''}`}
-            onClick={onStop}
-          >⏸</button>
-        </Tooltip>
-        {rollbackConfig.enabled && (
-          <HoldButton
-            className="ctrl ctrl--combo"
-            onClick={onStepBack}
-            onAdjust={canSession('stepBack') ? adjustStepBack : undefined}
-            disabled={(bounds ? !bounds.canStepBack : !horizon.canStepBack) || !canRollback}
-            title="Click to step back by the shown number of days. Hold and drag up/down to adjust the step-back distance."
-          >
-            <span className="combo-glyph">|◀</span>
-            <span className="combo-value mono">{session.stepBack}</span>
-          </HoldButton>
-        )}
-        <HoldButton
-          className="ctrl ctrl--combo"
-          onClick={onAdvance}
-          onAdjust={canSession('timeStep') ? adjustStep : undefined}
-          disabled={bounds?.canStepForward === false || !canTick}
-          title="Click to step forward. Hold and drag up/down to adjust step."
-        >
-          <span className="combo-glyph">▶|</span>
-          <span className="combo-value mono">{session.timeStep}</span>
-        </HoldButton>
-      </div>
+      <ClockControls
+        session={session}
+        playing={playing}
+        onPlay={onPlay}
+        onStop={onStop}
+        onStepBack={onStepBack}
+        onAdvance={onAdvance}
+        canPlay={bounds?.canPlay !== false && canTick}
+        canStepBack={(bounds ? bounds.canStepBack : horizon.canStepBack) && canRollback}
+        canStepForward={bounds?.canStepForward !== false && canTick}
+        showStepBack={rollbackConfig.enabled}
+        adjust={{
+          rate: canSession('rateMultiplier') ? adjustRate : undefined,
+          stepBack: canSession('stepBack') ? adjustStepBack : undefined,
+          step: canSession('timeStep') ? adjustStep : undefined,
+        }}
+      />
 
       {/* Palette picker */}
       <Tooltip content={PALETTES[palette].label}>

@@ -318,6 +318,73 @@ body {
 .mode-panel-error { color: var(--warn); cursor: help; }
 
 /* ============================================================
+   TURN REVIEW — the GM's review viewer and the party's result banner
+   ============================================================ */
+/* Full-screen: the viewer replaces the page, laid out like body. Stacks
+   below the confirm overlay (same z-index, mounted earlier). */
+.review-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background-color: var(--bg);
+  background-image: var(--bg-image);
+}
+.review-modal {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: 2vh 10vw;
+}
+.review-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px;
+  border: var(--line) solid var(--highlight);
+  border-radius: var(--radius-lg);
+  min-height: 40px;
+  flex-shrink: 0;
+}
+.review-title {
+  font-size: var(--fs-sm);
+  letter-spacing: 0.1em;
+  color: var(--highlight);
+}
+.review-status { font-size: var(--fs-xs); color: var(--dim); }
+.review-status--error { color: var(--warn); }
+.review-scrubber {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--dim);
+}
+.review-scrubber input { width: 160px; accent-color: var(--highlight); }
+.review-actions { display: flex; gap: 8px; }
+.review-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.review-banner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  border: var(--line) solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--highlight-bg);
+  font-size: var(--fs-sm);
+  flex-shrink: 0;
+}
+.review-banner-title { color: var(--accent); letter-spacing: 0.08em; font-size: var(--fs-xs); }
+.review-banner-message { color: var(--fg); font-style: italic; }
+
+/* ============================================================
    DASHBOARD LAYOUT  3 : 1
    ============================================================ */
 #dashboard {
@@ -2178,3 +2245,5 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+.review-header .right,
+.review-banner .right { margin-left: auto; }

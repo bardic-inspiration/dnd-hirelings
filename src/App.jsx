@@ -13,10 +13,12 @@ import ItemIconsModal from './components/Modals/ItemIconsModal.jsx';
 import LibraryModal from './components/Modals/LibraryModal.jsx';
 import TagRegistryModal from './components/Modals/TagRegistryModal.jsx';
 import ConfirmModal from './components/Modals/ConfirmModal.jsx';
+import ReviewModal from './components/Review/ReviewModal.jsx';
+import ReviewBanner from './components/Review/ReviewBanner.jsx';
 
 
 export default function App() {
-  const { configProps, portraitsProps, itemIconsProps, libraryProps, tagRegistryProps, confirmProps, setSelectedTaskId, setSelectedItemId, pendingApply, setPendingApply } = useUI();
+  const { configProps, portraitsProps, itemIconsProps, libraryProps, tagRegistryProps, confirmProps, reviewProps, setSelectedTaskId, setSelectedItemId, pendingApply, setPendingApply } = useUI();
   const { dispatch } = useGame();
   const { start, stop, advance, retreat, resync, bounds } = usePlayClock();
 
@@ -83,6 +85,7 @@ export default function App() {
     <>
       <PageTitle />
       <TopBar onPlay={start} onStop={stop} onAdvance={advance} onStepBack={retreat} bounds={bounds} />
+      <ReviewBanner />
       <Dashboard />
 
       {configProps      && <ConfigModal onRestartPlay={resync} />}
@@ -90,6 +93,7 @@ export default function App() {
       {itemIconsProps   && <ItemIconsModal />}
       {libraryProps     && <LibraryModal />}
       {tagRegistryProps && <TagRegistryModal />}
+      {reviewProps      && <ReviewModal />}
       {confirmProps     && <ConfirmModal />}
     </>
   );

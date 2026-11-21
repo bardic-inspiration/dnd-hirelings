@@ -27,6 +27,8 @@ export const STORAGE_KEYS = {
   CARD_EXPANSION: 'dnd-hirelings-card-expansion-v1',
   OPEN_MODALS: 'dnd-hirelings-open-modals-v1',
   CONFIG_OVERLAYS: 'dnd-hirelings-config-overlays-v1',
+  /** `{ [sessionId]: rev }` — the last turn review this browser acknowledged. */
+  REVIEW_ACK: 'dnd-hirelings-review-ack-v1',
 };
 
 // Reads the persisted `{ [modalName]: props }` map (issue #81). Any corrupt or
@@ -103,6 +105,43 @@ export function saveConfigOverlays(overlays) {
   try {
     if (Object.keys(overlays).length) localStorage.setItem(STORAGE_KEYS.CONFIG_OVERLAYS, JSON.stringify(overlays));
     else localStorage.removeItem(STORAGE_KEYS.CONFIG_OVERLAYS);
+  } catch {
+    // ignore quota / availability errors — persistence is best-effort
+  }
+}
+
+// Reads the `{ [sessionId]: rev }` acknowledgment map; corrupt data reads empty.
+function readReviewAcks() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.REVIEW_ACK) || '{}');
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Loads the rev of the last turn review this browser acknowledged for a
+ * session (docs/spec/multiplayer.md "Mode sub-panel", review result).
+ *
+ * @param {string} sessionId
+ * @returns {number|null} `null` when none is stored, or the entry is malformed.
+ */
+export function loadReviewAck(sessionId) {
+  const rev = readReviewAcks()[sessionId];
+  return Number.isFinite(rev) ? rev : null;
+}
+
+/**
+ * Records a session's turn review as acknowledged. Best-effort: storage
+ * errors are swallowed.
+ *
+ * @param {string} sessionId
+ * @param {number} rev The acknowledged review's `rev`.
+ */
+export function saveReviewAck(sessionId, rev) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.REVIEW_ACK, JSON.stringify({ ...readReviewAcks(), [sessionId]: rev }));
   } catch {
     // ignore quota / availability errors — persistence is best-effort
   }

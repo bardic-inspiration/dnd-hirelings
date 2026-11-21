@@ -19,6 +19,7 @@ const noop = async () => false;
 // matches the ungated dispatch an offline `GameProvider` hands out.
 const OFFLINE = {
   enabled: false,
+  sessionId: null,
   role: null,
   baton: null,
   headRev: null,
@@ -30,6 +31,7 @@ const OFFLINE = {
   commitTurn: noop,
   setBaton: noop,
   finalize: noop,
+  loadPending: async () => null,
   refresh: noop,
 };
 
@@ -208,6 +210,17 @@ export function NetSessionProvider({ sessionId, role, children }) {
     return true;
   }), [run, transport, failed, setBatonBoth]);
 
+  // The pending commit, for the review viewer; `null` (with `error` set) on failure.
+  const loadPending = useCallback(() => run(async () => {
+    const pending = await transport.getPending();
+    if (!pending.ok) {
+      failed(pending);
+      return null;
+    }
+    setError(null);
+    return pending.body;
+  }).then(result => result || null), [run, transport, failed]);
+
   const finalize = useCallback((cutIndex, message) => run(async () => {
     const pending = await transport.getPending();
     if (!pending.ok) return failed(pending);
@@ -221,6 +234,7 @@ export function NetSessionProvider({ sessionId, role, children }) {
 
   const value = {
     enabled: true,
+    sessionId,
     role,
     baton,
     headRev,
@@ -232,6 +246,7 @@ export function NetSessionProvider({ sessionId, role, children }) {
     commitTurn,
     setBaton,
     finalize,
+    loadPending,
     refresh,
   };
 
@@ -243,11 +258,25 @@ export function NetSessionProvider({ sessionId, role, children }) {
 }
 
 /**
- * Returns the networked session: `enabled`, `role`, `baton`, `headRev`,
- * `lastReview`, `holdsWriteLock`, `mode`, `error`, and `claimPen()`,
- * `commitTurn()`, `setBaton(turnOwner)`, `finalize(cutIndex, message)`,
- * `refresh()` — each resolving `true` on success. Offline (no provider), it
- * returns `enabled: false` and mode `gm`.
+ * Re-provides the enclosing networked session with its mode pinned — the
+ * review viewer pins `spectator`, so every affordance inside it reads
+ * read-only (`useCan()`) whatever this client's derived mode is.
+ *
+ * @param {{ mode: 'gm'|'player'|'spectator', children: React.ReactNode }} props
+ */
+export function PinnedModeProvider({ mode, children }) {
+  const net = useContext(NetSessionContext);
+  const value = useMemo(() => ({ ...net, mode }), [net, mode]);
+  return <NetSessionContext.Provider value={value}>{children}</NetSessionContext.Provider>;
+}
+
+/**
+ * Returns the networked session: `enabled`, `sessionId`, `role`, `baton`,
+ * `headRev`, `lastReview`, `holdsWriteLock`, `mode`, `error`, and
+ * `claimPen()`, `commitTurn()`, `setBaton(turnOwner)`,
+ * `finalize(cutIndex, message)`, `refresh()` — each resolving `true` on
+ * success — and `loadPending()`, resolving the pending commit or `null`.
+ * Offline (no provider), it returns `enabled: false` and mode `gm`.
  */
 export function useNetSession() {
   return useContext(NetSessionContext);

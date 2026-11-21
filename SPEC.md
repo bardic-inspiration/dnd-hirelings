@@ -172,7 +172,7 @@ rules").
 | [`docs/spec/persistence.md`](docs/spec/persistence.md) | State shape, storage keys, save and file formats, the action vocabulary. |
 | [`docs/spec/assets.md`](docs/spec/assets.md) | Images and fonts: layout, formats, manifests, loading. |
 | [`docs/spec/task-engine.md`](docs/spec/task-engine.md) | Operators, vessels, actions, the blackboard, the expression grammar, seeded randomness, time windows, and the authoring surface. |
-| [`docs/spec/multiplayer.md`](docs/spec/multiplayer.md) | GM/player mode: permissions, the networked session, snapshots, the session server, clock sources, the mode sub-panel. `Planned (#116):` the review viewer. |
+| [`docs/spec/multiplayer.md`](docs/spec/multiplayer.md) | GM/player mode: permissions, the networked session, snapshots, the session server, clock sources, the mode sub-panel, the review viewer. |
 
 ## Open questions
 

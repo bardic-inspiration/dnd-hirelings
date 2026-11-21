@@ -169,15 +169,13 @@ All persistent state is in `localStorage`; every key is defined in
 | `dnd-hirelings-card-expansion-v1` | Per type (`agent`, `task`, `item`, `agentTags`), the ids toggled away from their default. |
 | `dnd-hirelings-open-modals-v1` | Open props of each persistence-enabled modal. |
 | `dnd-hirelings-config-overlays-v1` | Config overlays, `{ [fileId]: document }`. |
+| `dnd-hirelings-review-ack-v1` | `{ [sessionId]: rev }`: the last turn review this browser acknowledged ([`multiplayer.md`](multiplayer.md) "Mode sub-panel"). |
 
 **Versioning.** Every key carries a version suffix, bumped only when its
 stored format changes incompatibly. A bump ships either migration code or an
 explicit note in `STORAGE_KEYS` that older data is abandoned. `-v7` is the
 first migrating bump: it reads `-v6` as a fallback and lowers it. Saves older
 than `-v6` are abandoned.
-
-`Planned (#116):` a key recording the last acknowledged turn
-review ([`multiplayer.md`](multiplayer.md)).
 
 ## Files
 
@@ -212,5 +210,5 @@ which fall back to the empty frame; there is no asset-path migration.
 loading `localStorage`) and `persist` (`false` skips saving, so a second
 provider never overwrites the live save). A networked session keeps saving
 as a local cache ([`multiplayer.md`](multiplayer.md) "Networked session").
-`Planned (#116):` the review viewer seeds a second, non-persisting
-`GameProvider` from a snapshot.
+The review viewer seeds a second, non-persisting `GameProvider` from the
+turn start ([`multiplayer.md`](multiplayer.md) "Review viewer").

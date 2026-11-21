@@ -15,7 +15,7 @@ import Tooltip from '../Tooltip.jsx';
  */
 export default function ModePanel({ onStop }) {
   const net = useNetSession();
-  const { openConfirm } = useUI();
+  const { openConfirm, openReview } = useUI();
   const [busy, setBusy] = useState(false);
 
   if (!net.enabled) return null;
@@ -32,6 +32,7 @@ export default function ModePanel({ onStop }) {
   const gmCalls = {
     handOff: () => call(() => { onStop(); return net.setBaton('party'); }),
     takeBack: () => call(() => net.setBaton('gm')),
+    review: () => { onStop(); openReview(); },
   };
   const partyCalls = {
     claim: () => call(() => net.claimPen()),
@@ -60,13 +61,11 @@ export default function ModePanel({ onStop }) {
       </Tooltip>
       {party && <span className="mode-panel-status">{party.status}</span>}
       {control && (
-        <Tooltip content={handler ? null : 'The review viewer is not built yet'}>
-          <button
-            className="ctrl"
-            disabled={busy || !handler}
-            onClick={handler}
-          >{control.label}</button>
-        </Tooltip>
+        <button
+          className="ctrl"
+          disabled={busy || !handler}
+          onClick={handler}
+        >{control.label}</button>
       )}
       {net.error && (
         <Tooltip content={net.error}>

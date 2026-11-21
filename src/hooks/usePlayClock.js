@@ -32,13 +32,23 @@ import { useTagsConfig } from './useTagsConfig.js';
  * button advances `session.timeStep` ticks and step-back reverses
  * `session.stepBack` ticks.
  *
- * @param {{ source?: string, sourceContext?: object }} [options] Clock source options.
+ * `seek(index)` jumps a scrubbable source (`recorded`) straight to an index;
+ * on the live source it does nothing.
+ *
+ * `playState` (`{ playing, setPlaying }`) replaces the UI context's playing
+ * flag, so a second clock — the review viewer's — never drives the live top
+ * bar's play state.
+ *
+ * @param {{ source?: string, sourceContext?: object,
+ *   playState?: { playing: boolean, setPlaying: (playing: boolean) => void } }} [options]
  * @returns {{ start: () => void, stop: () => void, advance: () => void,
- *   retreat: () => void, resync: () => void, bounds: object }}
+ *   retreat: () => void, seek: (index: number) => void, resync: () => void,
+ *   bounds: object, playing: boolean }}
  */
-export function usePlayClock({ source = 'live', sourceContext } = {}) {
+export function usePlayClock({ source = 'live', sourceContext, playState } = {}) {
   const { state, dispatch } = useGame();
-  const { playing, setPlaying } = useUI();
+  const ui = useUI();
+  const { playing, setPlaying } = playState ?? ui;
   const clockConfig = useClockConfig();
   const rollbackConfig = useRollbackConfig();
   const { locked } = useTagsConfig();
@@ -155,9 +165,13 @@ export function usePlayClock({ source = 'live', sourceContext } = {}) {
     driverRef.current.retreat();
     setBounds(driverRef.current.getBounds());
   }, []);
+  const seek    = useCallback((index) => {
+    driverRef.current.seek(index);
+    setBounds(driverRef.current.getBounds());
+  }, []);
   const resync  = useCallback(() => {
     driverRef.current.resync();
   }, []);
 
-  return { start, stop, advance, retreat, resync, bounds: bounds ?? driverRef.current.getBounds() };
+  return { start, stop, advance, retreat, seek, resync, playing, bounds: bounds ?? driverRef.current.getBounds() };
 }

@@ -105,6 +105,21 @@ export function normalizeRollbackConfig(doc) {
 }
 
 /**
+ * Forced logging (docs/spec/multiplayer.md "Mode sub-panel"): while the client
+ * is `player`, rollback logging reads as enabled whatever the overlay says, so
+ * a turn's log — which review and snapshots depend on — can't be switched off
+ * mid-turn. Every other mode gets the config unchanged.
+ *
+ * @param {typeof DEFAULT_ROLLBACK_CONFIG} config A normalized rollback config
+ * @param {string} mode The client's derived permission mode
+ * @returns {typeof DEFAULT_ROLLBACK_CONFIG}
+ */
+export function forceTurnLogging(config, mode) {
+  if (mode !== 'player') return config;
+  return { ...config, log: { ...config.log, enabled: true } };
+}
+
+/**
  * Computes how far back the event log allows the clock to wind.
  * The horizon is log-limited: since every tick advances the clock by one, the
  * earliest reachable time is one tick before the oldest logged tick's stamp
