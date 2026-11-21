@@ -42,6 +42,8 @@ export default defineConfig(({ mode }) => ({
   base: process.env.BASE_PATH || '/',
   // Pure-function unit tests only (logic/constants tiers) — no DOM environment.
   test: { environment: 'node' },
+  // The session server (server/index.js, `npm run server`) for networked play.
+  server: { proxy: { '/api': 'http://localhost:3001' } },
   plugins: [
     react(),
     // The manifest plugins' fs.watch handles keep vitest's server from

@@ -11,3 +11,6 @@ dist/
 
 # Pre-conversion image sources kept locally for re-export; not served or bundled.
 public/assets/*/originals/
+
+# Session server storage (server/index.js); local play data, never committed.
+server/data/

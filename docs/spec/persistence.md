@@ -208,5 +208,9 @@ columns may only ever be appended — never reordered or removed.
 presets. Renaming or re-encoding a served asset breaks existing references,
 which fall back to the empty frame; there is no asset-path migration.
 
-`Planned (#116):` a networked mode that seeds a second, non-persisting
-`GameProvider` from a snapshot ([`multiplayer.md`](multiplayer.md)).
+`GameProvider` takes `initialState` (seed state, normalized, instead of
+loading `localStorage`) and `persist` (`false` skips saving, so a second
+provider never overwrites the live save). A networked session keeps saving
+as a local cache ([`multiplayer.md`](multiplayer.md) "Networked session").
+`Planned (#116):` the review viewer seeds a second, non-persisting
+`GameProvider` from a snapshot.
